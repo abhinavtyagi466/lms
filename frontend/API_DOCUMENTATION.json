@@ -1,0 +1,551 @@
+{
+  "title": "EduTech Pro API Documentation",
+  "version": "1.0.0",
+  "description": "Complete API documentation for the EduTech Pro e-learning platform backend",
+  "baseURL": "http://localhost:5000/api",
+  "authentication": {
+    "type": "Bearer Token (JWT)",
+    "header": "Authorization: Bearer <token>"
+  },
+  "endpoints": {
+    "authentication": {
+      "login": {
+        "method": "POST",
+        "path": "/auth/login",
+        "description": "Authenticate user and return JWT token",
+        "requestBody": {
+          "email": "string (required)",
+          "password": "string (required)",
+          "userType": "string (required) - 'user' or 'admin'"
+        },
+        "response": {
+          "success": "boolean",
+          "user": {
+            "id": "string",
+            "name": "string",
+            "email": "string",
+            "userType": "string",
+            "token": "string"
+          }
+        },
+        "statusCodes": [200, 400, 401, 500]
+      },
+      "register": {
+        "method": "POST",
+        "path": "/auth/register",
+        "description": "Register a new user",
+        "requestBody": {
+          "name": "string (required)",
+          "email": "string (required)",
+          "phone": "string (optional)",
+          "password": "string (required)"
+        },
+        "response": {
+          "success": "boolean",
+          "message": "string",
+          "userId": "string"
+        },
+        "statusCodes": [201, 400, 409, 500]
+      },
+      "logout": {
+        "method": "POST",
+        "path": "/auth/logout",
+        "description": "Logout user and invalidate token",
+        "headers": "Authorization: Bearer <token>",
+        "response": {
+          "success": "boolean"
+        },
+        "statusCodes": [200, 401, 500]
+      }
+    },
+    "users": {
+      "getProfile": {
+        "method": "GET",
+        "path": "/users/:id/profile",
+        "description": "Get user profile by ID",
+        "headers": "Authorization: Bearer <token>",
+        "response": {
+          "id": "string",
+          "name": "string",
+          "email": "string",
+          "phone": "string",
+          "kpiScore": "number",
+          "status": "string",
+          "department": "string",
+          "manager": "string",
+          "employeeId": "string",
+          "createdAt": "Date",
+          "updatedAt": "Date"
+        },
+        "statusCodes": [200, 404, 401, 500]
+      },
+      "getAllUsers": {
+        "method": "GET",
+        "path": "/users",
+        "description": "Get all users with filtering and pagination",
+        "headers": "Authorization: Bearer <token> (admin only)",
+        "queryParams": {
+          "filter": "string (optional) - 'all', 'active', 'warning', 'audited'",
+          "page": "number (optional, default: 1)",
+          "limit": "number (optional, default: 10)",
+          "search": "string (optional)"
+        },
+        "response": {
+          "users": [
+            {
+              "id": "string",
+              "name": "string",
+              "phone": "string",
+              "email": "string",
+              "status": "string",
+              "kpiScore": "number"
+            }
+          ],
+          "pagination": {
+            "page": "number",
+            "limit": "number",
+            "total": "number",
+            "totalPages": "number"
+          }
+        },
+        "statusCodes": [200, 401, 403, 500]
+      },
+      "createUser": {
+        "method": "POST",
+        "path": "/users",
+        "description": "Create a new user (admin only)",
+        "headers": "Authorization: Bearer <token>",
+        "requestBody": {
+          "name": "string (required)",
+          "email": "string (required)",
+          "phone": "string (optional)",
+          "password": "string (required)",
+          "department": "string (optional)",
+          "manager": "string (optional)",
+          "employeeId": "string (optional)"
+        },
+        "response": {
+          "success": "boolean",
+          "message": "string",
+          "userId": "string"
+        },
+        "statusCodes": [201, 400, 401, 403, 409, 500]
+      },
+      "updateUser": {
+        "method": "PUT",
+        "path": "/users/:id",
+        "description": "Update user information",
+        "headers": "Authorization: Bearer <token>",
+        "requestBody": {
+          "name": "string (optional)",
+          "email": "string (optional)",
+          "phone": "string (optional)",
+          "department": "string (optional)",
+          "manager": "string (optional)",
+          "status": "string (optional)"
+        },
+        "response": {
+          "success": "boolean",
+          "message": "string"
+        },
+        "statusCodes": [200, 400, 401, 404, 500]
+      }
+    },
+    "modules": {
+      "getAllModules": {
+        "method": "GET",
+        "path": "/modules",
+        "description": "Get all training modules, optionally filtered by user",
+        "headers": "Authorization: Bearer <token>",
+        "queryParams": {
+          "userId": "string (optional) - filter modules assigned to user"
+        },
+        "response": [
+          {
+            "id": "string",
+            "title": "string",
+            "description": "string",
+            "videoUrl": "string",
+            "thumbnail": "string",
+            "progress": "number (0-100)",
+            "score": "number",
+            "completed": "boolean",
+            "questions": "array",
+            "createdAt": "Date",
+            "updatedAt": "Date"
+          }
+        ],
+        "statusCodes": [200, 401, 500]
+      },
+      "getModuleById": {
+        "method": "GET",
+        "path": "/modules/:id",
+        "description": "Get specific module with questions",
+        "headers": "Authorization: Bearer <token>",
+        "response": {
+          "id": "string",
+          "title": "string",
+          "description": "string",
+          "videoUrl": "string",
+          "questions": [
+            {
+              "id": "string",
+              "question": "string",
+              "options": ["string"],
+              "correctAnswer": "number"
+            }
+          ]
+        },
+        "statusCodes": [200, 401, 404, 500]
+      },
+      "createModule": {
+        "method": "POST",
+        "path": "/modules",
+        "description": "Create a new training module (admin only)",
+        "headers": "Authorization: Bearer <token>",
+        "requestBody": {
+          "title": "string (required)",
+          "description": "string (required)",
+          "videoUrl": "string (optional)",
+          "thumbnail": "string (optional)",
+          "questions": "array (optional)"
+        },
+        "response": {
+          "success": "boolean",
+          "moduleId": "string"
+        },
+        "statusCodes": [201, 400, 401, 403, 500]
+      },
+      "submitQuiz": {
+        "method": "POST",
+        "path": "/modules/:id/submit-quiz",
+        "description": "Submit quiz answers for a module",
+        "headers": "Authorization: Bearer <token>",
+        "requestBody": {
+          "answers": ["number"],
+          "userId": "string"
+        },
+        "response": {
+          "score": "number",
+          "passed": "boolean",
+          "certificateGenerated": "boolean",
+          "correctAnswers": "number",
+          "totalQuestions": "number"
+        },
+        "statusCodes": [200, 400, 401, 404, 500]
+      }
+    },
+    "kpi": {
+      "getKPIScore": {
+        "method": "GET",
+        "path": "/kpi/:userId",
+        "description": "Get KPI scores for a user",
+        "headers": "Authorization: Bearer <token>",
+        "response": {
+          "tat": "number",
+          "quality": "number",
+          "appUsage": "number",
+          "negativity": "number",
+          "overallScore": "number",
+          "rating": "string",
+          "lastUpdated": "Date"
+        },
+        "statusCodes": [200, 401, 404, 500]
+      },
+      "submitKPIScore": {
+        "method": "POST",
+        "path": "/kpi",
+        "description": "Submit KPI scores for a user",
+        "headers": "Authorization: Bearer <token> (admin only)",
+        "requestBody": {
+          "userId": "string (required)",
+          "tat": "number (required)",
+          "quality": "number (required)",
+          "appUsage": "number (required)",
+          "negativity": "number (optional, default: 0)"
+        },
+        "response": {
+          "success": "boolean",
+          "calculatedScore": "number",
+          "triggeredActions": ["string"],
+          "notifications": ["string"]
+        },
+        "statusCodes": [200, 400, 401, 403, 500]
+      }
+    },
+    "reports": {
+      "getUserReports": {
+        "method": "GET",
+        "path": "/reports/user/:userId",
+        "description": "Get reports for a specific user",
+        "headers": "Authorization: Bearer <token>",
+        "response": {
+          "modules": [
+            {
+              "id": "string",
+              "name": "string",
+              "score": "number",
+              "completionDate": "Date",
+              "status": "string"
+            }
+          ],
+          "certificates": ["string"],
+          "kpiHistory": [
+            {
+              "date": "Date",
+              "score": "number",
+              "rating": "string"
+            }
+          ]
+        },
+        "statusCodes": [200, 401, 404, 500]
+      },
+      "getAdminReports": {
+        "method": "GET",
+        "path": "/reports/admin",
+        "description": "Get dashboard statistics for admin",
+        "headers": "Authorization: Bearer <token> (admin only)",
+        "response": {
+          "totalUsers": "number",
+          "modulesAssigned": "number",
+          "avgKPIScore": "number",
+          "pendingTrainings": "number",
+          "activities": [
+            {
+              "user": "string",
+              "activity": "string",
+              "time": "string",
+              "type": "string"
+            }
+          ]
+        },
+        "statusCodes": [200, 401, 403, 500]
+      }
+    },
+    "awards": {
+      "getAllAwards": {
+        "method": "GET",
+        "path": "/awards",
+        "description": "Get all awards and recognitions",
+        "headers": "Authorization: Bearer <token>",
+        "response": [
+          {
+            "id": "string",
+            "feName": "string",
+            "type": "string",
+            "date": "Date",
+            "image": "string",
+            "description": "string"
+          }
+        ],
+        "statusCodes": [200, 401, 500]
+      },
+      "createAward": {
+        "method": "POST",
+        "path": "/awards",
+        "description": "Create a new award (admin only)",
+        "headers": "Authorization: Bearer <token>",
+        "requestBody": {
+          "userId": "string (required)",
+          "awardType": "string (required)",
+          "date": "Date (required)",
+          "description": "string (optional)",
+          "image": "file (optional)"
+        },
+        "response": {
+          "success": "boolean",
+          "awardId": "string"
+        },
+        "statusCodes": [201, 400, 401, 403, 500]
+      }
+    },
+    "audits": {
+      "getAllRecords": {
+        "method": "GET",
+        "path": "/audits",
+        "description": "Get all audit and warning records",
+        "headers": "Authorization: Bearer <token> (admin only)",
+        "response": [
+          {
+            "id": "string",
+            "feName": "string",
+            "type": "string",
+            "date": "Date",
+            "reason": "string",
+            "document": "string",
+            "createdBy": "string"
+          }
+        ],
+        "statusCodes": [200, 401, 403, 500]
+      },
+      "createRecord": {
+        "method": "POST",
+        "path": "/audits",
+        "description": "Create a new audit/warning record (admin only)",
+        "headers": "Authorization: Bearer <token>",
+        "requestBody": {
+          "userId": "string (required)",
+          "type": "string (required) - 'warning', 'penalty', 'audit'",
+          "reason": "string (required)",
+          "date": "Date (required)",
+          "document": "file (optional)"
+        },
+        "response": {
+          "success": "boolean",
+          "recordId": "string"
+        },
+        "statusCodes": [201, 400, 401, 403, 500]
+      }
+    },
+    "lifecycle": {
+      "getUserLifecycle": {
+        "method": "GET",
+        "path": "/lifecycle/:userId",
+        "description": "Get lifecycle events for a user",
+        "headers": "Authorization: Bearer <token>",
+        "response": [
+          {
+            "date": "Date",
+            "type": "string",
+            "title": "string",
+            "description": "string"
+          }
+        ],
+        "statusCodes": [200, 401, 404, 500]
+      }
+    }
+  },
+  "databaseSchema": {
+    "users": {
+      "_id": "ObjectId",
+      "name": "String (required)",
+      "email": "String (required, unique)",
+      "phone": "String",
+      "password": "String (hashed)",
+      "userType": "String (enum: ['user', 'admin'])",
+      "department": "String",
+      "manager": "String",
+      "employeeId": "String (unique)",
+      "status": "String (enum: ['Active', 'Warning', 'Audited'])",
+      "kpiScore": "Number (default: 0)",
+      "createdAt": "Date",
+      "updatedAt": "Date"
+    },
+    "modules": {
+      "_id": "ObjectId",
+      "title": "String (required)",
+      "description": "String (required)",
+      "videoUrl": "String",
+      "thumbnail": "String",
+      "questions": [
+        {
+          "_id": "ObjectId",
+          "question": "String",
+          "options": ["String"],
+          "correctAnswer": "Number"
+        }
+      ],
+      "createdBy": "ObjectId (ref: users)",
+      "createdAt": "Date",
+      "updatedAt": "Date"
+    },
+    "userModules": {
+      "_id": "ObjectId",
+      "userId": "ObjectId (ref: users)",
+      "moduleId": "ObjectId (ref: modules)",
+      "progress": "Number (0-100)",
+      "score": "Number",
+      "completed": "Boolean",
+      "attempts": "Number",
+      "startedAt": "Date",
+      "completedAt": "Date"
+    },
+    "kpiScores": {
+      "_id": "ObjectId",
+      "userId": "ObjectId (ref: users)",
+      "tat": "Number",
+      "quality": "Number",
+      "appUsage": "Number",
+      "negativity": "Number",
+      "overallScore": "Number",
+      "rating": "String",
+      "submittedBy": "ObjectId (ref: users)",
+      "createdAt": "Date"
+    },
+    "awards": {
+      "_id": "ObjectId",
+      "userId": "ObjectId (ref: users)",
+      "type": "String",
+      "description": "String",
+      "image": "String",
+      "awardedBy": "ObjectId (ref: users)",
+      "createdAt": "Date"
+    },
+    "auditRecords": {
+      "_id": "ObjectId",
+      "userId": "ObjectId (ref: users)",
+      "type": "String (enum: ['warning', 'penalty', 'audit'])",
+      "reason": "String",
+      "document": "String",
+      "createdBy": "ObjectId (ref: users)",
+      "createdAt": "Date"
+    },
+    "lifecycleEvents": {
+      "_id": "ObjectId",
+      "userId": "ObjectId (ref: users)",
+      "type": "String (enum: ['joined', 'training', 'award', 'audit', 'promotion', 'exit'])",
+      "title": "String",
+      "description": "String",
+      "date": "Date",
+      "createdAt": "Date"
+    }
+  },
+  "fileUploads": {
+    "certificates": {
+      "path": "/uploads/certificates/",
+      "allowedTypes": ["pdf"],
+      "maxSize": "5MB"
+    },
+    "awards": {
+      "path": "/uploads/awards/",
+      "allowedTypes": ["jpg", "jpeg", "png", "pdf"],
+      "maxSize": "5MB"
+    },
+    "documents": {
+      "path": "/uploads/documents/",
+      "allowedTypes": ["pdf", "doc", "docx"],
+      "maxSize": "10MB"
+    },
+    "thumbnails": {
+      "path": "/uploads/thumbnails/",
+      "allowedTypes": ["jpg", "jpeg", "png"],
+      "maxSize": "2MB"
+    }
+  },
+  "emailNotifications": {
+    "kpiWarning": {
+      "template": "kpi-warning.html",
+      "recipients": ["user", "manager"],
+      "subject": "Performance Improvement Required - KPI Score Below Threshold"
+    },
+    "auditTrigger": {
+      "template": "audit-trigger.html",
+      "recipients": ["user", "manager", "coordinator", "hod", "compliance"],
+      "subject": "Audit Process Initiated - Immediate Action Required"
+    },
+    "trainingCompletion": {
+      "template": "training-completion.html",
+      "recipients": ["user", "manager"],
+      "subject": "Training Module Completed Successfully"
+    }
+  },
+  "middlewares": [
+    "authentication",
+    "authorization",
+    "validation",
+    "rateLimiting",
+    "fileUpload",
+    "errorHandling",
+    "logging"
+  ]
+}

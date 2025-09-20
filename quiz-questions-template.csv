@@ -1,0 +1,11 @@
+type,prompt,option1,option2,option3,option4,correctIndex,marks
+mcq,What is 2+2?,4,3,5,6,0,1
+mcq,What is the capital of France?,Paris,London,Berlin,Madrid,0,1
+mcq,Which planet is closest to the Sun?,Mercury,Venus,Earth,Mars,0,1
+boolean,Is the sky blue?,true,,,0,1
+boolean,Is water wet?,true,,,0,1
+mcq,What is the largest mammal?,Blue Whale,Elephant,Giraffe,Polar Bear,0,2
+mcq,How many continents are there?,7,6,8,5,0,1
+boolean,Is the Earth flat?,false,,,0,1
+mcq,What is the chemical symbol for gold?,Au,Ag,Fe,Cu,0,1
+mcq,Which year did World War II end?,1945,1944,1946,1943,0,2

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin: 20px 0; padding: 15px; border-radius: 5px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .quiz-item { border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Quiz API Test</h1>
+    <p>Testing quiz API to see what data is returned</p>
+    
+    <div>
+        <button onclick="testQuizAPI()">Test Quiz API</button>
+        <button onclick="testQuizWithAuth()">Test Quiz API with Auth</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div id="result"></div>
+
+    <script>
+        async function testQuizAPI() {
+            try {
+                console.log('Testing Quiz API...');
+                const response = await fetch('http://localhost:3001/api/quizzes', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                showResult('Quiz API Success', data, 'success');
+                
+                // Display quiz details
+                if (data.quizzes && data.quizzes.length > 0) {
+                    displayQuizzes(data.quizzes);
+                } else {
+                    showResult('No Quizzes Found', 'No quizzes available in the system', 'error');
+                }
+                
+            } catch (error) {
+                showResult('Quiz API Error', error.message, 'error');
+                console.error('Quiz API test failed:', error);
+            }
+        }
+
+        async function testQuizWithAuth() {
+            try {
+                console.log('Testing Quiz API with Auth...');
+                
+                // First try to login to get a token
+                const loginResponse = await fetch('http://localhost:3001/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@test.com',
+                        password: 'admin123',
+                        userType: 'admin'
+                    })
+                });
+                
+                if (!loginResponse.ok) {
+                    throw new Error(`Login failed: ${loginResponse.status}`);
+                }
+                
+                const loginData = await loginResponse.json();
+                const token = loginData.token;
+                
+                showResult('Login Success', { message: 'Logged in successfully', token: token ? 'Token received' : 'No token' }, 'success');
+                
+                // Now test quiz API with auth
+                const quizResponse = await fetch('http://localhost:3001/api/quizzes', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!quizResponse.ok) {
+                    throw new Error(`Quiz API with auth failed: ${quizResponse.status}`);
+                }
+                
+                const quizData = await quizResponse.json();
+                showResult('Quiz API with Auth Success', quizData, 'success');
+                
+                // Display quiz details
+                if (quizData.quizzes && quizData.quizzes.length > 0) {
+                    displayQuizzes(quizData.quizzes);
+                } else {
+                    showResult('No Quizzes Found (with Auth)', 'No quizzes available even with authentication', 'error');
+                }
+                
+            } catch (error) {
+                showResult('Quiz API with Auth Error', error.message, 'error');
+                console.error('Quiz API with auth test failed:', error);
+            }
+        }
+
+        function displayQuizzes(quizzes) {
+            const resultDiv = document.getElementById('result');
+            const quizHtml = `
+                <div class="result success">
+                    <h3>Quizzes Found: ${quizzes.length}</h3>
+                    ${quizzes.map((quiz, index) => `
+                        <div class="quiz-item">
+                            <h4>Quiz ${index + 1}</h4>
+                            <p><strong>ID:</strong> ${quiz._id}</p>
+                            <p><strong>Module ID:</strong> ${quiz.moduleId?._id || quiz.moduleId || 'No Module'}</p>
+                            <p><strong>Module Title:</strong> ${quiz.moduleId?.title || 'Unknown Module'}</p>
+                            <p><strong>Questions:</strong> ${quiz.questions?.length || 0}</p>
+                            <p><strong>Pass %:</strong> ${quiz.passPercent || 70}%</p>
+                            <p><strong>Created:</strong> ${new Date(quiz.createdAt).toLocaleDateString()}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            resultDiv.innerHTML += quizHtml;
+        }
+
+        function showResult(title, data, type) {
+            const resultDiv = document.getElementById('result');
+            const resultHtml = `
+                <div class="result ${type}">
+                    <h3>${title}</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    <small>Time: ${new Date().toLocaleTimeString()}</small>
+                </div>
+            `;
+            resultDiv.innerHTML += resultHtml;
+        }
+
+        function clearResults() {
+            document.getElementById('result').innerHTML = '';
+        }
+
+        // Auto-test on page load
+        window.onload = function() {
+            console.log('Page loaded, Quiz API test ready');
+            console.log('Make sure backend server is running on port 3001');
+        };
+    </script>
+</body>
+</html>

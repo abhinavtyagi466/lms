@@ -1,0 +1,703 @@
+import axios from 'axios';
+
+// API Configuration
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://your-production-backend.com/api' 
+  : '/api'; // Use proxy in development
+
+// Create axios instance with default config
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  withCredentials: process.env.NODE_ENV === 'production', // Only use credentials in production
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Request interceptor to add auth token
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor to handle common errors
+apiClient.interceptors.response.use(
+  (response) => {
+    return response.data;
+  },
+  (error) => {
+    console.error('API Error:', error.response?.status, error.response?.data || error.message);
+    
+    // Handle network errors (backend not running)
+    if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+      console.error('Backend server is not running. Please start the backend server.');
+      // Don't redirect to login for network errors, just show error
+      return Promise.reject(new Error('Backend server is not running. Please start the backend server on port 3001.'));
+    }
+    
+    if (error.response?.status === 401) {
+      // Unauthorized - clear token and redirect to login
+      localStorage.removeItem('authToken');
+      window.location.href = '/';
+    }
+    
+    if (error.response?.status === 404) {
+      // Not found - log warning but don't throw error
+      console.warn('API endpoint not found, using fallback data');
+      return { data: null, error: 'Not found' };
+    }
+    
+    if (error.response?.status === 503) {
+      // Service unavailable
+      console.log('Service unavailable');
+      throw new Error('Service unavailable. Please try again later.');
+    }
+    
+    const errorMessage = error.response?.data?.message || error.message || 'An error occurred';
+    return Promise.reject(new Error(errorMessage));
+  }
+);
+
+// API Service Layer
+export const apiService = {
+  // Authentication APIs
+  auth: {
+    login: async (email: string, password: string, userType: 'user' | 'admin') => {
+      const response = await apiClient.post('/auth/login', {
+        email,
+        password,
+        userType
+      });
+      return response;
+    },
+    
+    register: async (userData: {
+      name: string;
+      email: string;
+      phone?: string;
+      password: string;
+    }) => {
+      const response = await apiClient.post('/auth/register', userData);
+      return response;
+    },
+    
+    logout: async () => {
+      const response = await apiClient.post('/auth/logout');
+      return response;
+    },
+
+    getMe: async () => {
+      const response = await apiClient.get('/auth/me');
+      return response;
+    },
+
+    refreshToken: async () => {
+      const response = await apiClient.post('/auth/refresh');
+      return response;
+    }
+  },
+
+  // User APIs
+  users: {
+    getProfile: async (userId: string) => {
+      const response = await apiClient.get(`/users/${userId}/profile`);
+      return response;
+    },
+    
+    getAllUsers: async (filters?: {
+      filter?: string;
+      page?: number;
+      limit?: number;
+      search?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.filter) params.append('filter', filters.filter);
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.search) params.append('search', filters.search);
+      
+      const response = await apiClient.get(`/users?${params.toString()}`);
+      return response;
+    },
+
+    listSimple: async () => {
+      const response = await apiClient.get('/users');
+      return response;
+    },
+
+    getUserStats: async () => {
+      const response = await apiClient.get('/users/stats');
+      return response;
+    },
+
+    createUser: async (userData: {
+      name: string;
+      email: string;
+      password: string;
+      phone?: string;
+      department?: string;
+      manager?: string;
+      address?: string;
+      location?: string;
+      city?: string;
+      state?: string;
+      aadhaarNo?: string;
+      panNo?: string;
+    }) => {
+      const response = await apiClient.post('/users', userData);
+      return response;
+    },
+
+    updateUser: async (userId: string, userData: any) => {
+      const response = await apiClient.put(`/users/${userId}`, userData);
+      return response;
+    },
+
+    deleteUser: async (userId: string) => {
+      const response = await apiClient.delete(`/users/${userId}`);
+      return response;
+    },
+
+    activateUser: async (userId: string) => {
+      const response = await apiClient.put(`/users/${userId}/activate`);
+      return response;
+    },
+
+    deactivateUser: async (userId: string) => {
+      const response = await apiClient.put(`/users/${userId}/deactivate`);
+      return response;
+    },
+
+    sendWarning: async (userId: string, message: string) => {
+      const response = await apiClient.post(`/users/${userId}/warning`, { message });
+      return response;
+    },
+
+    sendCertificate: async (userId: string, title: string, message: string) => {
+      const response = await apiClient.post(`/users/${userId}/certificate`, { title, message });
+      return response;
+    },
+
+    getUserWarnings: async (userId: string) => {
+      const response = await apiClient.get(`/users/${userId}/warnings`);
+      return response;
+    },
+
+    getUserCertificates: async (userId: string) => {
+      const response = await apiClient.get(`/users/${userId}/certificates`);
+      return response;
+    },
+
+    setUserInactive: async (userId: string, inactiveReason: string, inactiveRemark?: string) => {
+      const response = await apiClient.put(`/users/${userId}/set-inactive`, {
+        inactiveReason,
+        inactiveRemark
+      });
+      return response;
+    },
+
+    reactivateUser: async (userId: string) => {
+      const response = await apiClient.put(`/users/${userId}/reactivate`);
+      return response;
+    }
+  },
+
+  // Training Module APIs
+  modules: {
+    getAllModules: async () => {
+      const response = await apiClient.get('/modules');
+      return response;
+    },
+    
+    getUserModules: async (userId: string) => {
+      const response = await apiClient.get(`/modules/user/${userId}`);
+      return response;
+    },
+    
+    getPublicModules: async () => {
+      const response = await apiClient.get('/modules/public');
+      return response;
+    },
+    
+   getModule: async (moduleId: string) => {
+      const response = await apiClient.get(`/modules/${moduleId}`);
+      return response;
+    },
+    
+    createModule: async (moduleData: {
+      title: string;
+      description?: string;
+      ytVideoId: string;
+      tags?: string[];
+      status?: string;
+    }) => {
+      const response = await apiClient.post('/modules', moduleData);
+      return response;
+    },
+
+    deleteModule: async (moduleId: string) => {
+      const response = await apiClient.delete(`/modules/${moduleId}`);
+      return response;
+    }
+  },
+
+  // Quiz APIs
+  quizzes: {
+    getAllQuizzes: async () => {
+      const response = await apiClient.get('/quizzes');
+      return response;
+    },
+    
+    getQuiz: async (moduleId: string) => {
+      const response = await apiClient.get(`/quizzes/${moduleId}`);
+      return response;
+    },
+    
+    createQuiz: async (quizData: {
+      moduleId: string;
+      questions: any[];
+      passPercent?: number;
+      estimatedTime?: number;
+    }) => {
+      const response = await apiClient.post('/quizzes', quizData);
+      return response;
+    },
+
+    updateQuiz: async (moduleId: string, quizData: {
+      questions?: any[];
+      passPercent?: number;
+      estimatedTime?: number;
+      isActive?: boolean;
+    }) => {
+      const response = await apiClient.put(`/quizzes/${moduleId}`, quizData);
+      return response;
+    },
+
+    deleteQuiz: async (moduleId: string) => {
+      const response = await apiClient.delete(`/quizzes/${moduleId}`);
+      return response;
+    },
+
+    uploadCsv: async (moduleId: string, csvData: any[]) => {
+      const response = await apiClient.post(`/quizzes/${moduleId}/upload-csv`, { csvData });
+      return response;
+    },
+
+    submitQuiz: async (userId: string, moduleId: string, answers: any[], timeTaken: number) => {
+      const response = await apiClient.post('/quiz/submit', {
+        userId,
+        moduleId,
+        answers,
+        timeTaken
+      });
+      return response;
+    },
+
+    getQuizResults: async (userId: string) => {
+      const response = await apiClient.get(`/quiz/results/${userId}`);
+      return response;
+    }
+  },
+
+  // Question Management APIs
+  questions: {
+    getModuleQuestions: async (moduleId: string, params?: { page?: number; limit?: number }) => {
+      const response = await apiClient.get(`/questions/module/${moduleId}`, { params });
+      return response;
+    },
+
+    // Get questions for users (for quizzes)
+    getUserQuestions: async (moduleId: string) => {
+      const response = await apiClient.get(`/questions/user/${moduleId}`);
+      return response;
+    },
+
+    createQuestion: async (questionData: any) => {
+      const response = await apiClient.post('/questions', questionData);
+      return response;
+    },
+
+    updateQuestion: async (questionId: string, questionData: any) => {
+      const response = await apiClient.put(`/questions/${questionId}`, questionData);
+      return response;
+    },
+
+    deleteQuestion: async (questionId: string) => {
+      const response = await apiClient.delete(`/questions/${questionId}`);
+      return response;
+    },
+
+    bulkCreateQuestions: async (data: { moduleId: string; questions: any[] }) => {
+      const response = await apiClient.post('/questions/bulk', data);
+      return response;
+    },
+
+    getQuestion: async (questionId: string) => {
+      const response = await apiClient.get(`/questions/${questionId}`);
+      return response;
+    },
+
+    addQuestion: async (moduleId: string, questionData: {
+      question: string;
+      options: string[];
+      correctAnswer: number;
+      explanation?: string;
+    }) => {
+      const response = await apiClient.post(`/modules/${moduleId}/questions`, questionData);
+      return response;
+    },
+
+    removeQuestion: async (moduleId: string, questionId: string) => {
+      const response = await apiClient.delete(`/modules/${moduleId}/questions/${questionId}`);
+      return response;
+    },
+  },
+
+  // User Progress APIs
+  userProgress: {
+    getAllUserProgress: async (userId: string) => {
+      const response = await apiClient.get(`/user-progress/${userId}`);
+      return response;
+    },
+
+    getUserProgress: async (userId: string, moduleId: string) => {
+      const response = await apiClient.get(`/user-progress/${userId}/${moduleId}`);
+      return response;
+    },
+
+    updateVideoProgress: async (userId: string, moduleId: string, progress: number) => {
+      const response = await apiClient.put(`/user-progress/${userId}/${moduleId}/video`, { progress });
+      return response;
+    },
+
+    submitQuiz: async (userId: string, moduleId: string, answers: number[]) => {
+      const response = await apiClient.post(`/user-progress/${userId}/${moduleId}/quiz`, { answers });
+      return response;
+    },
+
+    getUserStats: async (userId: string) => {
+      const response = await apiClient.get(`/user-progress/${userId}/stats`);
+      return response;
+    },
+
+    watchVideo: async (moduleId: string, watchPercentage: number = 100) => {
+      const response = await apiClient.post(`/modules/${moduleId}/watch-video`, {
+        watchPercentage
+      });
+      return response;
+    },
+
+    getCategories: async () => {
+      const response = await apiClient.get('/modules/categories');
+      return response;
+    }
+  },
+
+  // YouTube Video Progress APIs
+  progress: {
+    updateProgress: async (progressData: {
+      userId: string;
+      videoId: string;
+      currentTime: number;
+      duration: number;
+    }) => {
+      const response = await apiClient.post('/progress', progressData);
+      return response;
+    },
+
+    getUserProgress: async (userId: string) => {
+      const response = await apiClient.get(`/progress/${userId}`);
+      return response;
+    },
+
+    getVideoProgress: async (userId: string, videoId: string) => {
+      const response = await apiClient.get(`/progress/${userId}/${videoId}`);
+      return response;
+    }
+  },
+
+  // KPI APIs
+  kpi: {
+    getKPIScore: async (userId: string) => {
+      const response = await apiClient.get(`/kpi/${userId}`);
+      return response;
+    },
+
+    getKPIHistory: async (userId: string, limit?: number) => {
+      const params = new URLSearchParams();
+      if (limit) params.append('limit', limit.toString());
+      
+      const response = await apiClient.get(`/kpi/${userId}/history?${params.toString()}`);
+      return response;
+    },
+    
+    submitKPIScore: async (kpiData: {
+      userId: string;
+      tat: number;
+      quality: number;
+      appUsage: number;
+      negativity?: number;
+      period: string;
+      comments?: string;
+    }) => {
+      const response = await apiClient.post('/kpi', kpiData);
+      return response;
+    },
+
+    updateKPIScore: async (kpiId: string, kpiData: {
+      tat?: number;
+      quality?: number;
+      appUsage?: number;
+      negativity?: number;
+      comments?: string;
+    }) => {
+      const response = await apiClient.put(`/kpi/${kpiId}`, kpiData);
+      return response;
+    },
+
+    getKPIStats: async () => {
+      const response = await apiClient.get('/kpi/overview/stats');
+      return response;
+    },
+
+    getLowPerformers: async (threshold?: number) => {
+      const params = new URLSearchParams();
+      if (threshold) params.append('threshold', threshold.toString());
+      
+      const response = await apiClient.get(`/kpi/alerts/low-performers?${params.toString()}`);
+      return response;
+    }
+  },
+
+  // Reports APIs
+  reports: {
+    getUserReports: async (userId: string) => {
+      const response = await apiClient.get(`/reports/user/${userId}`);
+      return response;
+    },
+    
+    getAdminReports: async () => {
+      const response = await apiClient.get('/reports/admin');
+      return response;
+    },
+
+    getAdminStats: async () => {
+      const response = await apiClient.get('/reports/admin/stats');
+      return response;
+    },
+
+    getAllUserProgress: async () => {
+      const response = await apiClient.get('/reports/admin/user-progress');
+      return response;
+    },
+
+    getPerformanceAnalytics: async (filters?: {
+      startDate?: string;
+      endDate?: string;
+      department?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.startDate) params.append('startDate', filters.startDate);
+      if (filters?.endDate) params.append('endDate', filters.endDate);
+      if (filters?.department) params.append('department', filters.department);
+      
+      const response = await apiClient.get(`/reports/analytics/performance?${params.toString()}`);
+      return response;
+    },
+
+    exportUsers: async (filters?: {
+      format?: string;
+      department?: string;
+      status?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.format) params.append('format', filters.format);
+      if (filters?.department) params.append('department', filters.department);
+      if (filters?.status) params.append('status', filters.status);
+      
+      const response = await apiClient.get(`/reports/export/users?${params.toString()}`);
+      return response;
+    }
+  },
+
+  // Notifications APIs
+  notifications: {
+    getUserNotifications: async (userId: string, options?: {
+      unreadOnly?: boolean;
+      limit?: number;
+    }) => {
+      const params = new URLSearchParams();
+      if (options?.unreadOnly) params.append('unreadOnly', 'true');
+      if (options?.limit) params.append('limit', options.limit.toString());
+      
+      const response = await apiClient.get(`/notifications/user/${userId}?${params.toString()}`);
+      return response;
+    },
+
+    markAsRead: async (notificationIds: string[]) => {
+      const response = await apiClient.post('/notifications/mark-read', { notificationIds });
+      return response;
+    },
+
+    sendNotification: async (notificationData: {
+      userIds: string[];
+      title: string;
+      message: string;
+      type?: string;
+      priority?: string;
+    }) => {
+      const response = await apiClient.post('/notifications/send', notificationData);
+      return response;
+    }
+  },
+
+
+  // Awards APIs
+  awards: {
+    getAllAwards: async (filters?: {
+      userId?: string;
+      limit?: number;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.userId) params.append('userId', filters.userId);
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      
+      const response = await apiClient.get(`/awards?${params.toString()}`);
+      return response;
+    },
+    
+    createAward: async (awardData: {
+      userId: string;
+      type: string;
+      title?: string;
+      description?: string;
+      awardDate?: string;
+      value?: number;
+      criteria?: string;
+    }) => {
+      const response = await apiClient.post('/awards', awardData);
+      return response;
+    },
+
+    sendCertificate: async (formData: FormData) => {
+      console.log('=== API SERVICE DEBUG ===');
+      console.log('Function: apiService.awards.sendCertificate');
+      console.log('Endpoint: /awards/sendCertificate');
+      console.log('FormData:', formData);
+      console.log('FormData entries:');
+      for (let [key, value] of formData.entries()) {
+        console.log(key, value);
+      }
+      console.log('==========================');
+      
+      const response = await apiClient.post('/awards/sendCertificate', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      console.log('API response:', response);
+      return response;
+    },
+
+    getAwardStats: async () => {
+      const response = await apiClient.get('/awards/statistics');
+      return response;
+    }
+  },
+
+  // Audit & Warning APIs
+  audits: {
+    getAllRecords: async (filters?: {
+      status?: string;
+      type?: string;
+      userId?: string;
+      page?: number;
+      limit?: number;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.type) params.append('type', filters.type);
+      if (filters?.userId) params.append('userId', filters.userId);
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      
+      const response = await apiClient.get(`/audits?${params.toString()}`);
+      return response;
+    },
+    
+    createRecord: async (recordData: {
+      userId: string;
+      type: string;
+      reason: string;
+      description?: string;
+      severity?: string;
+      dueDate?: string;
+      actionRequired?: string;
+    }) => {
+      const response = await apiClient.post('/audits', recordData);
+      return response;
+    },
+
+    sendNotice: async (formData: FormData) => {
+      const response = await apiClient.post('/audits/sendNotice', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      return response;
+    },
+
+    listNotices: async () => {
+      const response = await apiClient.get('/audits/notices');
+      return response;
+    }
+  },
+
+  // Lifecycle APIs
+  lifecycle: {
+    getUserLifecycle: async (userId: string, filters?: {
+      startDate?: string;
+      endDate?: string;
+      limit?: number;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.startDate) params.append('startDate', filters.startDate);
+      if (filters?.endDate) params.append('endDate', filters.endDate);
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      
+      const response = await apiClient.get(`/lifecycle/${userId}?${params.toString()}`);
+      return response;
+    },
+
+    getLifecycleStats: async (userId: string) => {
+      const response = await apiClient.get(`/lifecycle/${userId}/statistics`);
+      return response;
+    },
+
+    getRecentActivity: async (limit: number = 10) => {
+      // Get recent lifecycle events from all users for admin dashboard
+      const response = await apiClient.get(`/lifecycle/recent?limit=${limit}`);
+      return response;
+    },
+
+    getSystemActivity: async (filters?: {
+      startDate?: string;
+      endDate?: string;
+      limit?: number;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.startDate) params.append('startDate', filters.startDate);
+      if (filters?.endDate) params.append('endDate', filters.endDate);
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      
+      const response = await apiClient.get(`/lifecycle/system?${params.toString()}`);
+      return response;
+    }
+  }
+};
