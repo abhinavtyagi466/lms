@@ -192,10 +192,28 @@ const validateKPIScore = [
     .optional()
     .isFloat({ min: 0, max: 100 })
     .withMessage('Negativity must be between 0 and 100'),
+  body('majorNegativity')
+    .optional()
+    .isInt({ min: 0, max: 10 })
+    .withMessage('Major Negativity must be between 0 and 10'),
+  body('neighborCheck')
+    .optional()
+    .isFloat({ min: 0, max: 100 })
+    .withMessage('Neighbor Check must be between 0 and 100'),
+  body('generalNegativity')
+    .optional()
+    .isFloat({ min: 0, max: 100 })
+    .withMessage('General Negativity must be between 0 and 100'),
+  body('insufficiency')
+    .optional()
+    .isInt({ min: 0, max: 10 })
+    .withMessage('Insufficiency must be between 0 and 10'),
   body('period')
     .trim()
     .isLength({ min: 1, max: 20 })
-    .withMessage('Period is required and cannot exceed 20 characters'),
+    .withMessage('Period is required and cannot exceed 20 characters')
+    .matches(/^\d{4}-\d{2}$/)
+    .withMessage('Period must be in YYYY-MM format'),
   body('comments')
     .optional()
     .trim()
@@ -280,6 +298,96 @@ const validateUserId = [
   handleValidationErrors
 ];
 
+// Training assignment validation rules
+const validateTrainingAssignment = [
+  body('userId')
+    .isMongoId()
+    .withMessage('Please provide a valid user ID'),
+  body('trainingType')
+    .isIn(['basic', 'negativity_handling', 'dos_donts', 'app_usage'])
+    .withMessage('Training type must be one of: basic, negativity_handling, dos_donts, app_usage'),
+  body('dueDate')
+    .isISO8601()
+    .toDate()
+    .withMessage('Please provide a valid due date'),
+  body('notes')
+    .optional()
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage('Notes cannot exceed 1000 characters'),
+  handleValidationErrors
+];
+
+const validateCompleteTraining = [
+  body('score')
+    .optional()
+    .isFloat({ min: 0, max: 100 })
+    .withMessage('Score must be between 0 and 100'),
+  body('notes')
+    .optional()
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage('Notes cannot exceed 1000 characters'),
+  handleValidationErrors
+];
+
+// Audit scheduling validation rules
+const validateScheduleKPIAudits = [
+  body('kpiScoreId')
+    .isMongoId()
+    .withMessage('Please provide a valid KPI score ID'),
+  handleValidationErrors
+];
+
+const validateManualSchedule = [
+  body('userId')
+    .isMongoId()
+    .withMessage('Please provide a valid user ID'),
+  body('auditType')
+    .isIn(['audit_call', 'cross_check', 'dummy_audit'])
+    .withMessage('Audit type must be one of: audit_call, cross_check, dummy_audit'),
+  body('scheduledDate')
+    .isISO8601()
+    .toDate()
+    .withMessage('Please provide a valid scheduled date'),
+  body('priority')
+    .optional()
+    .isIn(['low', 'medium', 'high', 'critical'])
+    .withMessage('Priority must be one of: low, medium, high, critical'),
+  body('auditScope')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Audit scope cannot exceed 500 characters'),
+  body('auditMethod')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Audit method cannot exceed 500 characters'),
+  handleValidationErrors
+];
+
+const validateCompleteAudit = [
+  body('findings')
+    .trim()
+    .isLength({ min: 10, max: 2000 })
+    .withMessage('Findings must be between 10 and 2000 characters'),
+  body('recommendations')
+    .optional()
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage('Recommendations cannot exceed 1000 characters'),
+  body('riskLevel')
+    .optional()
+    .isIn(['low', 'medium', 'high', 'critical'])
+    .withMessage('Risk level must be one of: low, medium, high, critical'),
+  body('complianceStatus')
+    .optional()
+    .isIn(['compliant', 'non_compliant', 'partially_compliant', 'not_assessed'])
+    .withMessage('Compliance status must be one of: compliant, non_compliant, partially_compliant, not_assessed'),
+  handleValidationErrors
+];
+
 // Query validation
 const validatePagination = [
   query('page')
@@ -304,6 +412,11 @@ module.exports = {
   validateKPIScore,
   validateCreateAward,
   validateCreateAuditRecord,
+  validateTrainingAssignment,
+  validateCompleteTraining,
+  validateScheduleKPIAudits,
+  validateManualSchedule,
+  validateCompleteAudit,
   validateObjectId,
   validateUserId,
   validatePagination

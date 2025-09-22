@@ -16,8 +16,8 @@ export const MailPreview: React.FC = () => {
           <h2 className="text-lg font-semibold mb-4">Email Templates</h2>
           <div className="space-y-3">
             <div className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-              <h3 className="font-medium">KPI Warning Notification</h3>
-              <p className="text-sm text-gray-600">Sent when KPI score falls below threshold</p>
+              <h3 className="font-medium">Performance Warning Notification</h3>
+              <p className="text-sm text-gray-600">Sent when performance falls below threshold</p>
             </div>
             <div className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
               <h3 className="font-medium">Training Completion</h3>
@@ -35,11 +35,11 @@ export const MailPreview: React.FC = () => {
           <div className="border rounded-lg p-4 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <div className="border-b pb-3 mb-3">
               <p className="text-sm text-gray-600">To: john.doe@company.com</p>
-              <p className="text-sm text-gray-600">Subject: KPI Performance Alert</p>
+              <p className="text-sm text-gray-600">Subject: Performance Alert</p>
             </div>
             <div className="space-y-3">
               <p>Dear John Doe,</p>
-              <p>This is to inform you that your recent KPI score has fallen below the expected threshold. Please schedule a meeting with your supervisor to discuss improvement strategies.</p>
+              <p>This is to inform you that your recent performance has fallen below the expected threshold. Please schedule a meeting with your supervisor to discuss improvement strategies.</p>
               <p>Best regards,<br/>HR Team</p>
             </div>
           </div>

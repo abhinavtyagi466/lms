@@ -153,4 +153,17 @@ quizAttemptSchema.methods.complete = function(endTime, score, passed, answers) {
   return this.save();
 };
 
+// Post-save middleware to trigger auto KPI generation
+quizAttemptSchema.post('save', async function(doc) {
+  try {
+    // Only trigger for completed quiz attempts
+    if (doc.status === 'completed' && doc.isNew) {
+      const autoKPIScheduler = require('../services/autoKPIScheduler');
+      await autoKPIScheduler.triggerUserKPI(doc.userId, 'quiz_attempt_completed');
+    }
+  } catch (error) {
+    console.error('Error triggering auto KPI after quiz attempt:', error);
+  }
+});
+
 module.exports = mongoose.model('QuizAttempt', quizAttemptSchema);

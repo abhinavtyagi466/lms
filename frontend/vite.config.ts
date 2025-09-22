@@ -18,6 +18,7 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
+    host: '0.0.0.0', // Allow external connections
     proxy: {
       // Proxy API requests to backend server
       '/api': {

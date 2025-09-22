@@ -134,6 +134,26 @@ const kpiScoreSchema = new mongoose.Schema({
     type: String,
     enum: ['training', 'audit', 'warning', 'recognition']
   }],
+  trainingAssignments: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TrainingAssignment'
+  }],
+  emailLogs: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'EmailLog'
+  }],
+  auditSchedules: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'AuditSchedule'
+  }],
+  processedAt: {
+    type: Date
+  },
+  automationStatus: {
+    type: String,
+    enum: ['pending', 'processing', 'completed', 'failed'],
+    default: 'pending'
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -147,6 +167,8 @@ kpiScoreSchema.index({ userId: 1, period: 1 }, { unique: true });
 kpiScoreSchema.index({ userId: 1 });
 kpiScoreSchema.index({ overallScore: 1 });
 kpiScoreSchema.index({ rating: 1 });
+kpiScoreSchema.index({ automationStatus: 1 });
+kpiScoreSchema.index({ processedAt: 1 });
 kpiScoreSchema.index({ createdAt: -1 });
 
 // Pre-save middleware to calculate scores and determine actions
@@ -327,6 +349,86 @@ kpiScoreSchema.methods.getActionPriority = function() {
   if (this.triggeredActions.includes('training')) return 'medium';
   if (this.triggeredActions.includes('recognition')) return 'positive';
   return 'low';
+};
+
+// Static method to get KPI scores pending automation
+kpiScoreSchema.statics.getPendingAutomation = function() {
+  return this.find({ 
+    automationStatus: 'pending',
+    isActive: true 
+  })
+    .populate('userId', 'name email employeeId')
+    .populate('submittedBy', 'name email')
+    .sort({ createdAt: 1 });
+};
+
+// Static method to get KPI scores by automation status
+kpiScoreSchema.statics.getByAutomationStatus = function(status) {
+  return this.find({ 
+    automationStatus: status,
+    isActive: true 
+  })
+    .populate('userId', 'name email employeeId')
+    .populate('submittedBy', 'name email')
+    .sort({ createdAt: -1 });
+};
+
+// Static method to get KPI automation statistics
+kpiScoreSchema.statics.getAutomationStats = function() {
+  return this.aggregate([
+    { $match: { isActive: true } },
+    {
+      $group: {
+        _id: '$automationStatus',
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+};
+
+// Instance method to mark as processing
+kpiScoreSchema.methods.markAsProcessing = function() {
+  this.automationStatus = 'processing';
+  this.processedAt = new Date();
+  return this.save();
+};
+
+// Instance method to mark as completed
+kpiScoreSchema.methods.markAsCompleted = function() {
+  this.automationStatus = 'completed';
+  this.processedAt = new Date();
+  return this.save();
+};
+
+// Instance method to mark as failed
+kpiScoreSchema.methods.markAsFailed = function() {
+  this.automationStatus = 'failed';
+  this.processedAt = new Date();
+  return this.save();
+};
+
+// Instance method to add training assignment
+kpiScoreSchema.methods.addTrainingAssignment = function(assignmentId) {
+  if (!this.trainingAssignments.includes(assignmentId)) {
+    this.trainingAssignments.push(assignmentId);
+  }
+  return this.save();
+};
+
+// Instance method to add email log
+kpiScoreSchema.methods.addEmailLog = function(emailLogId) {
+  if (!this.emailLogs.includes(emailLogId)) {
+    this.emailLogs.push(emailLogId);
+  }
+  return this.save();
+};
+
+// Instance method to add audit schedule
+kpiScoreSchema.methods.addAuditSchedule = function(auditScheduleId) {
+  if (!this.auditSchedules.includes(auditScheduleId)) {
+    this.auditSchedules.push(auditScheduleId);
+  }
+  return this.save();
 };
 
 module.exports = mongoose.model('KPIScore', kpiScoreSchema);

@@ -56,7 +56,7 @@ export const UserManagement: React.FC = () => {
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const [successData, setSuccessData] = useState({
-    type: 'user' as 'user' | 'module' | 'quiz' | 'question' | 'kpi' | 'award' | 'certificate',
+    type: 'user' as 'user' | 'module' | 'quiz' | 'question' | 'award' | 'certificate',
     action: 'created' as 'created' | 'updated' | 'deleted' | 'completed',
     itemName: ''
   });
@@ -150,7 +150,6 @@ export const UserManagement: React.FC = () => {
         panNo: createUserData.panNo,
         employeeId: response.user.employeeId, // Use the auto-generated Employee ID from response
         status: 'Active',
-        kpiScore: 0,
         isActive: true
       };
       
@@ -505,7 +504,6 @@ export const UserManagement: React.FC = () => {
                 <th className="text-left py-4 px-2 text-sm font-semibold text-gray-900 dark:text-white">Phone</th>
                 <th className="text-left py-4 px-2 text-sm font-semibold text-gray-900 dark:text-white">City</th>
                 <th className="text-left py-4 px-2 text-sm font-semibold text-gray-900 dark:text-white">Status</th>
-                <th className="text-left py-4 px-2 text-sm font-semibold text-gray-900 dark:text-white">KPI Score</th>
                 <th className="text-left py-4 px-2 text-sm font-semibold text-gray-900 dark:text-white">Actions</th>
               </tr>
             </thead>
@@ -542,14 +540,6 @@ export const UserManagement: React.FC = () => {
                         </div>
                       )}
                     </div>
-                  </td>
-                  <td className="py-3">
-                    <span className={`font-medium ${
-                      (user.kpiScore || 75) >= 80 ? 'text-green-600 dark:text-green-400' :
-                      (user.kpiScore || 75) >= 70 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'
-                    }`}>
-                      {user.kpiScore || 75}%
-                    </span>
                   </td>
                   <td className="py-4">
                     <div className="flex gap-2">

@@ -211,4 +211,17 @@ userProgressSchema.methods.issueCertificate = function() {
   return Promise.resolve(this);
 };
 
+// Post-save middleware to trigger auto KPI generation
+userProgressSchema.post('save', async function(doc) {
+  try {
+    // Only trigger for significant updates
+    if (doc.isModified('videoProgress') || doc.isModified('passed') || doc.isModified('bestPercentage')) {
+      const autoKPIScheduler = require('../services/autoKPIScheduler');
+      await autoKPIScheduler.triggerUserKPI(doc.userId, 'user_progress_update');
+    }
+  } catch (error) {
+    console.error('Error triggering auto KPI after user progress update:', error);
+  }
+});
+
 module.exports = mongoose.model('UserProgress', userProgressSchema);

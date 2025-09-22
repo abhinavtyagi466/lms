@@ -95,7 +95,7 @@ export const ModuleManagement: React.FC = () => {
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
   const [successData, setSuccessData] = useState({
-    type: 'module' as 'user' | 'module' | 'quiz' | 'question' | 'kpi' | 'award' | 'certificate',
+    type: 'module' as 'user' | 'module' | 'quiz' | 'question' | 'award' | 'certificate',
     action: 'created' as 'created' | 'updated' | 'deleted' | 'completed',
     itemName: ''
   });

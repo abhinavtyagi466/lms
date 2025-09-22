@@ -4,7 +4,10 @@ import {
   CheckCircle, FileText, Target, FileQuestion, Bell, Calendar,
   User, Video, Trophy, Activity, Zap, Star, Users, Eye, Play,
   GraduationCap, BookMarked, TrendingDown, ArrowUpRight,
-  ArrowDownRight, Clock3, Medal, Shield, Lightbulb
+  ArrowDownRight, Clock3, Medal, Shield, Lightbulb, Mail,
+  ClipboardList, UserCheck, AlertCircle, TrendingUp as TrendingUpIcon,
+  PieChart, LineChart, RefreshCw, ExternalLink, ChevronRight,
+  Smartphone, Phone
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -39,16 +42,76 @@ interface LifecycleStats {
   firstEvent: any;
 }
 
+interface KPIScore {
+  _id: string;
+  userId: string;
+  period: string;
+  overallScore: number;
+  rating: string;
+  tat: number;
+  majorNegativity: number;
+  quality: number;
+  neighborCheck: number;
+  generalNegativity: number;
+  appUsage: number;
+  insufficiency: number;
+  trainingAssignments: any[];
+  auditSchedules: any[];
+  emailLogs: any[];
+  automationStatus: string;
+  processedAt: string;
+  createdAt: string;
+}
+
+interface TrainingAssignment {
+  _id: string;
+  userId: string;
+  trainingType: string;
+  assignedBy: string;
+  dueDate: string;
+  status: string;
+  completionDate?: string;
+  score?: number;
+  createdAt: string;
+}
+
+interface AuditSchedule {
+  _id: string;
+  userId: string;
+  auditType: string;
+  scheduledDate: string;
+  status: string;
+  completedDate?: string;
+  findings?: string;
+  createdAt: string;
+}
+
+interface Notification {
+  _id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export const UserDashboard: React.FC = () => {
   const { user, setCurrentPage } = useAuth();
   const [userProfile, setUserProfile] = useState<any>(null);
   const [modules, setModules] = useState<ModuleWithProgress[]>([]);
-  const [kpiData, setKpiData] = useState<any>(null);
   const [warnings, setWarnings] = useState<any[]>([]);
   const [awards, setAwards] = useState<any[]>([]);
   const [lifecycleStats, setLifecycleStats] = useState<LifecycleStats | null>(null);
   const [recentLifecycleEvents, setRecentLifecycleEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // KPI-related state
+  const [kpiScore, setKpiScore] = useState<KPIScore | null>(null);
+  const [trainingAssignments, setTrainingAssignments] = useState<TrainingAssignment[]>([]);
+  const [auditSchedules, setAuditSchedules] = useState<AuditSchedule[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [kpiHistory, setKpiHistory] = useState<KPIScore[]>([]);
   const [stats, setStats] = useState<UserStats>({
     totalModules: 0,
     completedModules: 0,
@@ -73,19 +136,27 @@ export const UserDashboard: React.FC = () => {
         const [
           profileData,
           modulesData,
-          kpiScore,
           warningsData,
           awardsData,
           lifecycleStatsData,
-          lifecycleEventsData
+          lifecycleEventsData,
+          kpiData,
+          kpiHistoryData,
+          trainingData,
+          auditData,
+          notificationsData
         ] = await Promise.allSettled([
           apiService.users.getProfile(userId).catch(() => ({ data: { name: (user as any)?.name, email: (user as any)?.email } })),
           apiService.modules.getUserModules(userId).catch(() => ({ data: { modules: [] } })),
-          apiService.kpi.getKPIScore(userId).catch(() => ({ data: { overallScore: 0, rating: 'N/A' } })),
           apiService.users.getUserWarnings(userId).catch(() => ({ data: { warnings: [] } })),
           apiService.awards.getAllAwards({ userId }).catch(() => ({ data: { awards: [] } })),
           apiService.lifecycle.getLifecycleStats(userId).catch(() => ({ data: { statistics: null } })),
-          apiService.lifecycle.getUserLifecycle(userId, { limit: 10 }).catch(() => ({ data: { events: [] } }))
+          apiService.lifecycle.getUserLifecycle(userId, { limit: 10 }).catch(() => ({ data: { events: [] } })),
+          apiService.kpi.getUserKPI(userId).catch(() => ({ data: null })),
+          apiService.kpi.getUserKPIHistory(userId).catch(() => ({ data: [] })),
+          apiService.trainingAssignments.getUserAssignments(userId).catch(() => ({ data: [] })),
+          apiService.auditScheduling.getUserAuditHistory(userId).catch(() => ({ data: [] })),
+          apiService.notifications.getUserNotifications(userId).catch(() => ({ data: [] }))
         ]);
         
         // Set data with proper error handling
@@ -112,7 +183,7 @@ export const UserDashboard: React.FC = () => {
             completedModules: completed,
             inProgressModules: inProgress,
             notStartedModules: notStarted,
-            averageScore: kpiScore.status === 'fulfilled' ? (kpiScore.value as any).data?.overallScore || 0 : 0,
+            averageScore: 0,
             totalQuizzes,
             completedQuizzes,
             totalWatchTime: Math.round(totalWatchTime),
@@ -120,11 +191,17 @@ export const UserDashboard: React.FC = () => {
           });
         }
         
-        setKpiData(kpiScore.status === 'fulfilled' ? kpiScore.value : null);
         setWarnings(warningsData.status === 'fulfilled' ? (warningsData.value as any).data?.warnings || [] : []);
         setAwards(awardsData.status === 'fulfilled' ? (awardsData.value as any).data?.awards || [] : []);
         setLifecycleStats(lifecycleStatsData.status === 'fulfilled' ? (lifecycleStatsData.value as any).data?.statistics : null);
         setRecentLifecycleEvents(lifecycleEventsData.status === 'fulfilled' ? (lifecycleEventsData.value as any).data?.events || [] : []);
+        
+        // Set KPI-related data
+        setKpiScore(kpiData.status === 'fulfilled' ? (kpiData.value as any).data : null);
+        setKpiHistory(kpiHistoryData.status === 'fulfilled' ? (kpiHistoryData.value as any).data || [] : []);
+        setTrainingAssignments(trainingData.status === 'fulfilled' ? (trainingData.value as any).data || [] : []);
+        setAuditSchedules(auditData.status === 'fulfilled' ? (auditData.value as any).data || [] : []);
+        setNotifications(notificationsData.status === 'fulfilled' ? (notificationsData.value as any).data || [] : []);
         
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -165,6 +242,47 @@ export const UserDashboard: React.FC = () => {
     }
   };
 
+  const getKPIRatingColor = (rating: string) => {
+    switch (rating?.toLowerCase()) {
+      case 'excellent': return 'text-green-600 bg-green-100';
+      case 'good': return 'text-blue-600 bg-blue-100';
+      case 'average': return 'text-yellow-600 bg-yellow-100';
+      case 'below average': return 'text-orange-600 bg-orange-100';
+      case 'poor': return 'text-red-600 bg-red-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  const getTrainingTypeIcon = (type: string) => {
+    switch (type) {
+      case 'basic': return <GraduationCap className="w-4 h-4" />;
+      case 'negativity_handling': return <Shield className="w-4 h-4" />;
+      case 'dos_donts': return <CheckCircle className="w-4 h-4" />;
+      case 'app_usage': return <Smartphone className="w-4 h-4" />;
+      default: return <BookOpen className="w-4 h-4" />;
+    }
+  };
+
+  const getAuditTypeIcon = (type: string) => {
+    switch (type) {
+      case 'audit_call': return <Phone className="w-4 h-4" />;
+      case 'cross_check': return <UserCheck className="w-4 h-4" />;
+      case 'dummy_audit': return <ClipboardList className="w-4 h-4" />;
+      default: return <FileText className="w-4 h-4" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'text-green-600 bg-green-100';
+      case 'in_progress': return 'text-blue-600 bg-blue-100';
+      case 'assigned': return 'text-yellow-600 bg-yellow-100';
+      case 'overdue': return 'text-red-600 bg-red-100';
+      case 'scheduled': return 'text-purple-600 bg-purple-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header Section */}
@@ -187,7 +305,12 @@ export const UserDashboard: React.FC = () => {
             <div className="flex items-center space-x-4">
               <Badge variant="outline" className="bg-white/70 dark:bg-gray-700/70 border-blue-200 dark:border-blue-500 text-blue-700 dark:text-blue-300 px-5 py-2.5 rounded-full shadow-sm">
                 <Target className="w-4 h-4 mr-2" />
-                KPI Score: {stats.averageScore || 0}
+                KPI Score: {kpiScore?.overallScore || 0}
+                {kpiScore?.rating && (
+                  <span className={`ml-2 px-2 py-1 rounded-full text-xs ${getKPIRatingColor(kpiScore.rating)}`}>
+                    {kpiScore.rating}
+                  </span>
+                )}
               </Badge>
               <Button 
                 onClick={() => setCurrentPage('modules')}
@@ -285,6 +408,76 @@ export const UserDashboard: React.FC = () => {
           </Card>
         </div>
 
+        {/* KPI Performance Section */}
+        {kpiScore && (
+          <div className="mb-8">
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center text-xl font-semibold text-gray-900 dark:text-white">
+                  <BarChart3 className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                  KPI Performance Overview
+                </CardTitle>
+                <CardDescription>
+                  Your current performance metrics and trends
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Overall Score */}
+                  <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg">
+                    <div className="text-3xl font-bold text-blue-600">{kpiScore.overallScore}</div>
+                    <div className="text-sm text-gray-600">Overall Score</div>
+                    <Badge className={`mt-2 ${getKPIRatingColor(kpiScore.rating)}`}>
+                      {kpiScore.rating}
+                    </Badge>
+                  </div>
+                  
+                  {/* Individual Metrics */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">TAT</span>
+                      <span className="font-semibold">{kpiScore.tat}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Quality</span>
+                      <span className="font-semibold">{kpiScore.quality}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">App Usage</span>
+                      <span className="font-semibold">{kpiScore.appUsage}%</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Major Negativity</span>
+                      <span className="font-semibold">{kpiScore.majorNegativity}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Neighbor Check</span>
+                      <span className="font-semibold">{kpiScore.neighborCheck}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Insufficiency</span>
+                      <span className="font-semibold">{kpiScore.insufficiency}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">
+                      {kpiScore.automationStatus === 'completed' ? '✓' : '⏳'}
+                    </div>
+                    <div className="text-sm text-gray-600">Automation</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {kpiScore.automationStatus === 'completed' ? 'Processed' : 'Pending'}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Learning Progress */}
@@ -336,6 +529,94 @@ export const UserDashboard: React.FC = () => {
               </CardContent>
             </Card>
 
+            {/* Training Assignments */}
+            {trainingAssignments.length > 0 && (
+              <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center text-xl font-semibold text-gray-900 dark:text-white">
+                    <GraduationCap className="w-5 h-5 mr-2 text-purple-600 dark:text-purple-400" />
+                    Training Assignments
+                  </CardTitle>
+                  <CardDescription>
+                    Your assigned training modules and progress
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {trainingAssignments.slice(0, 5).map((training) => (
+                      <div key={training._id} className="flex items-center justify-between p-4 bg-gray-50/50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center">
+                            {getTrainingTypeIcon(training.trainingType)}
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900 capitalize">
+                              {training.trainingType.replace('_', ' ')}
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              Due: {new Date(training.dueDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Badge className={getStatusColor(training.status)}>
+                            {training.status.replace('_', ' ')}
+                          </Badge>
+                          <Button size="sm" variant="outline">
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Audit Information */}
+            {auditSchedules.length > 0 && (
+              <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center text-xl font-semibold text-gray-900 dark:text-white">
+                    <ClipboardList className="w-5 h-5 mr-2 text-orange-600 dark:text-orange-400" />
+                    Audit Information
+                  </CardTitle>
+                  <CardDescription>
+                    Your scheduled audits and compliance status
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {auditSchedules.slice(0, 5).map((audit) => (
+                      <div key={audit._id} className="flex items-center justify-between p-4 bg-gray-50/50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                            {getAuditTypeIcon(audit.auditType)}
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900 capitalize">
+                              {audit.auditType.replace('_', ' ')}
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              Scheduled: {new Date(audit.scheduledDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Badge className={getStatusColor(audit.status)}>
+                            {audit.status.replace('_', ' ')}
+                          </Badge>
+                          <Button size="sm" variant="outline">
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Recent Activity */}
             <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
               <CardHeader className="pb-4">
@@ -374,6 +655,40 @@ export const UserDashboard: React.FC = () => {
 
           {/* Right Column - Quick Actions & Notifications */}
           <div className="space-y-6">
+            {/* Notifications */}
+            {notifications.length > 0 && (
+              <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
+                    <Bell className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                    Recent Notifications
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {notifications.slice(0, 5).map((notification) => (
+                      <div key={notification._id} className={`p-3 rounded-lg border-l-4 ${
+                        notification.isRead ? 'bg-gray-50 border-l-gray-300' : 'bg-blue-50 border-l-blue-500'
+                      }`}>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                            <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {new Date(notification.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          {!notification.isRead && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full ml-2"></div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Quick Actions */}
             <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
               <CardHeader className="pb-4">
@@ -485,6 +800,26 @@ export const UserDashboard: React.FC = () => {
                     <span className="text-sm">Time Investment</span>
                     <span className="text-sm font-semibold">{stats.totalWatchTime}m</span>
                   </div>
+                  {kpiScore && (
+                    <>
+                      <div className="border-t border-white/20 pt-3 mt-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">KPI Performance</span>
+                          <span className="text-sm font-semibold">{kpiScore.overallScore}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Training Assignments</span>
+                          <span className="text-sm font-semibold">{trainingAssignments.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Upcoming Audits</span>
+                          <span className="text-sm font-semibold">
+                            {auditSchedules.filter(a => a.status === 'scheduled').length}
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>

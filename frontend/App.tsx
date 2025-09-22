@@ -7,7 +7,9 @@ import {
   FileText, 
   LogOut,
   Home,
-  Bell
+  Bell,
+  Mail,
+  Calendar
 } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Sidebar } from './components/common/Sidebar';
@@ -26,16 +28,17 @@ import { ModulesPage } from './pages/user/ModulesPage';
 import { NotificationsPage } from './pages/user/NotificationsPage';
 import { QuizPage } from './pages/user/QuizPage';
 import { AdminLogin } from './pages/admin/AdminLogin';
-import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminDashboardEnhanced } from './pages/admin/AdminDashboardEnhanced';
 import { UserManagement } from './pages/admin/UserManagement';
 import { ModuleManagement } from './pages/admin/ModuleManagement';
 
-import { KPIScoreEntry } from './pages/admin/KPIScoreEntry';
 import { WarningAuditRecord } from './pages/admin/WarningAuditRecord';
 import { AwardsRecognition } from './pages/admin/AwardsRecognition';
 import { LifecycleDashboard } from './pages/admin/LifecycleDashboard';
 import { MailPreview } from './pages/admin/MailPreview';
+import { KPITriggers } from './pages/admin/KPITriggers';
+import EmailNotificationCenter from './pages/admin/EmailNotificationCenter';
+import AuditManager from './pages/admin/AuditSchedulerDashboardV2';
 
 // Navigation items
 const userSidebarItems = [
@@ -50,7 +53,9 @@ const adminSidebarItems = [
   { key: 'admin-dashboard', label: 'Dashboard', icon: Home },
   { key: 'user-management', label: 'User Management', icon: Users },
   { key: 'module-management', label: 'Module Management', icon: BookOpen },
-  { key: 'kpi-entry', label: 'KPI Score Entry', icon: BarChart3 },
+  { key: 'kpi-triggers', label: 'KPI Triggers', icon: BarChart3 },
+  { key: 'audit-scheduler', label: 'Audit Scheduler', icon: Calendar },
+  { key: 'email-center', label: 'Email Center', icon: Mail },
   { key: 'warnings-audit', label: 'Audit / Warnings', icon: FileText },
   { key: 'awards', label: 'Awards / Recognition', icon: Award },
   // { key: 'lifecycle', label: 'Lifecycle Dashboard', icon: Clock },
@@ -171,8 +176,9 @@ const AppContent: React.FC = () => {
         case 'admin-dashboard': return <AdminDashboardEnhanced />;
         case 'user-management': return <UserManagement />;
         case 'module-management': return <ModuleManagement />;
-        case 'kpi-entry': return <KPIScoreEntry />;
-
+        case 'kpi-triggers': return <KPITriggers />;
+        case 'audit-scheduler': return <AuditManager />;
+        case 'email-center': return <EmailNotificationCenter />;
         case 'warnings-audit': return <WarningAuditRecord />;
         case 'awards': return <AwardsRecognition />;
         case 'lifecycle': return <LifecycleDashboard />;

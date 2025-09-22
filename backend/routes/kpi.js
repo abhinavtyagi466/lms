@@ -2,13 +2,276 @@ const express = require('express');
 const KPIScore = require('../models/KPIScore');
 const User = require('../models/User');
 const LifecycleEvent = require('../models/LifecycleEvent');
+const TrainingAssignment = require('../models/TrainingAssignment');
+const AuditSchedule = require('../models/AuditSchedule');
+const EmailLog = require('../models/EmailLog');
+const KPITriggerService = require('../services/kpiTriggerService');
+const RealActivityKPIService = require('../services/realActivityKPIService');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
-const { validateKPIScore, validateUserId } = require('../middleware/validation');
+const { validateKPIScore, validateUserId, validateObjectId, validatePagination } = require('../middleware/validation');
 
 const router = express.Router();
 
+// @route   GET /api/kpi/:id/triggers
+// @desc    Get triggers for a specific KPI score
+// @access  Private (Admin only)
+router.get('/:id/triggers', authenticateToken, requireAdmin, validateObjectId, async (req, res) => {
+  try {
+    const kpiId = req.params.id;
+
+    // Get KPI score
+    const kpiScore = await KPIScore.findById(kpiId)
+      .populate('userId', 'name email employeeId')
+      .populate('submittedBy', 'name email');
+
+    if (!kpiScore) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'KPI score not found'
+      });
+    }
+
+    // Calculate triggers using KPITriggerService
+    const triggers = KPITriggerService.calculateTriggers(kpiScore);
+
+    // Get related automation data
+    const [trainingAssignments, auditSchedules, emailLogs] = await Promise.all([
+      TrainingAssignment.find({ kpiTriggerId: kpiId, isActive: true })
+        .populate('assignedByUser', 'name email')
+        .sort({ createdAt: -1 }),
+      AuditSchedule.find({ kpiTriggerId: kpiId, isActive: true })
+        .populate('assignedTo', 'name email')
+        .populate('assignedBy', 'name email')
+        .sort({ scheduledDate: 1 }),
+      EmailLog.find({ kpiTriggerId: kpiId, isActive: true })
+        .sort({ sentAt: -1 })
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        kpiScore,
+        triggers,
+        automationData: {
+          trainingAssignments,
+          auditSchedules,
+          emailLogs,
+          automationStatus: kpiScore.automationStatus,
+          processedAt: kpiScore.processedAt
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get KPI triggers error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching KPI triggers'
+    });
+  }
+});
+
+// @route   POST /api/kpi/:id/reprocess
+// @desc    Reprocess triggers for a KPI score
+// @access  Private (Admin only)
+router.post('/:id/reprocess', authenticateToken, requireAdmin, validateObjectId, async (req, res) => {
+  try {
+    const kpiId = req.params.id;
+
+    // Get KPI score
+    const kpiScore = await KPIScore.findById(kpiId)
+      .populate('userId', 'name email employeeId');
+
+    if (!kpiScore) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'KPI score not found'
+      });
+    }
+
+    // Mark as processing
+    kpiScore.automationStatus = 'processing';
+    await kpiScore.save();
+
+    // Process triggers using KPITriggerService
+    const automationResult = await KPITriggerService.processKPITriggers(kpiScore);
+
+    // Update automation status
+    kpiScore.automationStatus = automationResult.success ? 'completed' : 'failed';
+    kpiScore.processedAt = new Date();
+    await kpiScore.save();
+
+    // Get updated automation data
+    const [trainingAssignments, auditSchedules, emailLogs] = await Promise.all([
+      TrainingAssignment.find({ kpiTriggerId: kpiId, isActive: true })
+        .populate('assignedByUser', 'name email')
+        .sort({ createdAt: -1 }),
+      AuditSchedule.find({ kpiTriggerId: kpiId, isActive: true })
+        .populate('assignedTo', 'name email')
+        .populate('assignedBy', 'name email')
+        .sort({ scheduledDate: 1 }),
+      EmailLog.find({ kpiTriggerId: kpiId, isActive: true })
+        .sort({ sentAt: -1 })
+    ]);
+
+    res.json({
+      success: true,
+      message: 'KPI triggers reprocessed successfully',
+      data: {
+        automationResult,
+        automationData: {
+          trainingAssignments,
+          auditSchedules,
+          emailLogs,
+          automationStatus: kpiScore.automationStatus,
+          processedAt: kpiScore.processedAt
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Reprocess KPI triggers error:', error);
+    
+    // Mark automation as failed
+    try {
+      const kpiScore = await KPIScore.findById(req.params.id);
+      if (kpiScore) {
+        kpiScore.automationStatus = 'failed';
+        kpiScore.processedAt = new Date();
+        await kpiScore.save();
+      }
+    } catch (updateError) {
+      console.error('Error updating KPI status:', updateError);
+    }
+
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error reprocessing KPI triggers'
+    });
+  }
+});
+
+// @route   GET /api/kpi/:id/automation-status
+// @desc    Get automation status for a KPI score
+// @access  Private (Admin only)
+router.get('/:id/automation-status', authenticateToken, requireAdmin, validateObjectId, async (req, res) => {
+  try {
+    const kpiId = req.params.id;
+
+    // Get KPI score with automation status
+    const kpiScore = await KPIScore.findById(kpiId)
+      .populate('userId', 'name email employeeId')
+      .select('automationStatus processedAt triggeredActions overallScore rating period');
+
+    if (!kpiScore) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'KPI score not found'
+      });
+    }
+
+    // Get automation statistics
+    const [trainingCount, auditCount, emailCount] = await Promise.all([
+      TrainingAssignment.countDocuments({ kpiTriggerId: kpiId, isActive: true }),
+      AuditSchedule.countDocuments({ kpiTriggerId: kpiId, isActive: true }),
+      EmailLog.countDocuments({ kpiTriggerId: kpiId, isActive: true })
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        kpiScore: {
+          _id: kpiScore._id,
+          userId: kpiScore.userId,
+          overallScore: kpiScore.overallScore,
+          rating: kpiScore.rating,
+          period: kpiScore.period,
+          triggeredActions: kpiScore.triggeredActions,
+          automationStatus: kpiScore.automationStatus,
+          processedAt: kpiScore.processedAt
+        },
+        automationStats: {
+          trainingAssignments: trainingCount,
+          auditSchedules: auditCount,
+          emailLogs: emailCount
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get automation status error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching automation status'
+    });
+  }
+});
+
+// @route   GET /api/kpi/pending-automation
+// @desc    Get KPI scores pending automation
+// @access  Private (Admin only)
+router.get('/pending-automation', authenticateToken, requireAdmin, validatePagination, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Build filter for pending automation
+    const filter = {
+      automationStatus: { $in: ['pending', 'failed'] },
+      isActive: true
+    };
+
+    // Add date range filter if provided
+    if (req.query.startDate || req.query.endDate) {
+      filter.createdAt = {};
+      if (req.query.startDate) {
+        filter.createdAt.$gte = new Date(req.query.startDate);
+      }
+      if (req.query.endDate) {
+        filter.createdAt.$lte = new Date(req.query.endDate);
+      }
+    }
+
+    // Get pending KPI scores with pagination
+    const pendingKPIs = await KPIScore.find(filter)
+      .populate('userId', 'name email employeeId department')
+      .populate('submittedBy', 'name email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // Get total count
+    const total = await KPIScore.countDocuments(filter);
+
+    // Get automation statistics
+    const automationStats = await KPIScore.getAutomationStats();
+
+    res.json({
+      success: true,
+      data: {
+        pendingKPIs,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(total / limit),
+          totalItems: total,
+          itemsPerPage: limit
+        },
+        automationStats
+      }
+    });
+
+  } catch (error) {
+    console.error('Get pending automation error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching pending automation'
+    });
+  }
+});
+
 // @route   GET /api/kpi/:userId
-// @desc    Get KPI scores for a user
+// @desc    Get KPI scores for a user with automation data
 // @access  Private (user can access own KPI, admin can access any)
 router.get('/:userId', authenticateToken, validateUserId, async (req, res) => {
   try {
@@ -31,7 +294,35 @@ router.get('/:userId', authenticateToken, validateUserId, async (req, res) => {
       });
     }
 
-    res.json(latestKPI);
+    // Get automation data if KPI exists
+    let automationData = null;
+    if (latestKPI._id) {
+      const [trainingAssignments, auditSchedules, emailLogs] = await Promise.all([
+        TrainingAssignment.find({ kpiTriggerId: latestKPI._id, isActive: true })
+          .populate('assignedByUser', 'name email')
+          .sort({ createdAt: -1 }),
+        AuditSchedule.find({ kpiTriggerId: latestKPI._id, isActive: true })
+          .populate('assignedTo', 'name email')
+          .populate('assignedBy', 'name email')
+          .sort({ scheduledDate: 1 }),
+        EmailLog.find({ kpiTriggerId: latestKPI._id, isActive: true })
+          .sort({ sentAt: -1 })
+      ]);
+
+      automationData = {
+        trainingAssignments,
+        auditSchedules,
+        emailLogs,
+        automationStatus: latestKPI.automationStatus || 'pending',
+        processedAt: latestKPI.processedAt
+      };
+    }
+
+    res.json({
+      success: true,
+      kpiScore: latestKPI,
+      automationData
+    });
 
   } catch (error) {
     console.error('Get KPI score error:', error);
@@ -75,11 +366,23 @@ router.get('/:userId/history', authenticateToken, validateUserId, async (req, re
 });
 
 // @route   POST /api/kpi
-// @desc    Submit KPI scores for a user
+// @desc    Submit KPI scores for a user with automation
 // @access  Private (Admin only)
 router.post('/', authenticateToken, requireAdmin, validateKPIScore, async (req, res) => {
   try {
-    const { userId, tat, quality, appUsage, negativity = 0, period, comments } = req.body;
+    const { 
+      userId, 
+      tat, 
+      quality, 
+      appUsage, 
+      negativity = 0, 
+      majorNegativity = 0,
+      neighborCheck = 0,
+      generalNegativity = 0,
+      insufficiency = 0,
+      period, 
+      comments 
+    } = req.body;
 
     // Verify user exists
     const user = await User.findById(userId);
@@ -106,6 +409,10 @@ router.post('/', authenticateToken, requireAdmin, validateKPIScore, async (req, 
       quality,
       appUsage,
       negativity,
+      majorNegativity,
+      neighborCheck,
+      generalNegativity,
+      insufficiency,
       period,
       comments,
       submittedBy: req.user._id
@@ -127,64 +434,53 @@ router.post('/', authenticateToken, requireAdmin, validateKPIScore, async (req, 
     
     await user.save();
 
-    // Create lifecycle events based on triggered actions
-    if (kpiScore.triggeredActions.includes('audit')) {
-      await LifecycleEvent.createAutoEvent({
-        userId,
-        type: 'audit',
-        title: 'KPI Audit Triggered',
-        description: `Audit triggered due to low KPI score: ${kpiScore.overallScore}%`,
-        category: 'negative',
-        metadata: {
-          kpiScoreId: kpiScore._id,
-          additionalData: { score: kpiScore.overallScore }
-        },
-        createdBy: req.user._id
-      });
+    // Process automation triggers asynchronously
+    let automationResult = null;
+    try {
+      // Process triggers using KPITriggerService
+      automationResult = await KPITriggerService.processKPITriggers(kpiScore);
+      
+      // Update KPI with automation status
+      kpiScore.automationStatus = automationResult.success ? 'completed' : 'failed';
+      kpiScore.processedAt = new Date();
+      await kpiScore.save();
+      
+    } catch (automationError) {
+      console.error('Automation processing error:', automationError);
+      
+      // Mark automation as failed but don't fail the main request
+      kpiScore.automationStatus = 'failed';
+      kpiScore.processedAt = new Date();
+      await kpiScore.save();
+      
+      automationResult = {
+        success: false,
+        error: automationError.message,
+        message: 'Automation processing failed, but KPI was saved successfully'
+      };
     }
 
-    if (kpiScore.triggeredActions.includes('warning')) {
-      await LifecycleEvent.createAutoEvent({
-        userId,
-        type: 'warning',
-        title: 'Performance Warning',
-        description: `Warning issued due to KPI score: ${kpiScore.overallScore}%`,
-        category: 'negative',
-        metadata: {
-          kpiScoreId: kpiScore._id,
-          additionalData: { score: kpiScore.overallScore }
-        },
-        createdBy: req.user._id
-      });
-    }
-
-    if (kpiScore.triggeredActions.includes('recognition')) {
-      await LifecycleEvent.createAutoEvent({
-        userId,
-        type: 'award',
-        title: 'Excellence Recognition',
-        description: `Recognized for excellent KPI score: ${kpiScore.overallScore}%`,
-        category: 'positive',
-        metadata: {
-          kpiScoreId: kpiScore._id,
-          additionalData: { score: kpiScore.overallScore }
-        },
-        createdBy: req.user._id
-      });
-    }
-
+    // Get populated KPI with automation data
     const populatedKPI = await KPIScore.findById(kpiScore._id)
       .populate('userId', 'name email employeeId')
       .populate('submittedBy', 'name email');
 
-    res.status(201).json({
+    // Prepare response with automation preview
+    const response = {
       success: true,
       message: 'KPI score submitted successfully',
       calculatedScore: kpiScore.overallScore,
       rating: kpiScore.rating,
       triggeredActions: kpiScore.triggeredActions,
-      kpiScore: populatedKPI
-    });
+      kpiScore: populatedKPI,
+      automation: {
+        status: kpiScore.automationStatus,
+        processedAt: kpiScore.processedAt,
+        result: automationResult
+      }
+    };
+
+    res.status(201).json(response);
 
   } catch (error) {
     console.error('Submit KPI score error:', error);
@@ -201,7 +497,17 @@ router.post('/', authenticateToken, requireAdmin, validateKPIScore, async (req, 
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const kpiId = req.params.id;
-    const { tat, quality, appUsage, negativity, comments } = req.body;
+    const { 
+      tat, 
+      quality, 
+      appUsage, 
+      negativity, 
+      majorNegativity,
+      neighborCheck,
+      generalNegativity,
+      insufficiency,
+      comments 
+    } = req.body;
 
     const kpiScore = await KPIScore.findById(kpiId);
     
@@ -217,6 +523,10 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     if (quality !== undefined) kpiScore.quality = quality;
     if (appUsage !== undefined) kpiScore.appUsage = appUsage;
     if (negativity !== undefined) kpiScore.negativity = negativity;
+    if (majorNegativity !== undefined) kpiScore.majorNegativity = majorNegativity;
+    if (neighborCheck !== undefined) kpiScore.neighborCheck = neighborCheck;
+    if (generalNegativity !== undefined) kpiScore.generalNegativity = generalNegativity;
+    if (insufficiency !== undefined) kpiScore.insufficiency = insufficiency;
     if (comments !== undefined) kpiScore.comments = comments;
 
     await kpiScore.save(); // Pre-save middleware will recalculate score and rating
@@ -409,6 +719,176 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     res.status(500).json({
       error: 'Server Error',
       message: 'Error deactivating KPI score'
+    });
+  }
+});
+
+// @route   POST /api/kpi/generate-real-activity
+// @desc    Generate KPI scores based on real user activity
+// @access  Private (Admin only)
+router.post('/generate-real-activity', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { period, userId } = req.body;
+    
+    if (!period) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Period is required (YYYY-MM format)'
+      });
+    }
+    
+    if (userId) {
+      // Generate for specific user
+      const kpiData = await RealActivityKPIService.calculateRealActivityKPI(userId, period);
+      
+      // Check if KPI already exists for this period
+      const existingKPI = await KPIScore.findOne({ 
+        userId, 
+        period, 
+        isActive: true 
+      });
+      
+      if (existingKPI) {
+        // Update existing KPI
+        existingKPI.tat = kpiData.tat;
+        existingKPI.majorNegativity = kpiData.majorNegativity;
+        existingKPI.quality = kpiData.quality;
+        existingKPI.neighborCheck = kpiData.neighborCheck;
+        existingKPI.negativity = kpiData.generalNegativity;
+        existingKPI.appUsage = kpiData.appUsage;
+        existingKPI.insufficiency = kpiData.insufficiency;
+        existingKPI.overallScore = kpiData.overallScore;
+        existingKPI.rating = kpiData.rating;
+        existingKPI.comments = 'Auto-updated based on real user activity';
+        existingKPI.automationStatus = 'pending';
+        
+        await existingKPI.save();
+        
+        res.json({
+          success: true,
+          message: 'Real activity KPI updated successfully',
+          data: {
+            action: 'updated',
+            kpiData,
+            kpiScore: existingKPI
+          }
+        });
+      } else {
+        // Create new KPI score
+        const kpiScore = new KPIScore({
+          userId,
+          period,
+          tat: kpiData.tat,
+          majorNegativity: kpiData.majorNegativity,
+          quality: kpiData.quality,
+          neighborCheck: kpiData.neighborCheck,
+          negativity: kpiData.generalNegativity,
+          appUsage: kpiData.appUsage,
+          insufficiency: kpiData.insufficiency,
+          overallScore: kpiData.overallScore,
+          rating: kpiData.rating,
+          submittedBy: req.user._id,
+          comments: 'Auto-generated based on real user activity',
+          automationStatus: 'pending'
+        });
+        
+        await kpiScore.save();
+        
+        res.json({
+          success: true,
+          message: 'Real activity KPI generated successfully',
+          data: {
+            action: 'created',
+            kpiData,
+            kpiScore
+          }
+        });
+      }
+      
+    } else {
+      // Generate for all users
+      const results = await RealActivityKPIService.generateAllUsersKPI(period);
+      
+      res.json({
+        success: true,
+        message: 'Real activity KPI generated for all users',
+        data: {
+          period,
+          totalUsers: results.length,
+          successful: results.filter(r => r.success).length,
+          failed: results.filter(r => !r.success).length,
+          results
+        }
+      });
+    }
+    
+  } catch (error) {
+    console.error('Generate real activity KPI error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error generating real activity KPI'
+    });
+  }
+});
+
+// @route   POST /api/kpi/auto-generate-user/:userId
+// @desc    Auto-generate KPI for a specific user based on their activity
+// @access  Private (Admin only)
+router.post('/auto-generate-user/:userId', authenticateToken, requireAdmin, validateObjectId, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const { activityType, activityData } = req.body;
+    
+    const result = await RealActivityKPIService.autoGenerateUserKPI(userId, activityType, activityData);
+    
+    res.json({
+      success: true,
+      message: 'User KPI auto-generated successfully',
+      data: result
+    });
+    
+  } catch (error) {
+    console.error('Auto-generate user KPI error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error auto-generating user KPI'
+    });
+  }
+});
+
+// @route   GET /api/kpi/real-activity-summary/:userId
+// @desc    Get real activity summary for a user
+// @access  Private (Admin only)
+router.get('/real-activity-summary/:userId', authenticateToken, requireAdmin, validateObjectId, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const { period } = req.query;
+    
+    const currentPeriod = period || new Date().toISOString().slice(0, 7);
+    const activityData = await RealActivityKPIService.getUserActivityData(userId, currentPeriod);
+    
+    res.json({
+      success: true,
+      data: {
+        userId,
+        period: currentPeriod,
+        activityData,
+        summary: {
+          totalVideosWatched: activityData.userProgress.filter(p => p.videoWatched).length,
+          totalQuizAttempts: activityData.quizAttempts.length,
+          averageQuizScore: activityData.quizAttempts.length > 0 ? 
+            activityData.quizAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / activityData.quizAttempts.length : 0,
+          modulesCompleted: activityData.userModules.filter(m => m.status === 'completed').length,
+          totalWatchTime: activityData.userProgress.reduce((sum, progress) => sum + progress.totalWatchTime, 0)
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Get real activity summary error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error getting real activity summary'
     });
   }
 });

@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // API Configuration
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://your-production-backend.com/api' 
+  ? 'https://marasasarovarpremiere.in/api'
   : '/api'; // Use proxy in development
 
 // Create axios instance with default config
@@ -425,58 +425,6 @@ export const apiService = {
     }
   },
 
-  // KPI APIs
-  kpi: {
-    getKPIScore: async (userId: string) => {
-      const response = await apiClient.get(`/kpi/${userId}`);
-      return response;
-    },
-
-    getKPIHistory: async (userId: string, limit?: number) => {
-      const params = new URLSearchParams();
-      if (limit) params.append('limit', limit.toString());
-      
-      const response = await apiClient.get(`/kpi/${userId}/history?${params.toString()}`);
-      return response;
-    },
-    
-    submitKPIScore: async (kpiData: {
-      userId: string;
-      tat: number;
-      quality: number;
-      appUsage: number;
-      negativity?: number;
-      period: string;
-      comments?: string;
-    }) => {
-      const response = await apiClient.post('/kpi', kpiData);
-      return response;
-    },
-
-    updateKPIScore: async (kpiId: string, kpiData: {
-      tat?: number;
-      quality?: number;
-      appUsage?: number;
-      negativity?: number;
-      comments?: string;
-    }) => {
-      const response = await apiClient.put(`/kpi/${kpiId}`, kpiData);
-      return response;
-    },
-
-    getKPIStats: async () => {
-      const response = await apiClient.get('/kpi/overview/stats');
-      return response;
-    },
-
-    getLowPerformers: async (threshold?: number) => {
-      const params = new URLSearchParams();
-      if (threshold) params.append('threshold', threshold.toString());
-      
-      const response = await apiClient.get(`/kpi/alerts/low-performers?${params.toString()}`);
-      return response;
-    }
-  },
 
   // Reports APIs
   reports: {
@@ -697,6 +645,564 @@ export const apiService = {
       if (filters?.limit) params.append('limit', filters.limit.toString());
       
       const response = await apiClient.get(`/lifecycle/system?${params.toString()}`);
+      return response;
+    }
+  },
+
+  // KPI APIs
+  kpi: {
+    submitKPI: async (kpiData: {
+      userId: string;
+      period: string;
+      comments?: string;
+      tat: number;
+      quality: number;
+      appUsage: number;
+      negativity?: number;
+      majorNegativity?: number;
+      neighborCheck?: number;
+      generalNegativity?: number;
+      insufficiency?: number;
+    }) => {
+      const response = await apiClient.post('/kpi', kpiData);
+      return response;
+    },
+
+    getUserKPI: async (userId: string) => {
+      const response = await apiClient.get(`/kpi/${userId}`);
+      return response;
+    },
+
+    getUserKPIHistory: async (userId: string, limit?: number) => {
+      const params = new URLSearchParams();
+      if (limit) params.append('limit', limit.toString());
+      
+      const response = await apiClient.get(`/kpi/${userId}/history?${params.toString()}`);
+      return response;
+    },
+
+    updateKPI: async (kpiId: string, kpiData: {
+      tat?: number;
+      quality?: number;
+      appUsage?: number;
+      negativity?: number;
+      majorNegativity?: number;
+      neighborCheck?: number;
+      generalNegativity?: number;
+      insufficiency?: number;
+      comments?: string;
+    }) => {
+      const response = await apiClient.put(`/kpi/${kpiId}`, kpiData);
+      return response;
+    },
+
+    getKPITriggers: async (kpiId: string) => {
+      const response = await apiClient.get(`/kpi/${kpiId}/triggers`);
+      return response;
+    },
+
+    reprocessKPITriggers: async (kpiId: string) => {
+      const response = await apiClient.post(`/kpi/${kpiId}/reprocess`);
+      return response;
+    },
+
+    getKPIAutomationStatus: async (kpiId: string) => {
+      const response = await apiClient.get(`/kpi/${kpiId}/automation-status`);
+      return response;
+    },
+
+    getPendingAutomation: async (filters?: {
+      page?: number;
+      limit?: number;
+      startDate?: string;
+      endDate?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.startDate) params.append('startDate', filters.startDate);
+      if (filters?.endDate) params.append('endDate', filters.endDate);
+      
+      const response = await apiClient.get(`/kpi/pending-automation?${params.toString()}`);
+      return response;
+    },
+
+    getKPIStats: async () => {
+      const response = await apiClient.get('/kpi/overview/stats');
+      return response;
+    },
+
+    getLowPerformers: async (threshold?: number) => {
+      const params = new URLSearchParams();
+      if (threshold) params.append('threshold', threshold.toString());
+      
+      const response = await apiClient.get(`/kpi/alerts/low-performers?${params.toString()}`);
+      return response;
+    },
+
+    deleteKPI: async (kpiId: string) => {
+      const response = await apiClient.delete(`/kpi/${kpiId}`);
+      return response;
+    },
+
+    // Real Activity KPI methods
+    generateRealActivityKPI: async (period: string, userId?: string) => {
+      const response = await apiClient.post('/kpi/generate-real-activity', {
+        period,
+        userId
+      });
+      return response;
+    },
+
+    autoGenerateUserKPI: async (userId: string, activityType: string, activityData?: any) => {
+      const response = await apiClient.post(`/kpi/auto-generate-user/${userId}`, {
+        activityType,
+        activityData
+      });
+      return response;
+    },
+
+    getRealActivitySummary: async (userId: string, period?: string) => {
+      const params = new URLSearchParams();
+      if (period) params.append('period', period);
+      
+      const response = await apiClient.get(`/kpi/real-activity-summary/${userId}?${params.toString()}`);
+      return response;
+    }
+  },
+
+  // Training Assignment APIs
+  trainingAssignments: {
+    autoAssign: async (kpiScoreId: string) => {
+      const response = await apiClient.post('/training-assignments/auto-assign', { kpiScoreId });
+      return response;
+    },
+
+    getPending: async (filters?: {
+      page?: number;
+      limit?: number;
+      trainingType?: string;
+      status?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.trainingType) params.append('trainingType', filters.trainingType);
+      if (filters?.status) params.append('status', filters.status);
+      
+      const response = await apiClient.get(`/training-assignments/pending?${params.toString()}`);
+      return response;
+    },
+
+    getOverdue: async (filters?: {
+      page?: number;
+      limit?: number;
+      trainingType?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.trainingType) params.append('trainingType', filters.trainingType);
+      
+      const response = await apiClient.get(`/training-assignments/overdue?${params.toString()}`);
+      return response;
+    },
+
+    completeTraining: async (assignmentId: string, data: {
+      score?: number;
+      notes?: string;
+    }) => {
+      const response = await apiClient.put(`/training-assignments/${assignmentId}/complete`, data);
+      return response;
+    },
+
+    getUserAssignments: async (userId: string, filters?: {
+      page?: number;
+      limit?: number;
+      status?: string;
+      trainingType?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.trainingType) params.append('trainingType', filters.trainingType);
+      
+      const response = await apiClient.get(`/training-assignments/user/${userId}?${params.toString()}`);
+      return response;
+    },
+
+    manualAssign: async (data: {
+      userId: string;
+      trainingType: string;
+      dueDate: string;
+      priority?: string;
+      notes?: string;
+    }) => {
+      const response = await apiClient.post('/training-assignments/manual', data);
+      return response;
+    },
+
+    cancelAssignment: async (assignmentId: string) => {
+      const response = await apiClient.delete(`/training-assignments/${assignmentId}`);
+      return response;
+    },
+
+    getStats: async (filters?: {
+      trainingType?: string;
+      status?: string;
+      priority?: string;
+      startDate?: string;
+      endDate?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.trainingType) params.append('trainingType', filters.trainingType);
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.priority) params.append('priority', filters.priority);
+      if (filters?.startDate) params.append('startDate', filters.startDate);
+      if (filters?.endDate) params.append('endDate', filters.endDate);
+      
+      const response = await apiClient.get(`/training-assignments/stats?${params.toString()}`);
+      return response;
+    }
+  },
+
+  // Audit Scheduling APIs
+  auditScheduling: {
+    scheduleKPIAudits: async (kpiScoreId: string) => {
+      const response = await apiClient.post('/audit-scheduling/schedule-kpi-audits', { kpiScoreId });
+      return response;
+    },
+
+    getScheduled: async (filters?: {
+      page?: number;
+      limit?: number;
+      auditType?: string;
+      priority?: string;
+      startDate?: string;
+      endDate?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.auditType) params.append('auditType', filters.auditType);
+      if (filters?.priority) params.append('priority', filters.priority);
+      if (filters?.startDate) params.append('startDate', filters.startDate);
+      if (filters?.endDate) params.append('endDate', filters.endDate);
+      
+      const response = await apiClient.get(`/audit-scheduling/scheduled?${params.toString()}`);
+      return response;
+    },
+
+    getOverdue: async (filters?: {
+      page?: number;
+      limit?: number;
+      auditType?: string;
+      priority?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.auditType) params.append('auditType', filters.auditType);
+      if (filters?.priority) params.append('priority', filters.priority);
+      
+      const response = await apiClient.get(`/audit-scheduling/overdue?${params.toString()}`);
+      return response;
+    },
+
+    completeAudit: async (auditId: string, data: {
+      findings: string;
+      recommendations?: string;
+      riskLevel?: string;
+      complianceStatus?: string;
+    }) => {
+      const response = await apiClient.put(`/audit-scheduling/${auditId}/complete`, data);
+      return response;
+    },
+
+    getUserAuditHistory: async (userId: string, filters?: {
+      page?: number;
+      limit?: number;
+      status?: string;
+      auditType?: string;
+      startDate?: string;
+      endDate?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.auditType) params.append('auditType', filters.auditType);
+      if (filters?.startDate) params.append('startDate', filters.startDate);
+      if (filters?.endDate) params.append('endDate', filters.endDate);
+      
+      const response = await apiClient.get(`/audit-scheduling/user/${userId}?${params.toString()}`);
+      return response;
+    },
+
+    manualSchedule: async (data: {
+      userId: string;
+      auditType: string;
+      scheduledDate: string;
+      priority?: string;
+      auditScope?: string;
+      auditMethod?: string;
+    }) => {
+      const response = await apiClient.post('/audit-scheduling/manual', data);
+      return response;
+    },
+
+    cancelAudit: async (auditId: string) => {
+      const response = await apiClient.delete(`/audit-scheduling/${auditId}`);
+      return response;
+    },
+
+    getStats: async (filters?: {
+      auditType?: string;
+      status?: string;
+      priority?: string;
+      startDate?: string;
+      endDate?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.auditType) params.append('auditType', filters.auditType);
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.priority) params.append('priority', filters.priority);
+      if (filters?.startDate) params.append('startDate', filters.startDate);
+      if (filters?.endDate) params.append('endDate', filters.endDate);
+      
+      const response = await apiClient.get(`/audit-scheduling/stats?${params.toString()}`);
+      return response;
+    },
+
+    getUpcoming: async (days?: number, limit?: number) => {
+      const params = new URLSearchParams();
+      if (days) params.append('days', days.toString());
+      if (limit) params.append('limit', limit.toString());
+      
+      const response = await apiClient.get(`/audit-scheduling/upcoming?${params.toString()}`);
+      return response;
+    }
+  },
+
+  // Email Management APIs
+  emailLogs: {
+    getAll: async (filters?: {
+      page?: number;
+      limit?: number;
+      templateType?: string;
+      status?: string;
+      recipientRole?: string;
+      dateRange?: string;
+      search?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.templateType) params.append('templateType', filters.templateType);
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.recipientRole) params.append('recipientRole', filters.recipientRole);
+      if (filters?.dateRange) params.append('dateRange', filters.dateRange);
+      if (filters?.search) params.append('search', filters.search);
+      
+      const response = await apiClient.get(`/email-logs?${params.toString()}`);
+      return response;
+    },
+
+    getById: async (emailId: string) => {
+      const response = await apiClient.get(`/email-logs/${emailId}`);
+      return response;
+    },
+
+    resend: async (emailId: string) => {
+      const response = await apiClient.post(`/email-logs/${emailId}/resend`);
+      return response;
+    },
+
+    retry: async (emailId: string) => {
+      const response = await apiClient.post(`/email-logs/${emailId}/retry`);
+      return response;
+    },
+
+    resendFailed: async (emailIds: string[]) => {
+      const response = await apiClient.post('/email-logs/resend-failed', { emailIds });
+      return response;
+    },
+
+    retryFailed: async (emailIds: string[]) => {
+      const response = await apiClient.post('/email-logs/retry-failed', { emailIds });
+      return response;
+    },
+
+    cancelScheduled: async (emailIds: string[]) => {
+      const response = await apiClient.post('/email-logs/cancel-scheduled', { emailIds });
+      return response;
+    },
+
+    schedule: async (data: {
+      templateId: string;
+      recipientGroupId: string;
+      scheduledFor: string;
+      subject: string;
+      content: string;
+    }) => {
+      const response = await apiClient.post('/email-logs/schedule', data);
+      return response;
+    },
+
+    export: async (filters?: {
+      format?: string;
+      templateType?: string;
+      status?: string;
+      recipientRole?: string;
+      dateRange?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.format) params.append('format', filters.format);
+      if (filters?.templateType) params.append('templateType', filters.templateType);
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.recipientRole) params.append('recipientRole', filters.recipientRole);
+      if (filters?.dateRange) params.append('dateRange', filters.dateRange);
+      
+      const response = await apiClient.get(`/email-logs/export?${params.toString()}`);
+      return response;
+    }
+  },
+
+  emailTemplates: {
+    getAll: async () => {
+      const response = await apiClient.get('/email-templates');
+      return response;
+    },
+
+    getById: async (templateId: string) => {
+      const response = await apiClient.get(`/email-templates/${templateId}`);
+      return response;
+    },
+
+    create: async (data: {
+      name: string;
+      type: string;
+      category: string;
+      subject: string;
+      content: string;
+      variables: string[];
+    }) => {
+      const response = await apiClient.post('/email-templates', data);
+      return response;
+    },
+
+    update: async (templateId: string, data: {
+      name?: string;
+      type?: string;
+      category?: string;
+      subject?: string;
+      content?: string;
+      variables?: string[];
+      isActive?: boolean;
+    }) => {
+      const response = await apiClient.put(`/email-templates/${templateId}`, data);
+      return response;
+    },
+
+    delete: async (templateId: string) => {
+      const response = await apiClient.delete(`/email-templates/${templateId}`);
+      return response;
+    },
+
+    preview: async (templateId: string, variables?: Record<string, any>) => {
+      const response = await apiClient.post(`/email-templates/${templateId}/preview`, { variables });
+      return response;
+    },
+
+    test: async (templateId: string, testEmail: string, variables?: Record<string, any>) => {
+      const response = await apiClient.post(`/email-templates/${templateId}/test`, { 
+        testEmail, 
+        variables 
+      });
+      return response;
+    }
+  },
+
+  recipientGroups: {
+    getAll: async () => {
+      const response = await apiClient.get('/recipient-groups');
+      return response;
+    },
+
+    getById: async (groupId: string) => {
+      const response = await apiClient.get(`/recipient-groups/${groupId}`);
+      return response;
+    },
+
+    create: async (data: {
+      name: string;
+      description: string;
+      recipients: string[];
+      role: string;
+    }) => {
+      const response = await apiClient.post('/recipient-groups', data);
+      return response;
+    },
+
+    update: async (groupId: string, data: {
+      name?: string;
+      description?: string;
+      recipients?: string[];
+      role?: string;
+      isActive?: boolean;
+    }) => {
+      const response = await apiClient.put(`/recipient-groups/${groupId}`, data);
+      return response;
+    },
+
+    delete: async (groupId: string) => {
+      const response = await apiClient.delete(`/recipient-groups/${groupId}`);
+      return response;
+    },
+
+    validate: async (recipients: string[]) => {
+      const response = await apiClient.post('/recipient-groups/validate', { recipients });
+      return response;
+    }
+  },
+
+  emailStats: {
+    get: async (filters?: {
+      startDate?: string;
+      endDate?: string;
+      templateType?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.startDate) params.append('startDate', filters.startDate);
+      if (filters?.endDate) params.append('endDate', filters.endDate);
+      if (filters?.templateType) params.append('templateType', filters.templateType);
+      
+      const response = await apiClient.get(`/email-stats?${params.toString()}`);
+      return response;
+    },
+
+    getDeliveryStats: async (filters?: {
+      startDate?: string;
+      endDate?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.startDate) params.append('startDate', filters.startDate);
+      if (filters?.endDate) params.append('endDate', filters.endDate);
+      
+      const response = await apiClient.get(`/email-stats/delivery?${params.toString()}`);
+      return response;
+    },
+
+    getTemplatePerformance: async (filters?: {
+      startDate?: string;
+      endDate?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.startDate) params.append('startDate', filters.startDate);
+      if (filters?.endDate) params.append('endDate', filters.endDate);
+      
+      const response = await apiClient.get(`/email-stats/template-performance?${params.toString()}`);
       return response;
     }
   }

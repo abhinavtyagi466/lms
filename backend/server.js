@@ -57,7 +57,19 @@ const corsOptions = {
       'http://localhost:5173',
       'http://127.0.0.1:5173',
       'http://localhost:3001',
-      'http://127.0.0.1:3001'
+      'http://127.0.0.1:3001',
+      'https://marasasarovarpremiere.in',
+      'https://www.marasasarovarpremiere.in',
+      'http://marasasarovarpremiere.in',
+      'http://www.marasasarovarpremiere.in',
+      'https://marasasarovarpremiere.in:3000',
+      'https://marasasarovarpremiere.in:3001',
+      'http://marasasarovarpremiere.in:3000',
+      'http://marasasarovarpremiere.in:3001',
+      'http://193.203.160.107:3000',
+      'http://193.203.160.107:3001',
+      'https://193.203.160.107:3000',
+      'https://193.203.160.107:3001'
     ];
     
     if (allowedOrigins.indexOf(origin) !== -1) {
@@ -188,8 +200,11 @@ const kpiRoutes = require('./routes/kpi');
 const reportRoutes = require('./routes/reports');
 const awardRoutes = require('./routes/awards');
 const auditRoutes = require('./routes/audits');
+const auditSchedulingRoutes = require('./routes/auditScheduling');
 const lifecycleRoutes = require('./routes/lifecycle');
 const notificationRoutes = require('./routes/notifications');
+const trainingAssignmentRoutes = require('./routes/trainingAssignments');
+const autoKPIScheduler = require('./services/autoKPIScheduler');
 
 // Use routes
 app.use('/api/auth', authRoutes);
@@ -203,8 +218,10 @@ app.use('/api/kpi', kpiRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/awards', awardRoutes);
 app.use('/api/audits', auditRoutes);
+app.use('/api/audit-scheduling', auditSchedulingRoutes);
 app.use('/api/lifecycle', lifecycleRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/training-assignments', trainingAssignmentRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -283,8 +300,15 @@ process.on('SIGTERM', () => {
   process.exit(0);
 });
 
+// Start Auto KPI Scheduler
+if (process.env.NODE_ENV !== 'test') {
+  autoKPIScheduler.start();
+  console.log('Auto KPI Scheduler started');
+}
+
 process.on('SIGINT', () => {
   console.log('SIGINT received, shutting down gracefully');
+  autoKPIScheduler.stop();
   mongoose.connection.close();
   process.exit(0);
 });
