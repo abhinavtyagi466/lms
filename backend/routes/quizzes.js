@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Quiz = require('../models/Quiz');
 const QuizResult = require('../models/QuizResult');
+const QuizAttempt = require('../models/QuizAttempt');
 const Module = require('../models/Module');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
@@ -302,12 +303,81 @@ router.post('/:moduleId/upload-csv', authenticateToken, requireAdmin, async (req
   }
 });
 
+// @route   POST /api/quiz/start
+// @desc    Start a quiz attempt (All authenticated users)
+// @access  Private (All authenticated users)
+router.post('/start', authenticateToken, async (req, res) => {
+  try {
+    const { userId, moduleId } = req.body;
+
+    // Validate required fields
+    if (!userId || !moduleId) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'User ID and module ID are required'
+      });
+    }
+
+    // Get the quiz for this module
+    const quiz = await Quiz.findOne({ moduleId, isActive: true });
+    if (!quiz) {
+      return res.status(404).json({
+        error: 'Quiz not found',
+        message: 'No quiz available for this module'
+      });
+    }
+
+    // Get attempt number
+    const previousAttempts = await QuizAttempt.countDocuments({ userId, moduleId });
+    const attemptNumber = previousAttempts + 1;
+
+    // Create quiz attempt record
+    const quizAttempt = new QuizAttempt({
+      userId,
+      moduleId,
+      attemptNumber,
+      startTime: new Date(),
+      timeSpent: 0,
+      score: 0,
+      passed: false,
+      answers: [],
+      violations: [],
+      status: 'in_progress',
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+      deviceInfo: req.get('User-Agent')
+    });
+
+    await quizAttempt.save();
+
+    res.json({
+      success: true,
+      message: 'Quiz attempt started',
+      attemptId: quizAttempt._id,
+      attemptNumber,
+      quiz: {
+        _id: quiz._id,
+        questions: quiz.questions,
+        passPercent: quiz.passPercent,
+        estimatedTime: quiz.estimatedTime
+      }
+    });
+
+  } catch (error) {
+    console.error('Start quiz error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error starting quiz attempt'
+    });
+  }
+});
+
 // @route   POST /api/quiz/submit
 // @desc    Submit quiz attempt (All authenticated users)
 // @access  Private (All authenticated users)
 router.post('/submit', authenticateToken, async (req, res) => {
   try {
-    const { userId, moduleId, answers, timeTaken } = req.body;
+    const { userId, moduleId, answers, timeTaken, attemptId } = req.body;
 
     // Validate required fields
     if (!userId || !moduleId || !answers || !Array.isArray(answers)) {
@@ -344,9 +414,66 @@ router.post('/submit', authenticateToken, async (req, res) => {
     const percentage = Math.round((score / quiz.questions.length) * 100);
     const passed = percentage >= quiz.passPercent;
 
-    // Get attempt number
-    const previousAttempts = await QuizResult.countDocuments({ userId, moduleId });
-    const attemptNumber = previousAttempts + 1;
+    let quizAttempt;
+    let attemptNumber;
+
+    // Check if we're updating an existing attempt or creating a new one
+    if (attemptId) {
+      // Update existing attempt
+      quizAttempt = await QuizAttempt.findById(attemptId);
+      if (!quizAttempt || quizAttempt.userId.toString() !== userId) {
+        return res.status(404).json({
+          error: 'Quiz attempt not found',
+          message: 'Invalid attempt ID'
+        });
+      }
+      attemptNumber = quizAttempt.attemptNumber;
+      
+      // Update the attempt
+      quizAttempt.endTime = new Date();
+      quizAttempt.timeSpent = timeTaken || 0;
+      quizAttempt.score = percentage;
+      quizAttempt.passed = passed;
+      quizAttempt.answers = evaluatedAnswers.map(answer => ({
+        questionId: quiz.questions[answer.questionIndex]._id,
+        selectedAnswer: answer.selectedOption,
+        isCorrect: answer.isCorrect,
+        timeSpent: answer.timeSpent || 0,
+        weightage: 1
+      }));
+      quizAttempt.status = 'completed';
+      
+      await quizAttempt.save();
+    } else {
+      // Create new attempt
+      const previousAttempts = await QuizAttempt.countDocuments({ userId, moduleId });
+      attemptNumber = previousAttempts + 1;
+      
+      quizAttempt = new QuizAttempt({
+        userId,
+        moduleId,
+        attemptNumber,
+        startTime: new Date(Date.now() - (timeTaken || 0) * 1000), // Estimate start time
+        endTime: new Date(),
+        timeSpent: timeTaken || 0,
+        score: percentage,
+        passed,
+        answers: evaluatedAnswers.map(answer => ({
+          questionId: quiz.questions[answer.questionIndex]._id,
+          selectedAnswer: answer.selectedOption,
+          isCorrect: answer.isCorrect,
+          timeSpent: answer.timeSpent || 0,
+          weightage: 1
+        })),
+        violations: [], // No violations for now, can be enhanced later
+        status: 'completed',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        deviceInfo: req.get('User-Agent') // Can be enhanced with device detection
+      });
+      
+      await quizAttempt.save();
+    }
 
     // Create quiz result
     const quizResult = new QuizResult({
@@ -373,7 +500,10 @@ router.post('/submit', authenticateToken, async (req, res) => {
         total: quiz.questions.length,
         percentage,
         passed,
-        timeTaken: timeTaken || 0
+        timeTaken: timeTaken || 0,
+        attemptNumber,
+        quizAttemptId: quizAttempt._id,
+        quizResultId: quizResult._id
       }
     });
 

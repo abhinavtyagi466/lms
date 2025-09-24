@@ -3,7 +3,7 @@ import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
-import { X, User, Mail, Phone, Clock, CheckCircle, Play, FileQuestion, Award, Target, TrendingUp } from 'lucide-react';
+import { X, User, Mail, Phone, Clock, CheckCircle, Play, FileQuestion, Award, Target, TrendingUp, AlertTriangle } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 
@@ -16,6 +16,23 @@ interface UserDetailsModalProps {
     status: string;
     employeeId?: string;
     department?: string;
+    // Personal data fields
+    address?: string;
+    location?: string;
+    city?: string;
+    state?: string;
+    aadhaarNo?: string;
+    panNo?: string;
+    manager?: string;
+    kpiScore?: number;
+    lastLogin?: string;
+    isActive?: boolean;
+    inactiveReason?: string;
+    inactiveRemark?: string;
+    inactiveDate?: string;
+    inactiveBy?: string;
+    createdAt?: string;
+    updatedAt?: string;
   };
   isOpen: boolean;
   onClose: () => void;
@@ -43,6 +60,84 @@ interface QuizResult {
   attemptNumber: number;
 }
 
+interface QuizAttempt {
+  _id: string;
+  userId: string;
+  moduleId: {
+    _id: string;
+    title: string;
+  };
+  attemptNumber: number;
+  startTime: string;
+  endTime?: string;
+  timeSpent: number;
+  score: number;
+  passed: boolean;
+  status: 'in_progress' | 'completed' | 'terminated' | 'violation';
+  violations: Array<{
+    type: string;
+    timestamp: string;
+    description: string;
+    severity: string;
+  }>;
+  createdAt: string;
+}
+
+interface QuizAttemptStats {
+  totalAttempts: number;
+  totalQuizzes: number;
+  averageScore: number;
+  passRate: number;
+  totalTimeSpent: number;
+  violations: number;
+  recentAttempts: QuizAttempt[];
+  moduleStats: Array<{
+    moduleId: string;
+    moduleTitle: string;
+    attempts: number;
+    bestScore: number;
+    lastAttempt: string;
+    passed: boolean;
+  }>;
+}
+
+interface Warning {
+  _id: string;
+  userId: string;
+  type: string;
+  title: string;
+  reason: string;
+  description?: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'pending' | 'in_progress' | 'completed' | 'closed' | 'cancelled';
+  document?: string;
+  documentName?: string;
+  actionRequired?: string;
+  dueDate?: string;
+  completedDate?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface LifecycleEvent {
+  _id: string;
+  userId: string;
+  type: 'joined' | 'training' | 'audit' | 'warning' | 'achievement' | 'exit';
+  title: string;
+  description: string;
+  category: 'milestone' | 'positive' | 'negative' | 'neutral';
+  attachments?: Array<{
+    type: string;
+    path: string;
+    name: string;
+    uploadedAt: string;
+  }>;
+  metadata?: any;
+  createdBy?: string;
+  createdAt: string;
+}
+
 export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
   user,
   isOpen,
@@ -51,8 +146,12 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
   const [videoProgress, setVideoProgress] = useState<VideoProgress>({});
   const [modules, setModules] = useState<any[]>([]);
   const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
+  const [quizAttemptStats, setQuizAttemptStats] = useState<QuizAttemptStats | null>(null);
+  const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
+  const [warnings, setWarnings] = useState<Warning[]>([]);
+  const [lifecycleEvents, setLifecycleEvents] = useState<LifecycleEvent[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'progress' | 'quiz'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'progress' | 'quiz' | 'attempts' | 'warnings' | 'lifecycle'>('details');
 
   useEffect(() => {
     if (isOpen && user && user._id) {
@@ -68,11 +167,15 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
       setLoading(true);
       console.log('UserDetailsModal: Fetching data for user:', user._id);
       
-      // Fetch user's video progress, modules, and quiz results in parallel
-      const [progressResponse, modulesResponse, quizResultsResponse] = await Promise.all([
+      // Fetch user's video progress, modules, quiz results, quiz attempts, warnings, and lifecycle events in parallel
+      const [progressResponse, modulesResponse, quizResultsResponse, quizStatsResponse, quizAttemptsResponse, warningsResponse, lifecycleResponse] = await Promise.all([
         apiService.progress.getUserProgress(user._id),
         apiService.modules.getAllModules(),
-        apiService.quizzes.getQuizResults(user._id).catch(() => ({ data: { results: [] } }))
+        apiService.quizzes.getQuizResults(user._id).catch(() => ({ data: { results: [] } })),
+        apiService.quizAttempts.getQuizAttemptStats(user._id).catch(() => ({ data: null })),
+        apiService.quizAttempts.getUserQuizAttempts(user._id, { limit: 20 }).catch(() => ({ data: [] })),
+        apiService.users.getUserWarnings(user._id).catch(() => ({ data: { warnings: [] } })),
+        apiService.lifecycle.getUserLifecycle(user._id, { limit: 20 }).catch(() => ({ data: { events: [] } }))
       ]);
 
       console.log('UserDetailsModal: Progress response:', progressResponse);
@@ -117,6 +220,38 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
       } else {
         console.log('UserDetailsModal: No quiz results data found in response');
         setQuizResults([]);
+      }
+
+      // Set quiz attempt stats
+      if (quizStatsResponse?.data) {
+        console.log('UserDetailsModal: Setting quiz attempt stats:', quizStatsResponse.data);
+        setQuizAttemptStats(quizStatsResponse.data);
+      } else {
+        setQuizAttemptStats(null);
+      }
+
+      // Set quiz attempts
+      if (quizAttemptsResponse?.data) {
+        console.log('UserDetailsModal: Setting quiz attempts:', quizAttemptsResponse.data);
+        setQuizAttempts(quizAttemptsResponse.data);
+      } else {
+        setQuizAttempts([]);
+      }
+
+      // Set warnings
+      if (warningsResponse?.data?.warnings) {
+        console.log('UserDetailsModal: Setting warnings:', warningsResponse.data.warnings);
+        setWarnings(warningsResponse.data.warnings);
+      } else {
+        setWarnings([]);
+      }
+
+      // Set lifecycle events
+      if (lifecycleResponse?.data?.events) {
+        console.log('UserDetailsModal: Setting lifecycle events:', lifecycleResponse.data.events);
+        setLifecycleEvents(lifecycleResponse.data.events);
+      } else {
+        setLifecycleEvents([]);
       }
 
     } catch (error) {
@@ -251,6 +386,36 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
           >
             Quiz Stats
           </button>
+          <button
+            onClick={() => setActiveTab('attempts')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'attempts'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Quiz Attempts
+          </button>
+          <button
+            onClick={() => setActiveTab('warnings')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'warnings'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Warnings ({warnings.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('lifecycle')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'lifecycle'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Lifecycle Events
+          </button>
         </div>
 
         {/* Content */}
@@ -265,69 +430,71 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
               {activeTab === 'details' && (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <User className="w-5 h-5 text-gray-500" />
-                        <div>
-                          <p className="text-sm text-gray-600">Full Name</p>
-                          <p className="font-medium">{user.name}</p>
+                    <Card className="p-4">
+                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                        <User className="w-4 h-4 mr-2 text-blue-600" />
+                        Basic Information
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div><span className="font-medium">Name:</span> {user.name}</div>
+                        <div><span className="font-medium">Email:</span> {user.email}</div>
+                        <div><span className="font-medium">Phone:</span> {user.phone || 'Not provided'}</div>
+                        <div><span className="font-medium">Employee ID:</span> {user.employeeId || 'Not assigned'}</div>
+                        <div><span className="font-medium">Department:</span> {user.department || 'Not assigned'}</div>
+                        <div><span className="font-medium">Manager:</span> {user.manager || 'Not assigned'}</div>
+                        <div><span className="font-medium">Status:</span> 
+                          <Badge className={`ml-2 ${
+                            user.status === 'Active' ? 'bg-green-100 text-green-800' :
+                            user.status === 'Warning' ? 'bg-yellow-100 text-yellow-800' :
+                            user.status === 'Audited' ? 'bg-blue-100 text-blue-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {user.status}
+                          </Badge>
                         </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3">
-                        <Mail className="w-5 h-5 text-gray-500" />
-                        <div>
-                          <p className="text-sm text-gray-600">Email</p>
-                          <p className="font-medium">{user.email}</p>
-                        </div>
-                      </div>
-                      
-                      {user.phone && (
-                        <div className="flex items-center gap-3">
-                          <Phone className="w-5 h-5 text-gray-500" />
-                          <div>
-                            <p className="text-sm text-gray-600">Phone</p>
-                            <p className="font-medium">{user.phone}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-4">
-                      {user.employeeId && (
-                        <div className="flex items-center gap-3">
-                          <div className="w-5 h-5 text-gray-500">🆔</div>
-                          <div>
-                            <p className="text-sm text-gray-600">Employee ID</p>
-                            <p className="font-medium">{user.employeeId}</p>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {user.department && (
-                        <div className="flex items-center gap-3">
-                          <div className="w-5 h-5 text-gray-500">🏢</div>
-                          <div>
-                            <p className="text-sm text-gray-600">Department</p>
-                            <p className="font-medium">{user.department}</p>
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center gap-3">
-                        <div className="w-5 h-5 text-gray-500">📊</div>
-                        <div>
-                          <p className="text-sm text-gray-600">Status</p>
-                          <Badge 
-                            variant={user.status === 'active' ? 'default' : 'secondary'}
-                            className={user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}
-                          >
-                            {user.status === 'active' ? 'Active' : user.status}
+                        <div><span className="font-medium">KPI Score:</span> {user.kpiScore || 0}%</div>
+                        <div><span className="font-medium">Last Login:</span> {user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}</div>
+                        <div><span className="font-medium">Account Status:</span> 
+                          <Badge className={`ml-2 ${user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {user.isActive ? 'Active' : 'Inactive'}
                           </Badge>
                         </div>
                       </div>
-                    </div>
+                    </Card>
+
+                    <Card className="p-4">
+                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                        <Mail className="w-4 h-4 mr-2 text-green-600" />
+                        Personal Information
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div><span className="font-medium">Address:</span> {user.address || 'Not provided'}</div>
+                        <div><span className="font-medium">Location:</span> {user.location || 'Not provided'}</div>
+                        <div><span className="font-medium">City:</span> {user.city || 'Not provided'}</div>
+                        <div><span className="font-medium">State:</span> {user.state || 'Not provided'}</div>
+                        <div><span className="font-medium">PAN Number:</span> {user.panNo || 'Not provided'}</div>
+                        <div><span className="font-medium">Aadhaar Number:</span> {user.aadhaarNo || 'Not provided'}</div>
+                        <div><span className="font-medium">Created:</span> {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}</div>
+                        <div><span className="font-medium">Last Updated:</span> {user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : 'Unknown'}</div>
+                      </div>
+                    </Card>
                   </div>
+
+                  {/* Inactive Status Information */}
+                  {user.status === 'Inactive' && (
+                    <Card className="p-4 border-red-200 bg-red-50">
+                      <h4 className="font-semibold text-red-800 mb-3 flex items-center">
+                        <AlertTriangle className="w-4 h-4 mr-2 text-red-600" />
+                        Inactive Status Details
+                      </h4>
+                      <div className="space-y-2 text-sm text-red-700">
+                        <div><span className="font-medium">Reason:</span> {user.inactiveReason || 'Not specified'}</div>
+                        <div><span className="font-medium">Remark:</span> {user.inactiveRemark || 'No remarks provided'}</div>
+                        <div><span className="font-medium">Inactive Date:</span> {user.inactiveDate ? new Date(user.inactiveDate).toLocaleString() : 'Unknown'}</div>
+                        <div><span className="font-medium">Inactive By:</span> {user.inactiveBy || 'Unknown'}</div>
+                      </div>
+                    </Card>
+                  )}
                 </div>
               )}
 
@@ -540,6 +707,354 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                       <p className="text-sm mb-2">This user hasn't completed any quizzes yet.</p>
                       <p className="text-xs text-gray-400">
                         Quiz results will appear here once the user completes training modules and takes quizzes.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Quiz Attempts Tab */}
+              {activeTab === 'attempts' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900">Quiz Attempts & Violations</h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchUserData}
+                      disabled={loading}
+                      className="text-xs"
+                    >
+                      {loading ? 'Loading...' : 'Refresh'}
+                    </Button>
+                  </div>
+
+                  {/* Quiz Attempt Statistics */}
+                  {quizAttemptStats && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <Card className="p-4 text-center">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                          <FileQuestion className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div className="text-2xl font-bold text-blue-600">{quizAttemptStats.totalAttempts}</div>
+                        <div className="text-sm text-gray-600">Total Attempts</div>
+                      </Card>
+                      
+                      <Card className="p-4 text-center">
+                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        </div>
+                        <div className="text-2xl font-bold text-green-600">{quizAttemptStats.totalQuizzes}</div>
+                        <div className="text-sm text-gray-600">Quizzes Taken</div>
+                      </Card>
+                      
+                      <Card className="p-4 text-center">
+                        <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                          <TrendingUp className="w-4 h-4 text-orange-600" />
+                        </div>
+                        <div className="text-2xl font-bold text-orange-600">{Math.round(quizAttemptStats.averageScore)}%</div>
+                        <div className="text-sm text-gray-600">Average Score</div>
+                      </Card>
+                      
+                      <Card className="p-4 text-center">
+                        <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                          <Target className="w-4 h-4 text-purple-600" />
+                        </div>
+                        <div className="text-2xl font-bold text-purple-600">{Math.round(quizAttemptStats.passRate)}%</div>
+                        <div className="text-sm text-gray-600">Pass Rate</div>
+                      </Card>
+                    </div>
+                  )}
+
+                  {/* Violations Alert */}
+                  {quizAttemptStats && quizAttemptStats.violations > 0 && (
+                    <Card className="p-4 border-red-200 bg-red-50">
+                      <div className="flex items-center text-red-600">
+                        <AlertTriangle className="w-5 h-5 mr-2" />
+                        <span className="font-medium">
+                          {quizAttemptStats.violations} Quiz Violation(s) Detected
+                        </span>
+                      </div>
+                      <p className="text-sm text-red-600 mt-1">
+                        This user has violated quiz integrity rules. Review the detailed attempts below.
+                      </p>
+                    </Card>
+                  )}
+
+                  {/* Detailed Quiz Attempts */}
+                  {quizAttempts.length > 0 ? (
+                    <div className="space-y-4">
+                      <h4 className="text-md font-semibold text-gray-900">Detailed Attempt History</h4>
+                      {quizAttempts.map((attempt) => (
+                        <Card key={attempt._id} className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <h5 className="font-medium text-gray-900 mb-1">
+                                {attempt.moduleId?.title || `Module ${attempt.moduleId?._id || 'Unknown'}`}
+                              </h5>
+                              <p className="text-sm text-gray-600">
+                                Attempt #{attempt.attemptNumber} • Started {new Date(attempt.startTime).toLocaleString()}
+                                {attempt.endTime && ` • Completed ${new Date(attempt.endTime).toLocaleString()}`}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {attempt.passed ? (
+                                <Badge className="bg-green-100 text-green-800">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Passed
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="bg-red-100 text-red-800">
+                                  <X className="w-3 h-3 mr-1" />
+                                  Failed
+                                </Badge>
+                              )}
+                              <Badge 
+                                variant="outline" 
+                                className={`${
+                                  attempt.status === 'violation' 
+                                    ? 'border-red-300 text-red-700 bg-red-50' 
+                                    : attempt.status === 'completed'
+                                    ? 'border-green-300 text-green-700 bg-green-50'
+                                    : 'border-gray-300 text-gray-700 bg-gray-50'
+                                }`}
+                              >
+                                {attempt.status}
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-600">Score:</span>
+                              <div className="font-medium">{attempt.score}%</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Time Spent:</span>
+                              <div className="font-medium">{Math.round(attempt.timeSpent / 60)}m {attempt.timeSpent % 60}s</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Status:</span>
+                              <div className="font-medium">
+                                {attempt.passed ? (
+                                  <span className="text-green-600">✓ Passed</span>
+                                ) : (
+                                  <span className="text-red-600">✗ Failed</span>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Violations:</span>
+                              <div className="font-medium">
+                                {attempt.violations.length > 0 ? (
+                                  <span className="text-red-600">{attempt.violations.length}</span>
+                                ) : (
+                                  <span className="text-green-600">0</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Violations Details */}
+                          {attempt.violations.length > 0 && (
+                            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                              <h6 className="font-medium text-red-800 mb-2">Violations Detected:</h6>
+                              {attempt.violations.map((violation, idx) => (
+                                <div key={idx} className="text-sm text-red-700 mb-1">
+                                  <span className="font-medium">{violation.type}:</span> {violation.description}
+                                  <span className="text-xs text-red-600 ml-2">
+                                    ({new Date(violation.timestamp).toLocaleString()})
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <FileQuestion className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p className="text-lg font-medium mb-2">No Quiz Attempts</p>
+                      <p className="text-sm mb-2">This user hasn't attempted any quizzes yet.</p>
+                      <p className="text-xs text-gray-400">
+                        Quiz attempt details will appear here once the user starts taking quizzes.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Warnings Tab */}
+              {activeTab === 'warnings' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900">Warnings & Disciplinary Records</h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchUserData}
+                      disabled={loading}
+                      className="text-xs"
+                    >
+                      {loading ? 'Loading...' : 'Refresh'}
+                    </Button>
+                  </div>
+
+                  {warnings.length > 0 ? (
+                    <div className="space-y-4">
+                      {warnings.map((warning) => (
+                        <Card key={warning._id} className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <h5 className="font-medium text-gray-900 mb-1">{warning.title}</h5>
+                              <p className="text-sm text-gray-600 mb-2">{warning.reason}</p>
+                              {warning.description && (
+                                <p className="text-sm text-gray-700 mb-2">{warning.description}</p>
+                              )}
+                              <p className="text-xs text-gray-500">
+                                Created: {new Date(warning.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                className={`${
+                                  warning.severity === 'critical' ? 'bg-red-100 text-red-800' :
+                                  warning.severity === 'high' ? 'bg-orange-100 text-orange-800' :
+                                  warning.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-blue-100 text-blue-800'
+                                }`}
+                              >
+                                {warning.severity}
+                              </Badge>
+                              <Badge 
+                                variant="outline"
+                                className={`${
+                                  warning.status === 'completed' ? 'border-green-300 text-green-700 bg-green-50' :
+                                  warning.status === 'pending' ? 'border-yellow-300 text-yellow-700 bg-yellow-50' :
+                                  'border-gray-300 text-gray-700 bg-gray-50'
+                                }`}
+                              >
+                                {warning.status}
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-600">Type:</span>
+                              <div className="font-medium">{warning.type}</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Due Date:</span>
+                              <div className="font-medium">
+                                {warning.dueDate ? new Date(warning.dueDate).toLocaleDateString() : 'Not set'}
+                              </div>
+                            </div>
+                            {warning.actionRequired && (
+                              <div className="md:col-span-2">
+                                <span className="text-gray-600">Action Required:</span>
+                                <div className="font-medium">{warning.actionRequired}</div>
+                              </div>
+                            )}
+                            {warning.completedDate && (
+                              <div>
+                                <span className="text-gray-600">Completed:</span>
+                                <div className="font-medium">{new Date(warning.completedDate).toLocaleDateString()}</div>
+                              </div>
+                            )}
+                          </div>
+
+                          {warning.documentName && (
+                            <div className="mt-3 p-2 bg-gray-50 rounded border">
+                              <span className="text-sm text-gray-600">Document: </span>
+                              <span className="text-sm font-medium">{warning.documentName}</span>
+                            </div>
+                          )}
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p className="text-lg font-medium mb-2">No Warnings</p>
+                      <p className="text-sm mb-2">This user has no warning records.</p>
+                      <p className="text-xs text-gray-400">
+                        Warning records will appear here if any disciplinary actions are taken.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Lifecycle Events Tab */}
+              {activeTab === 'lifecycle' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900">Lifecycle Events</h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchUserData}
+                      disabled={loading}
+                      className="text-xs"
+                    >
+                      {loading ? 'Loading...' : 'Refresh'}
+                    </Button>
+                  </div>
+
+                  {lifecycleEvents.length > 0 ? (
+                    <div className="space-y-4">
+                      {lifecycleEvents.map((event) => (
+                        <Card key={event._id} className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <h5 className="font-medium text-gray-900 mb-1">{event.title}</h5>
+                              <p className="text-sm text-gray-600 mb-2">{event.description}</p>
+                              <p className="text-xs text-gray-500">
+                                {new Date(event.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                className={`${
+                                  event.category === 'positive' ? 'bg-green-100 text-green-800' :
+                                  event.category === 'negative' ? 'bg-red-100 text-red-800' :
+                                  event.category === 'milestone' ? 'bg-blue-100 text-blue-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}
+                              >
+                                {event.category}
+                              </Badge>
+                              <Badge variant="outline">
+                                {event.type}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          {event.attachments && event.attachments.length > 0 && (
+                            <div className="mt-3 p-2 bg-gray-50 rounded border">
+                              <span className="text-sm text-gray-600">Attachments:</span>
+                              <div className="mt-1 space-y-1">
+                                {event.attachments.map((attachment, idx) => (
+                                  <div key={idx} className="text-sm">
+                                    <span className="font-medium">{attachment.name}</span>
+                                    <span className="text-gray-500 ml-2">({attachment.type})</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p className="text-lg font-medium mb-2">No Lifecycle Events</p>
+                      <p className="text-sm mb-2">This user has no lifecycle events recorded.</p>
+                      <p className="text-xs text-gray-400">
+                        Lifecycle events track important milestones and activities in the user's journey.
                       </p>
                     </div>
                   )}

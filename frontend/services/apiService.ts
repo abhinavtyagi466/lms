@@ -292,12 +292,21 @@ export const apiService = {
       return response;
     },
 
-    submitQuiz: async (userId: string, moduleId: string, answers: any[], timeTaken: number) => {
+    startQuiz: async (userId: string, moduleId: string) => {
+      const response = await apiClient.post('/quiz/start', {
+        userId,
+        moduleId
+      });
+      return response;
+    },
+
+    submitQuiz: async (userId: string, moduleId: string, answers: any[], timeTaken: number, attemptId?: string) => {
       const response = await apiClient.post('/quiz/submit', {
         userId,
         moduleId,
         answers,
-        timeTaken
+        timeTaken,
+        attemptId
       });
       return response;
     },
@@ -655,9 +664,24 @@ export const apiService = {
       userId: string;
       period: string;
       comments?: string;
-      tat: number;
-      quality: number;
-      appUsage: number;
+      // Enhanced raw data structure
+      rawData: {
+        totalCases: number;
+        tatCases: number;
+        majorNegEvents: number;
+        clientComplaints: number;
+        fatalIssues: number;
+        opsRejections: number;
+        neighborChecksRequired: number;
+        neighborChecksDone: number;
+        generalNegEvents: number;
+        appCases: number;
+        insuffCases: number;
+      };
+      // Legacy support for backward compatibility
+      tat?: number;
+      quality?: number;
+      appUsage?: number;
       negativity?: number;
       majorNegativity?: number;
       neighborCheck?: number;
@@ -767,6 +791,194 @@ export const apiService = {
       if (period) params.append('period', period);
       
       const response = await apiClient.get(`/kpi/real-activity-summary/${userId}?${params.toString()}`);
+      return response;
+    },
+
+    // Enhanced KPI methods
+    calculateFromRawData: async (userId: string, period: string, kpiConfigId?: string) => {
+      const response = await apiClient.post('/kpi/calculate-from-raw', {
+        userId,
+        period,
+        kpiConfigId
+      });
+      return response;
+    },
+
+    importRawData: async (events: any[], period: string, dataSource: string = 'manual_entry') => {
+      const response = await apiClient.post('/kpi/import-raw-data', {
+        events,
+        period,
+        dataSource
+      });
+      return response;
+    },
+
+    overrideKPI: async (kpiId: string, overrideData: {
+      overrideScore: number;
+      overrideRating: string;
+      overrideReason: string;
+    }) => {
+      const response = await apiClient.put(`/kpi/${kpiId}/override`, overrideData);
+      return response;
+    },
+
+    getKPITrends: async (userId: string, periods: number = 6) => {
+      const response = await apiClient.get(`/kpi/${userId}/trends?periods=${periods}`);
+      return response;
+    },
+
+    getKPIConfigs: async () => {
+      const response = await apiClient.get('/kpi/configs');
+      return response;
+    },
+
+    createKPIConfig: async (configData: any) => {
+      const response = await apiClient.post('/kpi/configs', configData);
+      return response;
+    },
+
+    updateKPIConfig: async (configId: string, configData: any) => {
+      const response = await apiClient.put(`/kpi/configs/${configId}`, configData);
+      return response;
+    }
+  },
+
+  // Quiz Attempt APIs
+  quizAttempts: {
+    getUserQuizAttempts: async (userId: string, filters?: {
+      moduleId?: string;
+      limit?: number;
+      page?: number;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.moduleId) params.append('moduleId', filters.moduleId);
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.page) params.append('page', filters.page.toString());
+      
+      const response = await apiClient.get(`/quiz-attempts/user/${userId}?${params.toString()}`);
+      return response;
+    },
+
+    getQuizAttemptStats: async (userId: string) => {
+      const response = await apiClient.get(`/quiz-attempts/stats/${userId}`);
+      return response;
+    },
+
+    getQuizAttemptHistory: async (userId: string, moduleId?: string) => {
+      const params = new URLSearchParams();
+      if (moduleId) params.append('moduleId', moduleId);
+      
+      const response = await apiClient.get(`/quiz-attempts/history/${userId}?${params.toString()}`);
+      return response;
+    },
+
+    getQuizViolations: async (userId: string) => {
+      const response = await apiClient.get(`/quiz-attempts/violations/${userId}`);
+      return response;
+    },
+
+    // Admin methods
+    getAllQuizAttempts: async (filters?: {
+      userId?: string;
+      moduleId?: string;
+      status?: string;
+      page?: number;
+      limit?: number;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.userId) params.append('userId', filters.userId);
+      if (filters?.moduleId) params.append('moduleId', filters.moduleId);
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      
+      const response = await apiClient.get(`/quiz-attempts?${params.toString()}`);
+      return response;
+    },
+
+    getQuizAttemptAnalytics: async (filters?: {
+      startDate?: string;
+      endDate?: string;
+      moduleId?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.startDate) params.append('startDate', filters.startDate);
+      if (filters?.endDate) params.append('endDate', filters.endDate);
+      if (filters?.moduleId) params.append('moduleId', filters.moduleId);
+      
+      const response = await apiClient.get(`/quiz-attempts/analytics?${params.toString()}`);
+      return response;
+    }
+  },
+
+  // User Activity APIs
+  userActivity: {
+    getActivitySummary: async (userId: string, days?: number) => {
+      const params = new URLSearchParams();
+      if (days) params.append('days', days.toString());
+      
+      const response = await apiClient.get(`/user-activity/summary/${userId}?${params.toString()}`);
+      return response;
+    },
+
+    getLoginAttempts: async (userId: string, days?: number) => {
+      const params = new URLSearchParams();
+      if (days) params.append('days', days.toString());
+      
+      const response = await apiClient.get(`/user-activity/login-attempts/${userId}?${params.toString()}`);
+      return response;
+    },
+
+    getSessionData: async (userId: string, days?: number) => {
+      const params = new URLSearchParams();
+      if (days) params.append('days', days.toString());
+      
+      const response = await apiClient.get(`/user-activity/sessions/${userId}?${params.toString()}`);
+      return response;
+    },
+
+    getSuspiciousActivities: async (userId: string, days?: number) => {
+      const params = new URLSearchParams();
+      if (days) params.append('days', days.toString());
+      
+      const response = await apiClient.get(`/user-activity/suspicious/${userId}?${params.toString()}`);
+      return response;
+    },
+
+    getRecentActivities: async (userId: string, filters?: {
+      limit?: number;
+      page?: number;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.page) params.append('page', filters.page.toString());
+      
+      const response = await apiClient.get(`/user-activity/recent/${userId}?${params.toString()}`);
+      return response;
+    },
+
+    trackActivity: async (activityData: {
+      activityType: string;
+      description: string;
+      metadata?: any;
+      duration?: number;
+      success?: boolean;
+      errorMessage?: string;
+      relatedEntity?: {
+        type: string;
+        id: string;
+      };
+    }) => {
+      const response = await apiClient.post('/user-activity/track', activityData);
+      return response;
+    },
+
+    // Admin methods
+    getAdminAnalytics: async (days?: number) => {
+      const params = new URLSearchParams();
+      if (days) params.append('days', days.toString());
+      
+      const response = await apiClient.get(`/user-activity/admin/analytics?${params.toString()}`);
       return response;
     }
   },

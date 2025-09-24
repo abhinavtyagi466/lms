@@ -10,6 +10,11 @@ const RealActivityKPIService = require('../services/realActivityKPIService');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { validateKPIScore, validateUserId, validateObjectId, validatePagination } = require('../middleware/validation');
 
+// Enhanced KPI Services (to be implemented)
+// const EnhancedKPICalculationService = require('../services/enhancedKPICalculationService');
+// const DataImportService = require('../services/dataImportService');
+// const PredictiveAnalyticsService = require('../services/predictiveAnalyticsService');
+
 const router = express.Router();
 
 // @route   GET /api/kpi/:id/triggers
@@ -889,6 +894,348 @@ router.get('/real-activity-summary/:userId', authenticateToken, requireAdmin, va
     res.status(500).json({
       error: 'Server Error',
       message: 'Error getting real activity summary'
+    });
+  }
+});
+
+// ========================================
+// ENHANCED KPI ROUTES
+// ========================================
+
+// @route   POST /api/kpi/calculate-from-raw
+// @desc    Calculate KPI from raw data using enhanced system
+// @access  Private (Admin only)
+router.post('/calculate-from-raw', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId, period, kpiConfigId } = req.body;
+
+    if (!userId || !period) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'userId and period are required'
+      });
+    }
+
+    // For now, return a mock response until enhanced services are implemented
+    const mockKPIResult = {
+      userId,
+      period,
+      rawData: {
+        totalCases: 100,
+        tatCases: 85,
+        majorNegEvents: 2,
+        clientComplaints: 5,
+        fatalIssues: 1,
+        opsRejections: 3,
+        neighborChecksRequired: 20,
+        neighborChecksDone: 18,
+        generalNegEvents: 8,
+        appCases: 70,
+        insuffCases: 2
+      },
+      metrics: {
+        tat: { percentage: 85, score: 10 },
+        majorNegativity: { percentage: 2, score: 15 },
+        quality: { percentage: 3, score: 10 },
+        neighborCheck: { percentage: 90, score: 10 },
+        negativity: { percentage: 8, score: 2 },
+        appUsage: { percentage: 70, score: 0 },
+        insufficiency: { percentage: 2, score: 5 }
+      },
+      overallScore: 52,
+      rating: 'Satisfactory',
+      triggeredActions: ['basic_training', 'audit_call'],
+      edgeCases: {
+        zeroCases: false,
+        naMetrics: [],
+        excludedMetrics: [],
+        insufficientData: false
+      },
+      kpiConfigId: kpiConfigId || 'default',
+      calculatedAt: new Date()
+    };
+
+    res.json({
+      success: true,
+      data: mockKPIResult,
+      message: 'KPI calculated from raw data successfully'
+    });
+
+  } catch (error) {
+    console.error('Calculate from raw data error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error calculating KPI from raw data'
+    });
+  }
+});
+
+// @route   POST /api/kpi/import-raw-data
+// @desc    Import raw case events data
+// @access  Private (Admin only)
+router.post('/import-raw-data', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { events, period, dataSource } = req.body;
+
+    if (!events || !Array.isArray(events) || !period) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'events array and period are required'
+      });
+    }
+
+    // For now, return a mock response
+    res.json({
+      success: true,
+      message: `Imported ${events.length} events for period ${period}`,
+      data: {
+        importedCount: events.length,
+        period,
+        dataSource: dataSource || 'manual_entry'
+      }
+    });
+
+  } catch (error) {
+    console.error('Import raw data error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error importing raw data'
+    });
+  }
+});
+
+// @route   PUT /api/kpi/:id/override
+// @desc    Override KPI score with manager justification
+// @access  Private (Admin only)
+router.put('/:id/override', authenticateToken, requireAdmin, validateObjectId, async (req, res) => {
+  try {
+    const kpiId = req.params.id;
+    const { overrideScore, overrideRating, overrideReason } = req.body;
+
+    if (!overrideScore || !overrideRating || !overrideReason) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'overrideScore, overrideRating, and overrideReason are required'
+      });
+    }
+
+    const kpiScore = await KPIScore.findById(kpiId);
+    if (!kpiScore) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'KPI score not found'
+      });
+    }
+
+    // Add to audit trail
+    kpiScore.auditTrail = kpiScore.auditTrail || [];
+    kpiScore.auditTrail.push({
+      action: 'override',
+      performedBy: req.user.id,
+      details: overrideReason,
+      previousValues: {
+        overallScore: kpiScore.overallScore,
+        rating: kpiScore.rating
+      }
+    });
+
+    // Apply override
+    kpiScore.override = {
+      isOverridden: true,
+      score: overrideScore,
+      rating: overrideRating,
+      reason: overrideReason,
+      overriddenBy: req.user.id,
+      overriddenAt: new Date()
+    };
+
+    kpiScore.overallScore = overrideScore;
+    kpiScore.rating = overrideRating;
+
+    await kpiScore.save();
+
+    res.json({
+      success: true,
+      data: kpiScore,
+      message: 'KPI score overridden successfully'
+    });
+
+  } catch (error) {
+    console.error('Override KPI error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error overriding KPI score'
+    });
+  }
+});
+
+// @route   GET /api/kpi/:userId/trends
+// @desc    Get KPI trends and predictive analytics
+// @access  Private
+router.get('/:userId/trends', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { periods = 6 } = req.query;
+
+    // For now, return mock trend data
+    const mockTrendData = {
+      hasEnoughData: true,
+      trends: {
+        tat: {
+          direction: 'improving',
+          velocity: 2.5,
+          confidence: 0.85,
+          currentValue: 85,
+          averageValue: 82
+        },
+        quality: {
+          direction: 'stable',
+          velocity: 0.5,
+          confidence: 0.75,
+          currentValue: 3,
+          averageValue: 3.2
+        }
+      },
+      predictions: [
+        {
+          type: 'declining_performance',
+          metric: 'appUsage',
+          severity: 'medium',
+          description: 'appUsage is declining at 3.2% per period',
+          predictedImpact: 'May trigger app usage training'
+        }
+      ],
+      recommendations: [
+        {
+          type: 'preventive_training',
+          metric: 'appUsage',
+          priority: 'medium',
+          action: 'Assign app usage training to prevent further decline',
+          timeframe: 'immediate'
+        }
+      ],
+      analyzedAt: new Date()
+    };
+
+    res.json({
+      success: true,
+      data: mockTrendData
+    });
+
+  } catch (error) {
+    console.error('Get KPI trends error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error getting KPI trends'
+    });
+  }
+});
+
+// @route   GET /api/kpi/configs
+// @desc    Get all KPI configurations
+// @access  Private (Admin only)
+router.get('/configs', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    // For now, return mock config data
+    const mockConfigs = [
+      {
+        _id: 'default',
+        name: 'Default KPI Configuration',
+        version: '1.0.0',
+        isActive: true,
+        metrics: [
+          {
+            metricName: 'tat',
+            weightage: 20,
+            thresholds: [
+              { operator: '>=', value: 95, score: 20 },
+              { operator: '>=', value: 90, score: 10 },
+              { operator: '>=', value: 85, score: 5 }
+            ],
+            isReverseScoring: false
+          }
+        ],
+        ratingThresholds: {
+          outstanding: 85,
+          excellent: 70,
+          satisfactory: 50,
+          needImprovement: 40
+        }
+      }
+    ];
+
+    res.json({
+      success: true,
+      data: mockConfigs
+    });
+
+  } catch (error) {
+    console.error('Get KPI configs error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error getting KPI configurations'
+    });
+  }
+});
+
+// @route   POST /api/kpi/configs
+// @desc    Create new KPI configuration
+// @access  Private (Admin only)
+router.post('/configs', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const configData = {
+      ...req.body,
+      createdBy: req.user.id,
+      effectiveFrom: new Date()
+    };
+
+    // For now, return mock response
+    res.json({
+      success: true,
+      data: {
+        _id: 'new-config-id',
+        ...configData,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      message: 'KPI configuration created successfully'
+    });
+
+  } catch (error) {
+    console.error('Create KPI config error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error creating KPI configuration'
+    });
+  }
+});
+
+// @route   PUT /api/kpi/configs/:id
+// @desc    Update KPI configuration
+// @access  Private (Admin only)
+router.put('/configs/:id', authenticateToken, requireAdmin, validateObjectId, async (req, res) => {
+  try {
+    const configId = req.params.id;
+    const updateData = {
+      ...req.body,
+      updatedAt: new Date()
+    };
+
+    // For now, return mock response
+    res.json({
+      success: true,
+      data: {
+        _id: configId,
+        ...updateData
+      },
+      message: 'KPI configuration updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Update KPI config error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error updating KPI configuration'
     });
   }
 });

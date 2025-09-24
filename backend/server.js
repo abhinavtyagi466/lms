@@ -204,6 +204,8 @@ const auditSchedulingRoutes = require('./routes/auditScheduling');
 const lifecycleRoutes = require('./routes/lifecycle');
 const notificationRoutes = require('./routes/notifications');
 const trainingAssignmentRoutes = require('./routes/trainingAssignments');
+const quizAttemptRoutes = require('./routes/quizAttempts');
+const userActivityRoutes = require('./routes/userActivity');
 const autoKPIScheduler = require('./services/autoKPIScheduler');
 
 // Use routes
@@ -222,6 +224,8 @@ app.use('/api/audit-scheduling', auditSchedulingRoutes);
 app.use('/api/lifecycle', lifecycleRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/training-assignments', trainingAssignmentRoutes);
+app.use('/api/quiz-attempts', quizAttemptRoutes);
+app.use('/api/user-activity', userActivityRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

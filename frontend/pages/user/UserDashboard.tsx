@@ -42,25 +42,75 @@ interface LifecycleStats {
   firstEvent: any;
 }
 
+// Enhanced KPI Score interface matching backend structure
 interface KPIScore {
   _id: string;
   userId: string;
   period: string;
+  // Raw operational data
+  rawData: {
+    totalCases: number;
+    tatCases: number;
+    majorNegEvents: number;
+    clientComplaints: number;
+    fatalIssues: number;
+    opsRejections: number;
+    neighborChecksRequired: number;
+    neighborChecksDone: number;
+    generalNegEvents: number;
+    appCases: number;
+    insuffCases: number;
+  };
+  // Calculated metrics
+  metrics: {
+    tat: { percentage: number; score: number };
+    majorNegativity: { percentage: number; score: number };
+    quality: { percentage: number; score: number };
+    neighborCheck: { percentage: number; score: number };
+    negativity: { percentage: number; score: number };
+    appUsage: { percentage: number; score: number };
+    insufficiency: { percentage: number; score: number };
+  };
   overallScore: number;
   rating: string;
-  tat: number;
-  majorNegativity: number;
-  quality: number;
-  neighborCheck: number;
-  generalNegativity: number;
-  appUsage: number;
-  insufficiency: number;
+  triggeredActions: string[];
+  // Override system
+  override: {
+    isOverridden: boolean;
+    score?: number;
+    rating?: string;
+    reason?: string;
+    overriddenBy?: string;
+    overriddenAt?: string;
+  };
+  // Edge case flags
+  edgeCases: {
+    zeroCases: boolean;
+    naMetrics: string[];
+    excludedMetrics: string[];
+    insufficientData: boolean;
+  };
+  // References
+  kpiConfigId: string;
+  // Audit trail
+  auditTrail: Array<{
+    action: string;
+    performedBy: string;
+    performedAt: string;
+    details: string;
+    previousValues: any;
+  }>;
+  // Existing fields
+  submittedBy: string;
+  comments?: string;
   trainingAssignments: any[];
-  auditSchedules: any[];
   emailLogs: any[];
-  automationStatus: string;
+  auditSchedules: any[];
   processedAt: string;
+  automationStatus: string;
+  isActive: boolean;
   createdAt: string;
+  updatedAt: string;
 }
 
 interface TrainingAssignment {
@@ -96,6 +146,164 @@ interface Notification {
   createdAt: string;
 }
 
+interface QuizAttempt {
+  _id: string;
+  userId: string;
+  moduleId: {
+    _id: string;
+    title: string;
+  };
+  attemptNumber: number;
+  startTime: string;
+  endTime?: string;
+  timeSpent: number;
+  score: number;
+  passed: boolean;
+  status: 'in_progress' | 'completed' | 'terminated' | 'violation';
+  violations: Array<{
+    type: string;
+    timestamp: string;
+    description: string;
+    severity: string;
+  }>;
+  createdAt: string;
+}
+
+interface QuizAttemptStats {
+  totalAttempts: number;
+  totalQuizzes: number;
+  averageScore: number;
+  passRate: number;
+  totalTimeSpent: number;
+  violations: number;
+  recentAttempts: QuizAttempt[];
+  moduleStats: Array<{
+    moduleId: string;
+    moduleTitle: string;
+    attempts: number;
+    bestScore: number;
+    lastAttempt: string;
+    passed: boolean;
+  }>;
+}
+
+interface UserActivity {
+  _id: string;
+  userId: string;
+  activityType: string;
+  description: string;
+  metadata: any;
+  ipAddress: string;
+  userAgent: string;
+  deviceInfo: {
+    type: string;
+    os: string;
+    browser: string;
+    version: string;
+  };
+  location: {
+    country: string;
+    region: string;
+    city: string;
+    coordinates: {
+      latitude: number;
+      longitude: number;
+    };
+  };
+  sessionId: string;
+  duration: number;
+  success: boolean;
+  errorMessage?: string;
+  relatedEntity?: {
+    type: string;
+    id: string;
+  };
+  tags: string[];
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  isSuspicious: boolean;
+  riskScore: number;
+  createdAt: string;
+}
+
+interface ActivitySummary {
+  summary: Array<{
+    _id: string;
+    count: number;
+    lastActivity: string;
+    successRate: number;
+    avgDuration: number;
+    suspiciousCount: number;
+  }>;
+  totalActivities: number;
+  suspiciousActivities: number;
+  recentActivities: UserActivity[];
+  period: string;
+}
+
+interface LoginAttempts {
+  attempts: UserActivity[];
+  statistics: {
+    totalAttempts: number;
+    successfulLogins: number;
+    failedLogins: number;
+    successRate: number;
+    uniqueIPs: number;
+    uniqueDevices: number;
+  };
+  period: string;
+}
+
+interface SessionData {
+  summary: {
+    totalSessions: number;
+    totalDuration: number;
+    avgDuration: number;
+    totalPageViews: number;
+    totalActions: number;
+    suspiciousSessions: number;
+    uniqueDevices: string[];
+    uniqueLocations: string[];
+    lastSession: string;
+  };
+  recentSessions: Array<{
+    sessionId: string;
+    startTime: string;
+    endTime?: string;
+    duration: number;
+    ipAddress: string;
+    deviceInfo: any;
+    location: any;
+    isActive: boolean;
+    lastActivity: string;
+    activityCount: number;
+    pageViews: number;
+    isSuspicious: boolean;
+    terminatedReason?: string;
+  }>;
+  devicePatterns: Array<{
+    _id: {
+      deviceType: string;
+      os: string;
+      browser: string;
+    };
+    sessionCount: number;
+    totalDuration: number;
+    avgDuration: number;
+    lastUsed: string;
+  }>;
+  locationPatterns: Array<{
+    _id: {
+      city: string;
+      region: string;
+      country: string;
+    };
+    sessionCount: number;
+    totalDuration: number;
+    lastUsed: string;
+  }>;
+  period: string;
+}
+
 export const UserDashboard: React.FC = () => {
   const { user, setCurrentPage } = useAuth();
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -112,6 +320,16 @@ export const UserDashboard: React.FC = () => {
   const [auditSchedules, setAuditSchedules] = useState<AuditSchedule[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [kpiHistory, setKpiHistory] = useState<KPIScore[]>([]);
+  
+  // Quiz attempt state
+  const [quizAttemptStats, setQuizAttemptStats] = useState<QuizAttemptStats | null>(null);
+  const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
+  
+  // User activity state
+  const [activitySummary, setActivitySummary] = useState<ActivitySummary | null>(null);
+  const [loginAttempts, setLoginAttempts] = useState<LoginAttempts | null>(null);
+  const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [recentActivities, setRecentActivities] = useState<UserActivity[]>([]);
   const [stats, setStats] = useState<UserStats>({
     totalModules: 0,
     completedModules: 0,
@@ -144,7 +362,13 @@ export const UserDashboard: React.FC = () => {
           kpiHistoryData,
           trainingData,
           auditData,
-          notificationsData
+          notificationsData,
+          quizStatsData,
+          quizAttemptsData,
+          activitySummaryData,
+          loginAttemptsData,
+          sessionDataData,
+          recentActivitiesData
         ] = await Promise.allSettled([
           apiService.users.getProfile(userId).catch(() => ({ data: { name: (user as any)?.name, email: (user as any)?.email } })),
           apiService.modules.getUserModules(userId).catch(() => ({ data: { modules: [] } })),
@@ -156,7 +380,13 @@ export const UserDashboard: React.FC = () => {
           apiService.kpi.getUserKPIHistory(userId).catch(() => ({ data: [] })),
           apiService.trainingAssignments.getUserAssignments(userId).catch(() => ({ data: [] })),
           apiService.auditScheduling.getUserAuditHistory(userId).catch(() => ({ data: [] })),
-          apiService.notifications.getUserNotifications(userId).catch(() => ({ data: [] }))
+          apiService.notifications.getUserNotifications(userId).catch(() => ({ data: [] })),
+          apiService.quizAttempts.getQuizAttemptStats(userId).catch(() => ({ data: null })),
+          apiService.quizAttempts.getUserQuizAttempts(userId, { limit: 10 }).catch(() => ({ data: [] })),
+          apiService.userActivity.getActivitySummary(userId, 30).catch(() => ({ data: null })),
+          apiService.userActivity.getLoginAttempts(userId, 30).catch(() => ({ data: null })),
+          apiService.userActivity.getSessionData(userId, 7).catch(() => ({ data: null })),
+          apiService.userActivity.getRecentActivities(userId, { limit: 10 }).catch(() => ({ data: [] }))
         ]);
         
         // Set data with proper error handling
@@ -202,6 +432,18 @@ export const UserDashboard: React.FC = () => {
         setTrainingAssignments(trainingData.status === 'fulfilled' ? (trainingData.value as any).data || [] : []);
         setAuditSchedules(auditData.status === 'fulfilled' ? (auditData.value as any).data || [] : []);
         setNotifications(notificationsData.status === 'fulfilled' ? (notificationsData.value as any).data || [] : []);
+        
+        // Set quiz attempt data
+        console.log('Quiz Stats Data:', quizStatsData);
+        console.log('Quiz Attempts Data:', quizAttemptsData);
+        setQuizAttemptStats(quizStatsData.status === 'fulfilled' ? (quizStatsData.value as any).data : null);
+        setQuizAttempts(quizAttemptsData.status === 'fulfilled' ? (quizAttemptsData.value as any).data || [] : []);
+        
+        // Set user activity data
+        setActivitySummary(activitySummaryData.status === 'fulfilled' ? (activitySummaryData.value as any).data : null);
+        setLoginAttempts(loginAttemptsData.status === 'fulfilled' ? (loginAttemptsData.value as any).data : null);
+        setSessionData(sessionDataData.status === 'fulfilled' ? (sessionDataData.value as any).data : null);
+        setRecentActivities(recentActivitiesData.status === 'fulfilled' ? (recentActivitiesData.value as any).data || [] : []);
         
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -372,7 +614,11 @@ export const UserDashboard: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Quiz Performance</p>
-                  <p className="text-3xl font-bold text-gray-900">{stats.averageScore || 0}</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {quizAttemptStats ? Math.round(quizAttemptStats.averageScore) : 
+                     quizAttempts.length > 0 ? Math.round(quizAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / quizAttempts.length) : 
+                     0}%
+                  </p>
                 </div>
                 <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl flex items-center justify-center">
                   <FileQuestion className="w-6 h-6 text-white" />
@@ -381,7 +627,7 @@ export const UserDashboard: React.FC = () => {
               <div className="mt-4">
                 <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
                   <Trophy className="w-4 h-4 mr-1 text-yellow-500 dark:text-yellow-400" />
-                  {stats.completedQuizzes}/{stats.totalQuizzes} completed
+                  {quizAttemptStats ? quizAttemptStats.totalAttempts : quizAttempts.length} attempts
                 </div>
               </div>
             </CardContent>
@@ -436,30 +682,30 @@ export const UserDashboard: React.FC = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">TAT</span>
-                      <span className="font-semibold">{kpiScore.tat}%</span>
+                      <span className="font-semibold">{kpiScore.metrics?.tat?.percentage || 0}%</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Quality</span>
-                      <span className="font-semibold">{kpiScore.quality}%</span>
+                      <span className="font-semibold">{kpiScore.metrics?.quality?.percentage || 0}%</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">App Usage</span>
-                      <span className="font-semibold">{kpiScore.appUsage}%</span>
+                      <span className="font-semibold">{kpiScore.metrics?.appUsage?.percentage || 0}%</span>
                     </div>
                   </div>
                   
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Major Negativity</span>
-                      <span className="font-semibold">{kpiScore.majorNegativity}</span>
+                      <span className="font-semibold">{kpiScore.metrics?.majorNegativity?.percentage || 0}%</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Neighbor Check</span>
-                      <span className="font-semibold">{kpiScore.neighborCheck}%</span>
+                      <span className="font-semibold">{kpiScore.metrics?.neighborCheck?.percentage || 0}%</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Insufficiency</span>
-                      <span className="font-semibold">{kpiScore.insufficiency}</span>
+                      <span className="font-semibold">{kpiScore.metrics?.insufficiency?.percentage || 0}%</span>
                     </div>
                   </div>
                   
@@ -476,6 +722,561 @@ export const UserDashboard: React.FC = () => {
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* Enhanced KPI Details Section */}
+        {kpiScore && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Raw Data Section */}
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
+                  <FileText className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                  Raw Operational Data
+                </CardTitle>
+                <CardDescription>
+                  Source data for KPI calculations
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Cases:</span>
+                      <span className="font-semibold">{kpiScore.rawData?.totalCases || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">TAT Cases:</span>
+                      <span className="font-semibold">{kpiScore.rawData?.tatCases || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">App Cases:</span>
+                      <span className="font-semibold">{kpiScore.rawData?.appCases || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Complaints:</span>
+                      <span className="font-semibold">{kpiScore.rawData?.clientComplaints || 0}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Neighbor Checks:</span>
+                      <span className="font-semibold">{kpiScore.rawData?.neighborChecksDone || 0}/{kpiScore.rawData?.neighborChecksRequired || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Major Neg Events:</span>
+                      <span className="font-semibold">{kpiScore.rawData?.majorNegEvents || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Insufficient Cases:</span>
+                      <span className="font-semibold">{kpiScore.rawData?.insuffCases || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Ops Rejections:</span>
+                      <span className="font-semibold">{kpiScore.rawData?.opsRejections || 0}</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Override & Edge Cases Section */}
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
+                  <Target className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                  Score Details & Overrides
+                </CardTitle>
+                <CardDescription>
+                  Override information and edge case handling
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Override Information */}
+                  {kpiScore.override?.isOverridden && (
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex items-center mb-2">
+                        <AlertTriangle className="w-4 h-4 text-yellow-600 mr-2" />
+                        <span className="text-sm font-semibold text-yellow-800">Score Overridden</span>
+                      </div>
+                      <div className="text-xs text-yellow-700">
+                        <div>Reason: {kpiScore.override.reason}</div>
+                        <div>Overridden At: {new Date(kpiScore.override.overriddenAt || '').toLocaleDateString()}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Edge Cases */}
+                  {kpiScore.edgeCases && (
+                    <div className="space-y-2">
+                      {kpiScore.edgeCases.zeroCases && (
+                        <div className="flex items-center text-sm text-orange-600">
+                          <AlertCircle className="w-4 h-4 mr-2" />
+                          No cases handled in this period
+                        </div>
+                      )}
+                      {kpiScore.edgeCases.insufficientData && (
+                        <div className="flex items-center text-sm text-yellow-600">
+                          <AlertCircle className="w-4 h-4 mr-2" />
+                          Insufficient data for accurate scoring
+                        </div>
+                      )}
+                      {kpiScore.edgeCases.naMetrics && kpiScore.edgeCases.naMetrics.length > 0 && (
+                        <div className="flex items-center text-sm text-blue-600">
+                          <AlertCircle className="w-4 h-4 mr-2" />
+                          N/A Metrics: {kpiScore.edgeCases.naMetrics.join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Triggered Actions */}
+                  {kpiScore.triggeredActions && kpiScore.triggeredActions.length > 0 && (
+                    <div>
+                      <div className="text-sm font-semibold text-gray-700 mb-2">Triggered Actions:</div>
+                      <div className="flex flex-wrap gap-1">
+                        {kpiScore.triggeredActions.map((action, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {action.replace(/_/g, ' ')}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Quiz Attempts Section */}
+        {true && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Quiz Statistics Card */}
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
+                  <FileQuestion className="w-5 h-5 mr-2 text-green-600 dark:text-green-400" />
+                  Quiz Performance Summary
+                </CardTitle>
+                <CardDescription>
+                  Your quiz attempt statistics and performance
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {quizAttemptStats ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                          {quizAttemptStats.totalAttempts}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Total Attempts</div>
+                      </div>
+                      <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          {quizAttemptStats.totalQuizzes}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Quizzes Taken</div>
+                      </div>
+                      <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                        <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                          {Math.round(quizAttemptStats.averageScore)}%
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Avg Score</div>
+                      </div>
+                      <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                        <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                          {Math.round(quizAttemptStats.passRate)}%
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Pass Rate</div>
+                      </div>
+                    </div>
+                    
+                    {quizAttemptStats.violations > 0 && (
+                      <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                        <div className="flex items-center text-red-600 dark:text-red-400">
+                          <AlertTriangle className="w-4 h-4 mr-2" />
+                          <span className="text-sm font-medium">
+                            {quizAttemptStats.violations} Quiz Violation(s) Detected
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : quizAttempts.length > 0 ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                          {quizAttempts.length}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Total Attempts</div>
+                      </div>
+                      <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          {new Set(quizAttempts.map(attempt => attempt.moduleId)).size}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Quizzes Taken</div>
+                      </div>
+                      <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                        <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                          {Math.round(quizAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / quizAttempts.length)}%
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Avg Score</div>
+                      </div>
+                      <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                        <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                          {Math.round((quizAttempts.filter(attempt => attempt.passed).length / quizAttempts.length) * 100)}%
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Pass Rate</div>
+                      </div>
+                    </div>
+                    
+                    {quizAttempts.some(attempt => attempt.violations && attempt.violations.length > 0) && (
+                      <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                        <div className="flex items-center text-red-600 dark:text-red-400">
+                          <AlertTriangle className="w-4 h-4 mr-2" />
+                          <span className="text-sm font-medium">
+                            Quiz Violation(s) Detected
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <FileQuestion className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>No quiz data available</p>
+                    <p className="text-sm">Take some quizzes to see your performance here</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Recent Quiz Attempts */}
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
+                  <Clock className="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" />
+                  Recent Quiz Attempts
+                </CardTitle>
+                <CardDescription>
+                  Your latest quiz performance
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {quizAttempts.slice(0, 5).map((attempt) => (
+                    <div key={attempt._id} className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-700/50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          attempt.passed 
+                            ? 'bg-green-100 dark:bg-green-900/30' 
+                            : 'bg-red-100 dark:bg-red-900/30'
+                        }`}>
+                          {attempt.passed ? (
+                            <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          ) : (
+                            <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm text-gray-900 dark:text-white">
+                            {attempt.moduleId?.title || 'Unknown Module'}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            Attempt #{attempt.attemptNumber} • {new Date(attempt.startTime).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`text-sm font-semibold ${
+                          attempt.passed 
+                            ? 'text-green-600 dark:text-green-400' 
+                            : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {attempt.score}%
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {Math.round(attempt.timeSpent / 60)}m
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {quizAttempts.length === 0 && (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <FileQuestion className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>No quiz attempts yet</p>
+                      <p className="text-sm">Start taking quizzes to see your performance here</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* User Activity & Lifestyle Section */}
+        {(activitySummary || loginAttempts || sessionData) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Activity Summary Card */}
+            {activitySummary && (
+              <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
+                    <Activity className="w-5 h-5 mr-2 text-purple-600 dark:text-purple-400" />
+                    Activity Summary
+                  </CardTitle>
+                  <CardDescription>
+                    Your activity patterns over the last {activitySummary.period}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                      <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                        {activitySummary.totalActivities}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Total Activities</div>
+                    </div>
+                    <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                      <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                        {activitySummary.suspiciousActivities}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Suspicious</div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-gray-900 dark:text-white">Top Activities:</h4>
+                    {activitySummary.summary.slice(0, 5).map((activity, index) => (
+                      <div key={index} className="flex justify-between items-center p-2 bg-gray-50/50 dark:bg-gray-700/50 rounded">
+                        <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
+                          {activity._id.replace(/_/g, ' ')}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{activity.count}</span>
+                          {activity.suspiciousCount > 0 && (
+                            <Badge variant="destructive" className="text-xs">
+                              {activity.suspiciousCount}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Login Attempts Card */}
+            {loginAttempts && (
+              <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
+                    <User className="w-5 h-5 mr-2 text-green-600 dark:text-green-400" />
+                    Login Security
+                  </CardTitle>
+                  <CardDescription>
+                    Login attempts and security metrics
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                        {loginAttempts.statistics.successRate}%
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Success Rate</div>
+                    </div>
+                    <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {loginAttempts.statistics.uniqueDevices}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Devices</div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">Total Attempts:</span>
+                      <span className="font-medium">{loginAttempts.statistics.totalAttempts}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">Successful:</span>
+                      <span className="font-medium text-green-600">{loginAttempts.statistics.successfulLogins}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">Failed:</span>
+                      <span className="font-medium text-red-600">{loginAttempts.statistics.failedLogins}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">Unique IPs:</span>
+                      <span className="font-medium">{loginAttempts.statistics.uniqueIPs}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Session Data Section */}
+        {sessionData && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Session Summary */}
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
+                  <Clock className="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" />
+                  Session Summary
+                </CardTitle>
+                <CardDescription>
+                  Your session activity over the last {sessionData.period}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="text-center p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                    <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                      {sessionData.summary.totalSessions}
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Sessions</div>
+                  </div>
+                  <div className="text-center p-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg">
+                    <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">
+                      {Math.round(sessionData.summary.avgDuration / 60)}m
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Avg Duration</div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Total Time:</span>
+                    <span className="font-medium">{Math.round(sessionData.summary.totalDuration / 3600)}h</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Page Views:</span>
+                    <span className="font-medium">{sessionData.summary.totalPageViews}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Actions:</span>
+                    <span className="font-medium">{sessionData.summary.totalActions}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Unique Devices:</span>
+                    <span className="font-medium">{sessionData.summary.uniqueDevices.length}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Device Usage Patterns */}
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
+                  <Smartphone className="w-5 h-5 mr-2 text-pink-600 dark:text-pink-400" />
+                  Device Usage
+                </CardTitle>
+                <CardDescription>
+                  Your device usage patterns
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {sessionData.devicePatterns.slice(0, 3).map((device, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-700/50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-purple-600 rounded-lg flex items-center justify-center">
+                          <Smartphone className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm text-gray-900 dark:text-white capitalize">
+                            {device._id.deviceType}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {device._id.os} • {device._id.browser}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium">{device.sessionCount} sessions</div>
+                        <div className="text-xs text-gray-500">
+                          {Math.round(device.avgDuration / 60)}m avg
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Recent Activities Section */}
+        {recentActivities.length > 0 && (
+          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
+                <Activity className="w-5 h-5 mr-2 text-teal-600 dark:text-teal-400" />
+                Recent Activities
+              </CardTitle>
+              <CardDescription>
+                Your latest platform activities
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {recentActivities.slice(0, 8).map((activity) => (
+                  <div key={activity._id} className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-700/50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        activity.success 
+                          ? 'bg-green-100 dark:bg-green-900/30' 
+                          : 'bg-red-100 dark:bg-red-900/30'
+                      }`}>
+                        {activity.success ? (
+                          <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm text-gray-900 dark:text-white">
+                          {activity.description}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {new Date(activity.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant="outline"
+                        className={`${
+                          activity.severity === 'critical' ? 'border-red-300 text-red-700 bg-red-50' :
+                          activity.severity === 'high' ? 'border-orange-300 text-orange-700 bg-orange-50' :
+                          activity.severity === 'medium' ? 'border-yellow-300 text-yellow-700 bg-yellow-50' :
+                          'border-gray-300 text-gray-700 bg-gray-50'
+                        }`}
+                      >
+                        {activity.severity}
+                      </Badge>
+                      {activity.isSuspicious && (
+                        <Badge variant="destructive" className="text-xs">
+                          Suspicious
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Main Content Grid */}

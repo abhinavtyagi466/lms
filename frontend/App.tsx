@@ -30,6 +30,7 @@ import { QuizPage } from './pages/user/QuizPage';
 import { AdminLogin } from './pages/admin/AdminLogin';
 import { AdminDashboardEnhanced } from './pages/admin/AdminDashboardEnhanced';
 import { UserManagement } from './pages/admin/UserManagement';
+import { UserLifecycle } from './pages/admin/UserLifecycle';
 import { ModuleManagement } from './pages/admin/ModuleManagement';
 
 import { WarningAuditRecord } from './pages/admin/WarningAuditRecord';
@@ -54,8 +55,8 @@ const adminSidebarItems = [
   { key: 'user-management', label: 'User Management', icon: Users },
   { key: 'module-management', label: 'Module Management', icon: BookOpen },
   { key: 'kpi-triggers', label: 'KPI Triggers', icon: BarChart3 },
-  { key: 'audit-scheduler', label: 'Audit Scheduler', icon: Calendar },
-  { key: 'email-center', label: 'Email Center', icon: Mail },
+  // { key: 'audit-scheduler', label: 'Audit Scheduler', icon: Calendar }, // TEMPORARILY HIDDEN
+  // { key: 'email-center', label: 'Email Center', icon: Mail }, // TEMPORARILY HIDDEN
   { key: 'warnings-audit', label: 'Audit / Warnings', icon: FileText },
   { key: 'awards', label: 'Awards / Recognition', icon: Award },
   // { key: 'lifecycle', label: 'Lifecycle Dashboard', icon: Clock },
@@ -175,10 +176,11 @@ const AppContent: React.FC = () => {
         case 'admin-login': return <AdminLogin />;
         case 'admin-dashboard': return <AdminDashboardEnhanced />;
         case 'user-management': return <UserManagement />;
+        case 'user-lifecycle': return <UserLifecycle />;
         case 'module-management': return <ModuleManagement />;
         case 'kpi-triggers': return <KPITriggers />;
-        case 'audit-scheduler': return <AuditManager />;
-        case 'email-center': return <EmailNotificationCenter />;
+        // case 'audit-scheduler': return <AuditManager />; // TEMPORARILY HIDDEN
+        // case 'email-center': return <EmailNotificationCenter />; // TEMPORARILY HIDDEN
         case 'warnings-audit': return <WarningAuditRecord />;
         case 'awards': return <AwardsRecognition />;
         case 'lifecycle': return <LifecycleDashboard />;

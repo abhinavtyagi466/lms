@@ -198,7 +198,7 @@ export const AdminDashboardEnhanced: React.FC = () => {
         {/* Key Metrics Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <MetricCard
-            title="Total Users"
+            title="Total Field Executive"
             value={stats?.totalUsers || 0}
             change={12}
             trend="up"
@@ -332,8 +332,8 @@ export const AdminDashboardEnhanced: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Platform Analytics */}
-            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+            {/* Platform Analytics - TEMPORARILY HIDDEN FOR MEETING */}
+            {/* <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center text-xl font-semibold text-gray-900 dark:text-white">
                   <BarChart3 className="w-5 h-5 mr-2 text-green-600 dark:text-green-400" />
@@ -376,7 +376,7 @@ export const AdminDashboardEnhanced: React.FC = () => {
                   </div>
                 </div>
               </CardContent>
-            </Card>
+            </Card> */}
           </div>
 
           {/* Right Column */}
@@ -398,6 +398,13 @@ export const AdminDashboardEnhanced: React.FC = () => {
                   Manage Users
                 </Button>
                 <Button 
+                  onClick={() => window.location.href = '/admin/user-lifecycle'}
+                  className="w-full justify-start bg-purple-50 hover:bg-purple-100 dark:bg-purple-600 dark:hover:bg-purple-700 text-purple-700 dark:text-white border border-purple-200 dark:border-purple-500 transition-all duration-200"
+                >
+                  <Activity className="w-4 h-4 mr-2" />
+                  User Lifecycle
+                </Button>
+                <Button 
                   onClick={() => window.location.href = '/admin/module-management'}
                   className="w-full justify-start bg-green-50 hover:bg-green-100 dark:bg-green-600 dark:hover:bg-green-700 text-green-700 dark:text-white border border-green-200 dark:border-green-500 transition-all duration-200"
                 >
@@ -411,13 +418,14 @@ export const AdminDashboardEnhanced: React.FC = () => {
                   <FileText className="w-4 h-4 mr-2" />
                   Manage Quizzes
                 </Button>
-                <Button 
+                {/* TEMPORARILY HIDDEN FOR MEETING */}
+                {/* <Button 
                   onClick={() => window.location.href = '/admin/reports'}
                   className="w-full justify-start bg-orange-50 hover:bg-orange-100 dark:bg-orange-600 dark:hover:bg-orange-700 text-orange-700 dark:text-white border border-orange-200 dark:border-orange-500 transition-all duration-200"
                 >
                   <BarChart3 className="w-4 h-4 mr-2" />
                   View Reports
-                </Button>
+                </Button> */}
               </CardContent>
             </Card>
 

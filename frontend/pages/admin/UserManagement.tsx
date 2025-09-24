@@ -14,6 +14,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Label } from '../../components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ConfirmationPopup } from '../../components/common/ConfirmationPopup';
 import { SuccessNotification } from '../../components/common/SuccessNotification';
@@ -72,7 +73,8 @@ export const UserManagement: React.FC = () => {
     city: '',
     state: '',
     aadhaarNo: '',
-    panNo: ''
+    panNo: '',
+    userType: 'user' // Default to user, can be 'user' or 'admin'
   });
   const [isCreatingUser, setIsCreatingUser] = useState(false);
 
@@ -148,6 +150,7 @@ export const UserManagement: React.FC = () => {
         state: createUserData.state,
         aadhaarNo: createUserData.aadhaarNo,
         panNo: createUserData.panNo,
+        userType: createUserData.userType,
         employeeId: response.user.employeeId, // Use the auto-generated Employee ID from response
         status: 'Active',
         isActive: true
@@ -167,7 +170,8 @@ export const UserManagement: React.FC = () => {
         city: '',
         state: '',
         aadhaarNo: '',
-        panNo: ''
+        panNo: '',
+        userType: 'user'
       });
       fetchUserStats(); // Refresh stats after creating user
       
@@ -502,6 +506,7 @@ export const UserManagement: React.FC = () => {
                 <th className="text-left py-4 px-2 text-sm font-semibold text-gray-900 dark:text-white">Name</th>
                 <th className="text-left py-4 px-2 text-sm font-semibold text-gray-900 dark:text-white">Email</th>
                 <th className="text-left py-4 px-2 text-sm font-semibold text-gray-900 dark:text-white">Phone</th>
+                <th className="text-left py-4 px-2 text-sm font-semibold text-gray-900 dark:text-white">Type</th>
                 <th className="text-left py-4 px-2 text-sm font-semibold text-gray-900 dark:text-white">City</th>
                 <th className="text-left py-4 px-2 text-sm font-semibold text-gray-900 dark:text-white">Status</th>
                 <th className="text-left py-4 px-2 text-sm font-semibold text-gray-900 dark:text-white">Actions</th>
@@ -518,6 +523,17 @@ export const UserManagement: React.FC = () => {
                   </td>
                   <td className="py-3 text-gray-900 dark:text-white">{user.email}</td>
                   <td className="py-3 text-gray-900 dark:text-white">{user.phone}</td>
+                  <td className="py-3">
+                    <Badge 
+                      className={`${
+                        user.userType === 'admin' 
+                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' 
+                          : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                      }`}
+                    >
+                      {user.userType === 'admin' ? 'Admin Manager' : 'User'}
+                    </Badge>
+                  </td>
                   <td className="py-3 text-gray-900 dark:text-white">{user.city || '-'}</td>
                   <td className="py-3">
                     <div className="space-y-1">
@@ -684,6 +700,25 @@ export const UserManagement: React.FC = () => {
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
+                    <Label htmlFor="userType">User Type *</Label>
+                    <Select
+                      value={createUserData.userType}
+                      onValueChange={(value) => setCreateUserData(prev => ({ ...prev, userType: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select user type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="admin">Admin Manager</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Admin Manager will have access to admin panel
+                    </p>
+                  </div>
+                  
+                  <div>
                     <Label htmlFor="department">Department</Label>
                     <Input
                       id="department"
@@ -692,7 +727,9 @@ export const UserManagement: React.FC = () => {
                       placeholder="Enter department"
                     />
                   </div>
-                  
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="manager">Manager</Label>
                     <Input
