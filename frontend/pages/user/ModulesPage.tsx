@@ -8,7 +8,7 @@ import { apiService } from '../../services/apiService';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 import { ModuleWithProgress, ProgressData } from '../../types';
-import { FileQuestion, Lock } from 'lucide-react';
+import { FileQuestion, Lock, CheckCircle } from 'lucide-react';
 
 export const ModulesPage: React.FC = () => {
   const { user, setCurrentPage, setSelectedModuleId } = useAuth();
@@ -192,11 +192,32 @@ export const ModulesPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {publishedModules.map((module) => {
             const progressPercent = Math.round(module.progress * 100);
+            const isLocked = (module as any).isLocked || false;
+            const isCompleted = (module as any).isCompleted || false;
+            const unlockMessage = (module as any).unlockMessage || '';
             
             return (
-              <Card key={module.moduleId} className="overflow-hidden">
+              <Card key={module.moduleId} className={`overflow-hidden ${isLocked ? 'opacity-60 border-2 border-gray-300' : ''} ${isCompleted ? 'border-2 border-green-400' : ''}`}>
                 {/* Module Header */}
-                <div className="p-4 border-b">
+                <div className="p-4 border-b relative">
+                  {isLocked && (
+                    <div className="absolute top-2 right-2">
+                      <Badge className="bg-gray-500 text-white flex items-center gap-1">
+                        <Lock className="w-3 h-3" />
+                        Locked
+                      </Badge>
+                    </div>
+                  )}
+                  
+                  {isCompleted && !isLocked && (
+                    <div className="absolute top-2 right-2">
+                      <Badge className="bg-green-500 text-white flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        Completed
+                      </Badge>
+                    </div>
+                  )}
+                  
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-semibold text-lg text-gray-900">{module.title}</h3>
                     <Badge variant="outline" className="bg-blue-50 text-blue-700">
@@ -227,11 +248,23 @@ export const ModulesPage: React.FC = () => {
                 {/* Video Thumbnail */}
                 {module.ytVideoId && (
                   <div className="relative">
+                    {isLocked && (
+                      <div className="absolute inset-0 z-10 bg-gray-900 bg-opacity-75 flex flex-col items-center justify-center text-white p-4">
+                        <Lock className="w-12 h-12 mb-3" />
+                        <p className="text-lg font-semibold mb-1">Module Locked</p>
+                        <p className="text-sm text-center">{unlockMessage}</p>
+                      </div>
+                    )}
+                    
                     <div 
-                      className="w-full h-48 bg-gray-200 cursor-pointer group relative overflow-hidden border-b"
+                      className={`w-full h-48 bg-gray-200 ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'} group relative overflow-hidden border-b`}
                       onClick={() => {
-                        setSelectedModuleId(module.moduleId);
-                        setCurrentPage('training-module');
+                        if (!isLocked) {
+                          setSelectedModuleId(module.moduleId);
+                          setCurrentPage('training-module');
+                        } else {
+                          toast.error(unlockMessage || 'Complete the previous module first');
+                        }
                       }}
                     >
                       <img
@@ -271,15 +304,38 @@ export const ModulesPage: React.FC = () => {
                   <div className="text-center">
                     <Button
                       onClick={() => {
-                        setSelectedModuleId(module.moduleId);
-                        setCurrentPage('training-module');
+                        if (!isLocked) {
+                          setSelectedModuleId(module.moduleId);
+                          setCurrentPage('training-module');
+                        } else {
+                          toast.error(unlockMessage || 'Complete the previous module first');
+                        }
                       }}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3"
+                      disabled={isLocked}
+                      className={`w-full py-3 ${isLocked ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
                     >
-                      📺 Start Training Module
+                      {isLocked ? (
+                        <>
+                          <Lock className="w-4 h-4 mr-2 inline" />
+                          Module Locked
+                        </>
+                      ) : isCompleted ? (
+                        <>
+                          <CheckCircle className="w-4 h-4 mr-2 inline" />
+                          Review Module
+                        </>
+                      ) : (
+                        <>
+                          📺 Start Training Module
+                        </>
+                      )}
                     </Button>
                     <p className="text-xs text-gray-500 mt-2">
-                      Click to open the training module with embedded video player
+                      {isLocked 
+                        ? unlockMessage 
+                        : isCompleted 
+                        ? 'You have completed this module. Click to review.'
+                        : 'Click to open the training module with embedded video player'}
                     </p>
                   </div>
                 </div>

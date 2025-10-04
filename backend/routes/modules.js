@@ -74,9 +74,9 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       });
     }
 
-    // Get all published modules
+    // Get all published modules sorted by creation date (oldest first for sequential unlock)
     const modules = await Module.find({ status: 'published' })
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 1 })
       .select('title description ytVideoId tags status createdBy');
 
     // Get user's progress for all videos
@@ -88,6 +88,14 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       moduleId: { $in: moduleIds }, 
       isActive: true 
     });
+
+    // Get quiz results for the user (to check which quizzes are passed)
+    const QuizResult = require('../models/QuizResult');
+    const quizResults = await QuizResult.find({
+      userId,
+      moduleId: { $in: moduleIds },
+      passed: true
+    }).select('moduleId passed percentage');
 
     // Create a map of video progress
     const progressMap = {};
@@ -108,11 +116,34 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       };
     });
 
-    // Combine modules with progress and quiz availability
-    const modulesWithProgress = modules.map(module => {
+    // Create a map of passed modules
+    const passedModulesMap = {};
+    quizResults.forEach(result => {
+      passedModulesMap[result.moduleId.toString()] = {
+        passed: result.passed,
+        percentage: result.percentage
+      };
+    });
+
+    // SEQUENTIAL UNLOCK LOGIC: User must complete previous module to unlock next
+    let previousModuleCompleted = true; // First module is always unlocked
+    
+    const modulesWithProgress = modules.map((module, index) => {
       const progress = progressMap[module.ytVideoId] || { currentTime: 0, duration: 0 };
       const progressPercent = progress.duration > 0 ? (progress.currentTime / progress.duration) : 0;
       const quiz = quizMap[module._id.toString()];
+      const quizPassed = passedModulesMap[module._id.toString()];
+      
+      // Check if this module is completed (video watched 95% + quiz passed with 70%+)
+      const videoCompleted = progressPercent >= 0.95;
+      const quizCompleted = quiz ? (quizPassed?.passed || false) : videoCompleted;
+      const moduleCompleted = videoCompleted && quizCompleted;
+      
+      // Determine if module is locked
+      const isLocked = index > 0 && !previousModuleCompleted;
+      
+      // Update for next iteration
+      previousModuleCompleted = moduleCompleted;
       
       return {
         moduleId: module._id,
@@ -122,8 +153,13 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
         tags: module.tags,
         status: module.status,
         progress: progressPercent,
-        quizAvailable: quiz ? progressPercent >= 0.95 : false,
-        quizInfo: quiz || null
+        quizAvailable: quiz ? (progressPercent >= 0.95 && !isLocked) : false,
+        quizInfo: quiz || null,
+        quizPassed: quizPassed?.passed || false,
+        quizScore: quizPassed?.percentage || 0,
+        isLocked: isLocked,
+        isCompleted: moduleCompleted,
+        unlockMessage: isLocked ? 'Complete the previous module (video + quiz) to unlock' : null
       };
     });
 
