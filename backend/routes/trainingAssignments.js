@@ -673,4 +673,44 @@ router.put('/:id', authenticateToken, requireAdmin, validateObjectId, async (req
   }
 });
 
+// @route   GET /api/training-assignments/user/:userId
+// @desc    Get all training assignments for a specific user
+// @access  Private (Admin only)
+router.get('/user/:userId', authenticateToken, requireAdmin, validateUserId, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const { limit = 10, page = 1 } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const assignments = await TrainingAssignment.find({ userId })
+      .sort({ assignedAt: -1 })
+      .limit(parseInt(limit))
+      .skip(skip)
+      .populate('userId', 'name email employeeId')
+      .populate('assignedByUser', 'name email')
+      .populate('kpiTriggerId', 'overallScore rating period');
+
+    const total = await TrainingAssignment.countDocuments({ userId });
+
+    res.json({
+      success: true,
+      data: assignments,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+
+  } catch (error) {
+    console.error('Get user training assignments error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching user training assignments'
+    });
+  }
+});
+
 module.exports = router;

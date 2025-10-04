@@ -1240,4 +1240,43 @@ router.put('/configs/:id', authenticateToken, requireAdmin, validateObjectId, as
   }
 });
 
+// @route   GET /api/kpi/user/:userId
+// @desc    Get all KPI scores for a specific user
+// @access  Private (Admin only)
+router.get('/user/:userId', authenticateToken, requireAdmin, validateUserId, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const { limit = 10, page = 1 } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const kpiScores = await KPIScore.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(skip)
+      .populate('userId', 'name email employeeId')
+      .populate('submittedBy', 'name email');
+
+    const total = await KPIScore.countDocuments({ userId });
+
+    res.json({
+      success: true,
+      data: kpiScores,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+
+  } catch (error) {
+    console.error('Get user KPI scores error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching user KPI scores'
+    });
+  }
+});
+
 module.exports = router;

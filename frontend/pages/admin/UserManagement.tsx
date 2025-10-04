@@ -20,11 +20,13 @@ import { ConfirmationPopup } from '../../components/common/ConfirmationPopup';
 import { SuccessNotification } from '../../components/common/SuccessNotification';
 import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
+import { useAuth } from '../../contexts/AuthContext';
 import { UserDetailsModal } from '../../components/admin/UserDetailsModal';
 import { InactiveUserModal } from '../../components/admin/InactiveUserModal';
 import { ReactivateUserModal } from '../../components/admin/ReactivateUserModal';
 
 export const UserManagement: React.FC = () => {
+  const { user, userType, setCurrentPage } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -62,19 +64,39 @@ export const UserManagement: React.FC = () => {
     itemName: ''
   });
   const [createUserData, setCreateUserData] = useState({
+    // Basic Information
     name: '',
     email: '',
     password: '',
     phone: '',
+    userType: 'user', // Default to user, can be 'user', 'manager', 'hod', 'hr', 'admin'
+    
+    // Personal Information
+    dateOfBirth: '',
+    fathersName: '',
+    
+    // Employment Information
+    dateOfJoining: '',
+    designation: '',
     department: '',
-    manager: '',
-    address: '',
+    reportingManager: '',
+    highestEducation: '',
+    
+    // Address Information
+    currentAddress: '',
+    nativeAddress: '',
     location: '',
     city: '',
     state: '',
+    region: '',
+    
+    // Identification Documents
     aadhaarNo: '',
     panNo: '',
-    userType: 'user' // Default to user, can be 'user' or 'admin'
+    
+    // Document Uploads
+    documents: [] as File[],
+    avatar: null as File | null
   });
   const [isCreatingUser, setIsCreatingUser] = useState(false);
 
@@ -82,9 +104,14 @@ export const UserManagement: React.FC = () => {
 
 
   useEffect(() => {
-    fetchUsers();
-    fetchUserStats();
-  }, [filterStatus]);
+    // Only fetch data if user is authenticated and is admin
+    if (user && userType === 'admin') {
+      fetchUsers();
+      fetchUserStats();
+    } else {
+      setLoading(false);
+    }
+  }, [filterStatus, user, userType]);
 
   const fetchUsers = async () => {
     try {
@@ -97,12 +124,14 @@ export const UserManagement: React.FC = () => {
       } else if (response && Array.isArray(response)) {
         setUsers(response);
       } else {
-        console.log('No users found, starting with empty array');
         setUsers([]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching users:', error);
-      toast.error('Failed to load users');
+      // Don't show error toast for auth failures, let the auth system handle it
+      if (!error.message?.includes('Authentication failed')) {
+        toast.error('Failed to load users');
+      }
       setUsers([]);
     } finally {
       setLoading(false);
@@ -125,14 +154,42 @@ export const UserManagement: React.FC = () => {
       console.log('Create user button clicked');
       console.log('Form data:', createUserData);
       
-      if (!createUserData.name || !createUserData.email || !createUserData.password) {
-        toast.error('Name, email, and password are required');
+      // Validate required fields
+      const requiredFields = [
+        'name', 'email', 'password', 'phone'
+      ];
+      
+      const missingFields = requiredFields.filter(field => !createUserData[field as keyof typeof createUserData]);
+      
+      if (missingFields.length > 0) {
+        toast.error(`Please fill in all required fields: ${missingFields.join(', ')}`);
         return;
       }
 
       setIsCreatingUser(true);
       console.log('Calling API to create user...');
-      const response: any = await apiService.users.createUser(createUserData);
+      
+      // Create FormData for file uploads
+      const formData = new FormData();
+      
+      // Add all text fields
+      Object.keys(createUserData).forEach(key => {
+        if (key !== 'documents' && key !== 'avatar' && createUserData[key as keyof typeof createUserData]) {
+          formData.append(key, createUserData[key as keyof typeof createUserData] as string);
+        }
+      });
+      
+      // Add avatar if selected
+      if (createUserData.avatar) {
+        formData.append('avatar', createUserData.avatar);
+      }
+      
+      // Add documents if any
+      createUserData.documents.forEach((doc) => {
+        formData.append(`documents`, doc);
+      });
+      
+      const response: any = await apiService.users.createUser(formData);
       console.log('API response:', response);
       toast.success(`User created successfully! They can login with email: ${createUserData.email}`);
       
@@ -142,16 +199,23 @@ export const UserManagement: React.FC = () => {
         name: createUserData.name,
         email: createUserData.email,
         phone: createUserData.phone,
+        userType: createUserData.userType,
+        dateOfBirth: createUserData.dateOfBirth,
+        fathersName: createUserData.fathersName,
+        dateOfJoining: createUserData.dateOfJoining,
+        designation: createUserData.designation,
         department: createUserData.department,
-        manager: createUserData.manager,
-        address: createUserData.address,
+        reportingManager: createUserData.reportingManager,
+        highestEducation: createUserData.highestEducation,
+        currentAddress: createUserData.currentAddress,
+        nativeAddress: createUserData.nativeAddress,
         location: createUserData.location,
         city: createUserData.city,
         state: createUserData.state,
+        region: createUserData.region,
         aadhaarNo: createUserData.aadhaarNo,
         panNo: createUserData.panNo,
-        userType: createUserData.userType,
-        employeeId: response.user.employeeId, // Use the auto-generated Employee ID from response
+        employeeId: response.user.employeeId,
         status: 'Active',
         isActive: true
       };
@@ -163,15 +227,24 @@ export const UserManagement: React.FC = () => {
         email: '',
         password: '',
         phone: '',
+        userType: 'user',
+        dateOfBirth: '',
+        fathersName: '',
+        dateOfJoining: '',
+        designation: '',
         department: '',
-        manager: '',
-        address: '',
+        reportingManager: '',
+        highestEducation: '',
+        currentAddress: '',
+        nativeAddress: '',
         location: '',
         city: '',
         state: '',
+        region: '',
         aadhaarNo: '',
         panNo: '',
-        userType: 'user'
+        documents: [],
+        avatar: null
       });
       fetchUserStats(); // Refresh stats after creating user
       
@@ -318,11 +391,9 @@ export const UserManagement: React.FC = () => {
           break;
         case 'view':
           const userToView = users.find(u => u._id === userId);
-          console.log('UserManagement: View action triggered for userId:', userId);
-          console.log('UserManagement: Found user:', userToView);
           if (userToView) {
-            setSelectedUser(userToView);
-            setShowUserDetailsModal(true);
+            // Navigate to user details page
+            setCurrentPage(`user-details/${userId}`);
           } else {
             toast.error('User not found');
           }
@@ -390,20 +461,30 @@ export const UserManagement: React.FC = () => {
              transition-all duration-300 transform hover:scale-105 
              border border-gray-300 dark:border-gray-600"
           onClick={() => {
-            setCreateUserData({
-              name: '',
-              email: '',
-              password: '',
-              phone: '',
-              department: '',
-              manager: '',
-              address: '',
-              location: '',
-              city: '',
-              state: '',
-              aadhaarNo: '',
-              panNo: ''
-            });
+      setCreateUserData({
+        name: '',
+        email: '',
+        password: '',
+        phone: '',
+        userType: 'user',
+        dateOfBirth: '',
+        fathersName: '',
+        dateOfJoining: '',
+        designation: '',
+        department: '',
+        reportingManager: '',
+        highestEducation: '',
+        currentAddress: '',
+        nativeAddress: '',
+        location: '',
+        city: '',
+        state: '',
+        region: '',
+        aadhaarNo: '',
+        panNo: '',
+        documents: [],
+        avatar: null
+      });
             setShowCreateModal(true);
           }}
         >
@@ -698,6 +779,72 @@ export const UserManagement: React.FC = () => {
                   </div>
                 </div>
                 
+                {/* Personal Information Section */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">Personal Information</h3>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                      <Input
+                        id="dateOfBirth"
+                        type="date"
+                        value={createUserData.dateOfBirth}
+                        onChange={(e) => setCreateUserData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="fathersName">Father's Name</Label>
+                      <Input
+                        id="fathersName"
+                        value={createUserData.fathersName}
+                        onChange={(e) => setCreateUserData(prev => ({ ...prev, fathersName: e.target.value }))}
+                        placeholder="Enter father's name"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Employment Information Section */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">Employment Information</h3>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="dateOfJoining">Date of Joining</Label>
+                      <Input
+                        id="dateOfJoining"
+                        type="date"
+                        value={createUserData.dateOfJoining}
+                        onChange={(e) => setCreateUserData(prev => ({ ...prev, dateOfJoining: e.target.value }))}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="designation">Designation</Label>
+                      <Input
+                        id="designation"
+                        value={createUserData.designation}
+                        onChange={(e) => setCreateUserData(prev => ({ ...prev, designation: e.target.value }))}
+                        placeholder="Enter designation"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="highestEducation">Highest Education</Label>
+                      <Input
+                        id="highestEducation"
+                        value={createUserData.highestEducation}
+                        onChange={(e) => setCreateUserData(prev => ({ ...prev, highestEducation: e.target.value }))}
+                        placeholder="Enter highest education qualification"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="userType">User Type *</Label>
@@ -709,12 +856,19 @@ export const UserManagement: React.FC = () => {
                         <SelectValue placeholder="Select user type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="user">User</SelectItem>
-                        <SelectItem value="admin">Admin Manager</SelectItem>
+                        <SelectItem value="user">User (Field Executive)</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
+                        <SelectItem value="hod">HOD (Head of Department)</SelectItem>
+                        <SelectItem value="hr">HR</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Admin Manager will have access to admin panel
+                      {createUserData.userType === 'user' && 'User will login to user panel only'}
+                      {createUserData.userType === 'manager' && 'Manager will login to admin panel'}
+                      {createUserData.userType === 'hod' && 'HOD will login to admin panel'}
+                      {createUserData.userType === 'hr' && 'HR will login to admin panel'}
+                      {createUserData.userType === 'admin' && 'Admin will have full access to admin panel'}
                     </p>
                   </div>
                   
@@ -730,13 +884,13 @@ export const UserManagement: React.FC = () => {
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="manager">Manager</Label>
+                    <div>
+                      <Label htmlFor="reportingManager">Reporting Manager</Label>
                     <Input
-                      id="manager"
-                      value={createUserData.manager}
-                      onChange={(e) => setCreateUserData(prev => ({ ...prev, manager: e.target.value }))}
-                      placeholder="Enter manager name"
+                      id="reportingManager"
+                      value={createUserData.reportingManager}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, reportingManager: e.target.value }))}
+                      placeholder="Enter reporting manager name"
                     />
                   </div>
                 </div>
@@ -747,28 +901,39 @@ export const UserManagement: React.FC = () => {
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">Address Information</h3>
               
                 <div>
-                  <Label htmlFor="address">Address</Label>
+                  <Label htmlFor="currentAddress">Current Address</Label>
                   <textarea
-                    id="address"
-                    value={createUserData.address}
-                    onChange={(e) => setCreateUserData(prev => ({ ...prev, address: e.target.value }))}
-                    placeholder="Enter complete address"
+                    id="currentAddress"
+                    value={createUserData.currentAddress}
+                    onChange={(e) => setCreateUserData(prev => ({ ...prev, currentAddress: e.target.value }))}
+                    placeholder="Enter complete current address"
                     rows={3}
                     className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
                 
                 <div>
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    value={createUserData.location}
-                    onChange={(e) => setCreateUserData(prev => ({ ...prev, location: e.target.value }))}
-                    placeholder="Enter location/area"
+                  <Label htmlFor="nativeAddress">Native Address</Label>
+                  <textarea
+                    id="nativeAddress"
+                    value={createUserData.nativeAddress}
+                    onChange={(e) => setCreateUserData(prev => ({ ...prev, nativeAddress: e.target.value }))}
+                    placeholder="Enter native address (optional)"
+                    rows={3}
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="location">Location</Label>
+                    <Input
+                      id="location"
+                      value={createUserData.location}
+                      onChange={(e) => setCreateUserData(prev => ({ ...prev, location: e.target.value }))}
+                      placeholder="Enter location/area"
+                    />
+                  </div>
                   <div>
                     <Label htmlFor="city">City</Label>
                     <Input
@@ -787,6 +952,16 @@ export const UserManagement: React.FC = () => {
                       placeholder="Enter state"
                     />
                   </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="region">Region Assigned</Label>
+                  <Input
+                    id="region"
+                    value={createUserData.region}
+                    onChange={(e) => setCreateUserData(prev => ({ ...prev, region: e.target.value }))}
+                    placeholder="Enter assigned region"
+                  />
                 </div>
               </div>
               
@@ -818,6 +993,61 @@ export const UserManagement: React.FC = () => {
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Format: ABCDE1234F</p>
                   </div>
                 </div>
+              </div>
+              
+              {/* Document Upload Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">Document Uploads</h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="avatar">Employee Photo</Label>
+                    <Input
+                      id="avatar"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setCreateUserData(prev => ({ ...prev, avatar: file }));
+                        }
+                      }}
+                      className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Upload employee photo (JPG, PNG, GIF)
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="documents">Documents (PDF/Images)</Label>
+                    <Input
+                      id="documents"
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.gif"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        setCreateUserData(prev => ({ ...prev, documents: files }));
+                      }}
+                      className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Upload documents like Aadhaar, PAN, Education certificates (PDF, JPG, PNG)
+                    </p>
+                  </div>
+                </div>
+                
+                {createUserData.documents.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Selected Documents:</p>
+                    <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400">
+                      {createUserData.documents.map((doc, index) => (
+                        <li key={index}>{doc.name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -1072,6 +1302,7 @@ export const UserManagement: React.FC = () => {
         }}
         user={selectedUser}
       />
+
       </div>
     </div>
   );

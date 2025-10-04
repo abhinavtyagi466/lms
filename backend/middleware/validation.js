@@ -29,8 +29,8 @@ const validateLogin = [
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long'),
   body('userType')
-    .isIn(['user', 'admin'])
-    .withMessage('User type must be either "user" or "admin"'),
+    .isIn(['user', 'manager', 'hod', 'hr', 'admin'])
+    .withMessage('User type must be one of: user, manager, hod, hr, admin'),
   handleValidationErrors
 ];
 
@@ -68,24 +68,61 @@ const validateCreateUser = [
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long'),
   body('phone')
-    .optional()
     .matches(/^[\+]?[0-9][\d]{0,15}$/)
     .withMessage('Please provide a valid phone number'),
+  body('userType')
+    .optional()
+    .isIn(['user', 'manager', 'hod', 'hr', 'admin'])
+    .withMessage('User type must be one of: user, manager, hod, hr, admin'),
+  
+  // Personal Information
+  body('dateOfBirth')
+    .optional()
+    .isISO8601()
+    .withMessage('Please provide a valid date of birth'),
+  body('fathersName')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Father\'s name must be between 2 and 100 characters'),
+  
+  // Employment Information
+  body('dateOfJoining')
+    .optional()
+    .isISO8601()
+    .withMessage('Please provide a valid date of joining'),
+  body('designation')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Designation must be between 2 and 100 characters'),
   body('department')
     .optional()
     .trim()
-    .isLength({ max: 100 })
-    .withMessage('Department name cannot exceed 100 characters'),
-  body('manager')
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Department must be between 2 and 100 characters'),
+  body('reportingManager')
     .optional()
     .trim()
-    .isLength({ max: 100 })
-    .withMessage('Manager name cannot exceed 100 characters'),
-  body('address')
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Reporting manager name must be between 2 and 100 characters'),
+  body('highestEducation')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Highest education must be between 2 and 100 characters'),
+  
+  // Address Information
+  body('currentAddress')
+    .optional()
+    .trim()
+    .isLength({ min: 10, max: 500 })
+    .withMessage('Current address must be between 10 and 500 characters'),
+  body('nativeAddress')
     .optional()
     .trim()
     .isLength({ max: 500 })
-    .withMessage('Address cannot exceed 500 characters'),
+    .withMessage('Native address cannot exceed 500 characters'),
   body('location')
     .optional()
     .trim()
@@ -94,13 +131,20 @@ const validateCreateUser = [
   body('city')
     .optional()
     .trim()
-    .isLength({ max: 50 })
-    .withMessage('City cannot exceed 50 characters'),
+    .isLength({ min: 2, max: 50 })
+    .withMessage('City must be between 2 and 50 characters'),
   body('state')
     .optional()
     .trim()
-    .isLength({ max: 50 })
-    .withMessage('State cannot exceed 50 characters'),
+    .isLength({ min: 2, max: 50 })
+    .withMessage('State must be between 2 and 50 characters'),
+  body('region')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Region cannot exceed 100 characters'),
+  
+  // Identification Documents
   body('aadhaarNo')
     .optional()
     .matches(/^[0-9]{12}$/)

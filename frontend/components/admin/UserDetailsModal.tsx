@@ -36,6 +36,7 @@ interface UserDetailsModalProps {
   };
   isOpen: boolean;
   onClose: () => void;
+  isFullScreen?: boolean; // New prop for full screen mode
 }
 
 interface VideoProgress {
@@ -141,7 +142,8 @@ interface LifecycleEvent {
 export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
   user,
   isOpen,
-  onClose
+  onClose,
+  isFullScreen = false
 }) => {
   const [videoProgress, setVideoProgress] = useState<VideoProgress>({});
   const [modules, setModules] = useState<any[]>([]);
@@ -170,7 +172,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
       // Fetch user's video progress, modules, quiz results, quiz attempts, warnings, and lifecycle events in parallel
       const [progressResponse, modulesResponse, quizResultsResponse, quizStatsResponse, quizAttemptsResponse, warningsResponse, lifecycleResponse] = await Promise.all([
         apiService.progress.getUserProgress(user._id),
-        apiService.modules.getAllModules(),
+        apiService.modules.getUserModules(user._id), // Fixed: Use getUserModules instead of getAllModules
         apiService.quizzes.getQuizResults(user._id).catch(() => ({ data: { results: [] } })),
         apiService.quizAttempts.getQuizAttemptStats(user._id).catch(() => ({ data: null })),
         apiService.quizAttempts.getUserQuizAttempts(user._id, { limit: 20 }).catch(() => ({ data: [] })),
@@ -322,7 +324,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
     };
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !isFullScreen) return null;
 
   // Safety check for required user properties
   if (!user || !user._id || !user.name || !user.email) {
@@ -331,8 +333,9 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-4xl max-h-[90vh] overflow-hidden">
+<div className="w-full min-h-screen bg-gray-50">
+<Card className="w-full min-h-screen rounded-none overflow-auto">
+    
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b bg-gray-50">
           <div className="flex items-center gap-3">

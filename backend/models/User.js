@@ -18,13 +18,30 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
+    required: [true, 'Phone number is required'],
     trim: true,
     match: [/^[\+]?[0-9][\d]{0,15}$/, 'Please enter a valid phone number']
   },
-  address: {
+  // Personal Information
+  dateOfBirth: {
+    type: Date
+  },
+  fathersName: {
     type: String,
     trim: true,
-    maxlength: [500, 'Address cannot be more than 500 characters']
+    maxlength: [100, 'Father\'s name cannot be more than 100 characters']
+  },
+  
+  // Address Information
+  currentAddress: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Current address cannot be more than 500 characters']
+  },
+  nativeAddress: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Native address cannot be more than 500 characters']
   },
   location: {
     type: String,
@@ -40,6 +57,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: [50, 'State cannot be more than 50 characters']
+  },
+  region: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Region cannot be more than 100 characters']
   },
   aadhaarNo: {
     type: String,
@@ -61,17 +83,32 @@ const userSchema = new mongoose.Schema({
   },
   userType: {
     type: String,
-    enum: ['user', 'admin'],
+    enum: ['user', 'manager', 'hod', 'hr', 'admin'],
     default: 'user'
+  },
+  // Employment Information
+  dateOfJoining: {
+    type: Date
+  },
+  designation: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Designation cannot be more than 100 characters']
   },
   department: {
     type: String,
     trim: true,
     default: 'General'
   },
-  manager: {
+  reportingManager: {
     type: String,
-    trim: true
+    trim: true,
+    maxlength: [100, 'Reporting manager name cannot be more than 100 characters']
+  },
+  highestEducation: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Education qualification cannot be more than 100 characters']
   },
   employeeId: {
     type: String,
@@ -103,9 +140,30 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Document Uploads
   avatar: {
     type: String
   },
+  documents: [{
+    name: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    type: {
+      type: String,
+      enum: ['aadhaar', 'pan', 'education', 'experience', 'other'],
+      required: true
+    },
+    filePath: {
+      type: String,
+      required: true
+    },
+    uploadedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   inactiveReason: {
     type: String,
     enum: ['Performance Issues', 'Policy Violation', 'Attendance Problems', 'Behavioral Issues', 'Resignation', 'Termination', 'Other'],
@@ -134,8 +192,6 @@ const userSchema = new mongoose.Schema({
 });
 
 // Index for better query performance
-userSchema.index({ email: 1 });
-userSchema.index({ employeeId: 1 });
 userSchema.index({ status: 1 });
 
 // Pre-save middleware to hash password

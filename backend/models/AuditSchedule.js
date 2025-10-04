@@ -33,8 +33,7 @@ const auditScheduleSchema = new mongoose.Schema({
   },
   kpiTriggerId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'KPIScore',
-    index: true
+    ref: 'KPIScore'
   },
   completedDate: {
     type: Date,
@@ -52,6 +51,30 @@ const auditScheduleSchema = new mongoose.Schema({
   assignedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  scheduledBy: {
+    type: String,
+    enum: {
+      values: ['manual', 'system', 'kpi_trigger'],
+      message: 'Scheduled by must be one of: manual, system, kpi_trigger'
+    },
+    default: 'manual',
+    index: true
+  },
+  scheduledAt: {
+    type: Date,
+    default: Date.now,
+    index: true
+  },
+  reason: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Reason cannot be more than 500 characters']
+  },
+  notes: {
+    type: String,
+    trim: true,
+    maxlength: [1000, 'Notes cannot be more than 1000 characters']
   },
   priority: {
     type: String,

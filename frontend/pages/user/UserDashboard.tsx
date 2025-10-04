@@ -1,24 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, BarChart3, Award, AlertTriangle, TrendingUp, Clock, 
-  CheckCircle, FileText, Target, FileQuestion, Bell, Calendar,
-  User, Video, Trophy, Activity, Zap, Star, Users, Eye, Play,
-  GraduationCap, BookMarked, TrendingDown, ArrowUpRight,
-  ArrowDownRight, Clock3, Medal, Shield, Lightbulb, Mail,
-  ClipboardList, UserCheck, AlertCircle, TrendingUp as TrendingUpIcon,
-  PieChart, LineChart, RefreshCw, ExternalLink, ChevronRight,
+  CheckCircle, FileText, Target, FileQuestion, Bell,
+  User, Trophy, Activity, Zap, Eye,
+  GraduationCap, Shield, Lightbulb,
+  ClipboardList, UserCheck, AlertCircle,
   Smartphone, Phone
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Progress } from '../../components/ui/progress';
-import { Alert, AlertDescription } from '../../components/ui/alert';
+// import { Alert, AlertDescription } from '../../components/ui/alert';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
 import { ModuleWithProgress } from '../../types';
+import { usePerformance, useAPIPerformance } from '../../hooks/usePerformance';
 
 interface UserStats {
   totalModules: number;
@@ -306,11 +305,11 @@ interface SessionData {
 
 export const UserDashboard: React.FC = () => {
   const { user, setCurrentPage } = useAuth();
+  const { measureAPI } = useAPIPerformance();
   const [userProfile, setUserProfile] = useState<any>(null);
   const [modules, setModules] = useState<ModuleWithProgress[]>([]);
   const [warnings, setWarnings] = useState<any[]>([]);
   const [awards, setAwards] = useState<any[]>([]);
-  const [lifecycleStats, setLifecycleStats] = useState<LifecycleStats | null>(null);
   const [recentLifecycleEvents, setRecentLifecycleEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -319,7 +318,6 @@ export const UserDashboard: React.FC = () => {
   const [trainingAssignments, setTrainingAssignments] = useState<TrainingAssignment[]>([]);
   const [auditSchedules, setAuditSchedules] = useState<AuditSchedule[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [kpiHistory, setKpiHistory] = useState<KPIScore[]>([]);
   
   // Quiz attempt state
   const [quizAttemptStats, setQuizAttemptStats] = useState<QuizAttemptStats | null>(null);
@@ -350,53 +348,21 @@ export const UserDashboard: React.FC = () => {
         setLoading(true);
         const userId = (user as any)._id || (user as any).id;
         
-        // Fetch all data from APIs
-        const [
-          profileData,
-          modulesData,
-          warningsData,
-          awardsData,
-          lifecycleStatsData,
-          lifecycleEventsData,
-          kpiData,
-          kpiHistoryData,
-          trainingData,
-          auditData,
-          notificationsData,
-          quizStatsData,
-          quizAttemptsData,
-          activitySummaryData,
-          loginAttemptsData,
-          sessionDataData,
-          recentActivitiesData
-        ] = await Promise.allSettled([
-          apiService.users.getProfile(userId).catch(() => ({ data: { name: (user as any)?.name, email: (user as any)?.email } })),
-          apiService.modules.getUserModules(userId).catch(() => ({ data: { modules: [] } })),
-          apiService.users.getUserWarnings(userId).catch(() => ({ data: { warnings: [] } })),
-          apiService.awards.getAllAwards({ userId }).catch(() => ({ data: { awards: [] } })),
-          apiService.lifecycle.getLifecycleStats(userId).catch(() => ({ data: { statistics: null } })),
-          apiService.lifecycle.getUserLifecycle(userId, { limit: 10 }).catch(() => ({ data: { events: [] } })),
-          apiService.kpi.getUserKPI(userId).catch(() => ({ data: null })),
-          apiService.kpi.getUserKPIHistory(userId).catch(() => ({ data: [] })),
-          apiService.trainingAssignments.getUserAssignments(userId).catch(() => ({ data: [] })),
-          apiService.auditScheduling.getUserAuditHistory(userId).catch(() => ({ data: [] })),
-          apiService.notifications.getUserNotifications(userId).catch(() => ({ data: [] })),
-          apiService.quizAttempts.getQuizAttemptStats(userId).catch(() => ({ data: null })),
-          apiService.quizAttempts.getUserQuizAttempts(userId, { limit: 10 }).catch(() => ({ data: [] })),
-          apiService.userActivity.getActivitySummary(userId, 30).catch(() => ({ data: null })),
-          apiService.userActivity.getLoginAttempts(userId, 30).catch(() => ({ data: null })),
-          apiService.userActivity.getSessionData(userId, 7).catch(() => ({ data: null })),
-          apiService.userActivity.getRecentActivities(userId, { limit: 10 }).catch(() => ({ data: [] }))
+        // Phase 1: Fetch critical data first (above the fold) with performance monitoring
+        const criticalData = await Promise.allSettled([
+          measureAPI(() => apiService.users.getProfile(userId), 'users/getProfile').catch(() => ({ data: { name: (user as any)?.name, email: (user as any)?.email } })),
+          measureAPI(() => apiService.modules.getUserModules(userId), 'modules/getUserModules').catch(() => ({ data: { modules: [] } })),
+          measureAPI(() => apiService.kpi.getUserKPI(userId), 'kpi/getUserKPI').catch(() => ({ data: null })),
         ]);
+
+        // Set critical data immediately for faster UI rendering
+        setUserProfile(criticalData[0].status === 'fulfilled' ? criticalData[0].value : { name: (user as any)?.name, email: (user as any)?.email });
         
-        // Set data with proper error handling
-        setUserProfile(profileData.status === 'fulfilled' ? profileData.value : { name: (user as any)?.name, email: (user as any)?.email });
-        
-        if (modulesData.status === 'fulfilled' && (modulesData.value as any).success) {
-          const modulesList = (modulesData.value as any).modules || [];
+        if (criticalData[1].status === 'fulfilled' && (criticalData[1].value as any).success) {
+          const modulesList = (criticalData[1].value as any).modules || [];
           setModules(modulesList);
           
-          // Calculate comprehensive stats
+          // Calculate comprehensive stats immediately
           const completed = modulesList.filter((m: ModuleWithProgress) => m.progress >= 0.95).length;
           const inProgress = modulesList.filter((m: ModuleWithProgress) => m.progress > 0 && m.progress < 0.95).length;
           const notStarted = modulesList.filter((m: ModuleWithProgress) => m.progress === 0).length;
@@ -421,29 +387,58 @@ export const UserDashboard: React.FC = () => {
           });
         }
         
-        setWarnings(warningsData.status === 'fulfilled' ? (warningsData.value as any).data?.warnings || [] : []);
-        setAwards(awardsData.status === 'fulfilled' ? (awardsData.value as any).data?.awards || [] : []);
-        setLifecycleStats(lifecycleStatsData.status === 'fulfilled' ? (lifecycleStatsData.value as any).data?.statistics : null);
-        setRecentLifecycleEvents(lifecycleEventsData.status === 'fulfilled' ? (lifecycleEventsData.value as any).data?.events || [] : []);
+        setKpiScore(criticalData[2].status === 'fulfilled' ? (criticalData[2].value as any).data : null);
         
-        // Set KPI-related data
-        setKpiScore(kpiData.status === 'fulfilled' ? (kpiData.value as any).data : null);
-        setKpiHistory(kpiHistoryData.status === 'fulfilled' ? (kpiHistoryData.value as any).data || [] : []);
-        setTrainingAssignments(trainingData.status === 'fulfilled' ? (trainingData.value as any).data || [] : []);
-        setAuditSchedules(auditData.status === 'fulfilled' ? (auditData.value as any).data || [] : []);
-        setNotifications(notificationsData.status === 'fulfilled' ? (notificationsData.value as any).data || [] : []);
-        
-        // Set quiz attempt data
-        console.log('Quiz Stats Data:', quizStatsData);
-        console.log('Quiz Attempts Data:', quizAttemptsData);
-        setQuizAttemptStats(quizStatsData.status === 'fulfilled' ? (quizStatsData.value as any).data : null);
-        setQuizAttempts(quizAttemptsData.status === 'fulfilled' ? (quizAttemptsData.value as any).data || [] : []);
-        
-        // Set user activity data
-        setActivitySummary(activitySummaryData.status === 'fulfilled' ? (activitySummaryData.value as any).data : null);
-        setLoginAttempts(loginAttemptsData.status === 'fulfilled' ? (loginAttemptsData.value as any).data : null);
-        setSessionData(sessionDataData.status === 'fulfilled' ? (sessionDataData.value as any).data : null);
-        setRecentActivities(recentActivitiesData.status === 'fulfilled' ? (recentActivitiesData.value as any).data || [] : []);
+        // Phase 2: Fetch secondary data in background (below the fold) with performance monitoring
+        setTimeout(async () => {
+          try {
+            const secondaryData = await Promise.allSettled([
+              measureAPI(() => apiService.users.getUserWarnings(userId), 'users/getUserWarnings').catch(() => ({ data: { warnings: [] } })),
+              measureAPI(() => apiService.awards.getAllAwards({ userId }), 'awards/getAllAwards').catch(() => ({ data: { awards: [] } })),
+              measureAPI(() => apiService.lifecycle.getLifecycleStats(userId), 'lifecycle/getLifecycleStats').catch(() => ({ data: { statistics: null } })),
+              measureAPI(() => apiService.lifecycle.getUserLifecycle(userId, { limit: 10 }), 'lifecycle/getUserLifecycle').catch(() => ({ data: { events: [] } })),
+              measureAPI(() => apiService.quizAttempts.getQuizAttemptStats(userId), 'quizAttempts/getQuizAttemptStats').catch(() => ({ data: null })),
+              measureAPI(() => apiService.quizAttempts.getUserQuizAttempts(userId, { limit: 10 }), 'quizAttempts/getUserQuizAttempts').catch(() => ({ data: [] })),
+            ]);
+
+            // Update secondary data
+            setWarnings(secondaryData[0].status === 'fulfilled' ? (secondaryData[0].value as any).data?.warnings || [] : []);
+            setAwards(secondaryData[1].status === 'fulfilled' ? (secondaryData[1].value as any).data?.awards || [] : []);
+            setLifecycleStats(secondaryData[2].status === 'fulfilled' ? (secondaryData[2].value as any).data?.statistics : null);
+            setRecentLifecycleEvents(secondaryData[3].status === 'fulfilled' ? (secondaryData[3].value as any).data?.events || [] : []);
+            setQuizAttemptStats(secondaryData[4].status === 'fulfilled' ? (secondaryData[4].value as any).data : null);
+            setQuizAttempts(secondaryData[5].status === 'fulfilled' ? (secondaryData[5].value as any).data || [] : []);
+          } catch (error) {
+            console.error('Error fetching secondary data:', error);
+          }
+        }, 100);
+
+        // Phase 3: Fetch tertiary data last (analytics, activity, etc.) with performance monitoring
+        setTimeout(async () => {
+          try {
+            const tertiaryData = await Promise.allSettled([
+              measureAPI(() => apiService.kpi.getUserKPIHistory(userId), 'kpi/getUserKPIHistory').catch(() => ({ data: [] })),
+              measureAPI(() => apiService.trainingAssignments.getUserAssignments(userId), 'trainingAssignments/getUserAssignments').catch(() => ({ data: [] })),
+              measureAPI(() => apiService.auditScheduling.getUserAuditHistory(userId), 'auditScheduling/getUserAuditHistory').catch(() => ({ data: [] })),
+              measureAPI(() => apiService.notifications.getUserNotifications(userId), 'notifications/getUserNotifications').catch(() => ({ data: [] })),
+              measureAPI(() => apiService.userActivity.getActivitySummary(userId, 30), 'userActivity/getActivitySummary').catch(() => ({ data: null })),
+              measureAPI(() => apiService.userActivity.getLoginAttempts(userId, 30), 'userActivity/getLoginAttempts').catch(() => ({ data: null })),
+              measureAPI(() => apiService.userActivity.getSessionData(userId, 7), 'userActivity/getSessionData').catch(() => ({ data: null })),
+              measureAPI(() => apiService.userActivity.getRecentActivities(userId, { limit: 10 }), 'userActivity/getRecentActivities').catch(() => ({ data: [] }))
+            ]);
+
+            // Update tertiary data
+            setTrainingAssignments(tertiaryData[1].status === 'fulfilled' ? (tertiaryData[1].value as any).data || [] : []);
+            setAuditSchedules(tertiaryData[2].status === 'fulfilled' ? (tertiaryData[2].value as any).data || [] : []);
+            setNotifications(tertiaryData[3].status === 'fulfilled' ? (tertiaryData[3].value as any).data || [] : []);
+            setActivitySummary(tertiaryData[4].status === 'fulfilled' ? (tertiaryData[4].value as any).data : null);
+            setLoginAttempts(tertiaryData[5].status === 'fulfilled' ? (tertiaryData[5].value as any).data : null);
+            setSessionData(tertiaryData[6].status === 'fulfilled' ? (tertiaryData[6].value as any).data : null);
+            setRecentActivities(tertiaryData[7].status === 'fulfilled' ? (tertiaryData[7].value as any).data || [] : []);
+          } catch (error) {
+            console.error('Error fetching tertiary data:', error);
+          }
+        }, 300);
         
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -556,7 +551,9 @@ export const UserDashboard: React.FC = () => {
               </Badge>
               <Button 
                 onClick={() => setCurrentPage('modules')}
-                className="bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-800 dark:from-gray-800 dark:to-gray-900 dark:hover:from-gray-900 dark:hover:to-black dark:text-white px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                variant="secondary"
+                size="lg"
+                className="px-8 py-3"
               >
                 <BookOpen className="w-5 h-5 mr-2" />
                 Continue Learning
@@ -1296,7 +1293,7 @@ export const UserDashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {modules.slice(0, 5).map((module, index) => (
+                  {modules.slice(0, 5).map((module) => (
                     <div key={module.moduleId} className="flex items-center justify-between p-4 bg-gray-50/50 rounded-lg">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
@@ -1521,6 +1518,14 @@ export const UserDashboard: React.FC = () => {
                 >
                   <Bell className="w-4 h-4 mr-2" />
                   View Notifications
+                </Button>
+                <Button 
+                  onClick={() => setCurrentPage('kpi-scores')}
+                  variant="outline"
+                  className="w-full justify-start border-purple-200 text-purple-700 hover:bg-purple-50"
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  KPI Scores
                 </Button>
               </CardContent>
             </Card>

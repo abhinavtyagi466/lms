@@ -293,4 +293,43 @@ router.post('/certificate', authenticateToken, requireAdmin, async (req, res) =>
   }
 });
 
+// @route   GET /api/awards/user/:userId
+// @desc    Get all awards for a specific user
+// @access  Private (Admin only)
+router.get('/user/:userId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const { limit = 10, page = 1 } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const awards = await Award.find({ userId })
+      .sort({ awardDate: -1 })
+      .limit(parseInt(limit))
+      .skip(skip)
+      .populate('userId', 'name email employeeId')
+      .populate('awardedBy', 'name email');
+
+    const total = await Award.countDocuments({ userId });
+
+    res.json({
+      success: true,
+      data: awards,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+
+  } catch (error) {
+    console.error('Get user awards error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching user awards'
+    });
+  }
+});
+
 module.exports = router;

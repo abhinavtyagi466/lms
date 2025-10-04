@@ -1,308 +1,333 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Bell, 
-  AlertTriangle, 
-  Award, 
-  FileText, 
-  Download, 
-  Calendar,
-  CheckCircle,
-  XCircle,
-  Info
-} from 'lucide-react';
+import { Bell, Check, CheckCheck, Filter, AlertCircle, BookOpen, FileText, Award, Calendar } from 'lucide-react';
 import { Card } from '../../components/ui/card';
-import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
-import { useAuth } from '../../contexts/AuthContext';
+import { Badge } from '../../components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { apiService } from '../../services/apiService';
-import { toast } from 'sonner';
+import { useToast } from '../../components/ui/use-toast';
+
+interface Notification {
+  _id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'success' | 'error' | 'certificate' | 'training' | 'audit' | 'kpi' | 'performance';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  read: boolean;
+  acknowledged: boolean;
+  sentAt: string;
+  metadata?: {
+    kpiScore?: number;
+    rating?: string;
+    period?: string;
+    trainingId?: string;
+    auditId?: string;
+    actionRequired?: boolean;
+    actionUrl?: string;
+  };
+}
 
 export const NotificationsPage: React.FC = () => {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'all' | 'warnings' | 'awards'>('all');
-  const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
-
-  // Mark notification as read
-  const markAsRead = (notificationId: string) => {
-    setReadNotifications(prev => new Set([...prev, notificationId]));
-  };
-
-  // Mark all notifications as read
-  const markAllAsRead = () => {
-    const allIds = notifications.map(n => n.id);
-    setReadNotifications(new Set(allIds));
-    toast.success('All notifications marked as read');
-  };
-
-  // Filter notifications based on active tab
-  const filteredNotifications = notifications.filter(notification => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'warnings') return notification.type === 'warning';
-    if (activeTab === 'awards') return notification.type === 'award';
-    return true;
-  });
-
-  // Get unread count
-  const unreadCount = notifications.filter(n => !readNotifications.has(n.id)).length;
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'unread' | 'acknowledged'>('all');
+  const { toast } = useToast();
 
   useEffect(() => {
-    const fetchNotifications = async () => {
-      if (!user?._id && !user?.id) return;
-      
-      try {
-        setLoading(true);
-        console.log('Fetching notifications for user:', user._id || user.id);
-        
-        const [
-          warningsRes,
-          awardsRes,
-          auditsRes
-        ] = await Promise.allSettled([
-          apiService.users.getUserWarnings(user._id || user.id),
-          apiService.awards.getAllAwards({ userId: user._id || user.id }),
-          apiService.audits.getAllRecords({ userId: user._id || user.id })
-        ]);
-
-        console.log('Notifications API responses:', {
-          warnings: warningsRes,
-          awards: awardsRes,
-          audits: auditsRes
-        });
-
-        const allNotifications: any[] = [];
-
-        // Process warnings
-        if (warningsRes.status === 'fulfilled') {
-          const warnings = warningsRes.value.data?.warnings || warningsRes.value.warnings || [];
-          warnings.forEach((warning: any) => {
-            allNotifications.push({
-              id: warning._id,
-              type: 'warning',
-              title: warning.reason || 'Warning',
-              description: warning.description || 'You have received a warning',
-              date: warning.createdAt,
-              severity: warning.severity || 'medium',
-              status: warning.status || 'active'
-            });
-          });
-        }
-
-        // Process awards
-        if (awardsRes.status === 'fulfilled') {
-          const awards = awardsRes.value.data?.awards || awardsRes.value.awards || [];
-          awards.forEach((award: any) => {
-            allNotifications.push({
-              id: award._id,
-              type: 'award',
-              title: award.title || award.type || 'Award',
-              description: award.description || 'Congratulations on your achievement!',
-              date: award.awardDate || award.createdAt,
-              status: award.status || 'approved',
-              certificateUrl: award.certificateUrl
-            });
-          });
-        }
-
-
-
-        // Process audit records
-        if (auditsRes.status === 'fulfilled') {
-          const audits = auditsRes.value.data?.records || auditsRes.value.records || [];
-          audits.forEach((audit: any) => {
-            allNotifications.push({
-              id: audit._id,
-              type: audit.type === 'warning' ? 'warning' : 'audit',
-              title: audit.reason || 'Audit Record',
-              description: audit.description || 'An audit record has been created',
-              date: audit.createdAt,
-              severity: audit.severity || 'low',
-              status: audit.status || 'active'
-            });
-          });
-        }
-
-        // Sort by date (newest first)
-        allNotifications.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        
-        console.log('Processed notifications:', allNotifications);
-        setNotifications(allNotifications);
-        
-      } catch (error: any) {
-        console.error('Notifications fetch error:', error);
-        toast.error('Failed to load notifications');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchNotifications();
-  }, [user?._id, user?.id]);
+  }, []);
+
+  useEffect(() => {
+    applyFilter();
+  }, [filter, notifications]);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const response: any = await apiService.notifications.getAll(false);
+      const notificationsData = response?.data || response || [];
+      setNotifications(Array.isArray(notificationsData) ? notificationsData : []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch notifications',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyFilter = () => {
+    let filtered = [...notifications];
+    
+    switch (filter) {
+      case 'unread':
+        filtered = filtered.filter(n => !n.read);
+        break;
+      case 'acknowledged':
+        filtered = filtered.filter(n => n.acknowledged);
+        break;
+      default:
+        break;
+    }
+
+    setFilteredNotifications(filtered);
+  };
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      await apiService.notifications.markAsRead([notificationId]);
+      setNotifications(prev =>
+        prev.map(n => n._id === notificationId ? { ...n, read: true } : n)
+      );
+      toast({
+        title: 'Success',
+        description: 'Notification marked as read',
+      });
+    } catch (error) {
+      console.error('Error marking as read:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to mark as read',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await apiService.notifications.markAllAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      toast({
+        title: 'Success',
+        description: 'All notifications marked as read',
+      });
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to mark all as read',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAcknowledge = async (notificationId: string) => {
+    try {
+      await apiService.notifications.acknowledge(notificationId);
+      setNotifications(prev =>
+        prev.map(n => n._id === notificationId ? { ...n, acknowledged: true, read: true } : n)
+      );
+      toast({
+        title: 'Success',
+        description: 'Notification acknowledged',
+      });
+    } catch (error) {
+      console.error('Error acknowledging:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to acknowledge',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'warning':
-        return <AlertTriangle className="w-5 h-5 text-red-600" />;
-      case 'award':
-        return <Award className="w-5 h-5 text-yellow-600" />;
-      case 'certificate':
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
+      case 'training':
+        return <BookOpen className="w-6 h-6 text-blue-600" />;
       case 'audit':
-        return <FileText className="w-5 h-5 text-blue-600" />;
+        return <FileText className="w-6 h-6 text-orange-600" />;
+      case 'kpi':
+      case 'performance':
+        return <AlertCircle className="w-6 h-6 text-red-600" />;
+      case 'certificate':
+        return <Award className="w-6 h-6 text-green-600" />;
       default:
-        return <Info className="w-5 h-5 text-gray-600" />;
+        return <Bell className="w-6 h-6 text-gray-600" />;
     }
   };
 
-  const getNotificationBadge = (type: string, severity?: string) => {
-    switch (type) {
-      case 'warning':
-        return <Badge variant="destructive">Warning</Badge>;
-      case 'award':
-        return <Badge variant="default" className="bg-yellow-100 text-yellow-800">Award</Badge>;
-      case 'certificate':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Certificate</Badge>;
-      case 'audit':
-        return <Badge variant="secondary">Audit</Badge>;
+  const getPriorityBadge = (priority: string) => {
+    switch (priority) {
+      case 'urgent':
+        return <Badge variant="destructive">Urgent</Badge>;
+      case 'high':
+        return <Badge className="bg-orange-500">High</Badge>;
+      case 'normal':
+        return <Badge variant="secondary">Normal</Badge>;
       default:
-        return <Badge variant="outline">Notification</Badge>;
+        return <Badge variant="outline">Low</Badge>;
     }
   };
 
-  const getTimeAgo = (date: string) => {
-    const now = new Date();
-    const notificationDate = new Date(date);
-    const diffInMs = now.getTime() - notificationDate.getTime();
-    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    const diffInDays = Math.floor(diffInHours / 24);
-
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
-    if (diffInHours < 24) return `${diffInHours} hours ago`;
-    if (diffInDays === 1) return '1 day ago';
-    return `${diffInDays} days ago`;
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
   };
 
-  if (loading) {
-    return (
-      <div className="p-6 flex items-center justify-center min-h-96">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Notifications</h1>
-          <p className="text-gray-600">Your warnings, awards, and audit records</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Bell className="w-5 h-5 text-gray-600" />
-          <span className="text-sm text-gray-600">{notifications.length} notifications</span>
+    <div className="container mx-auto p-6 max-w-6xl">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+              <Bell className="w-8 h-8 text-blue-600" />
+              Notifications
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
+              {unreadCount > 0 
+                ? `You have ${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
+                : 'You\'re all caught up!'}
+            </p>
+          </div>
+          {unreadCount > 0 && (
+            <Button onClick={handleMarkAllAsRead} variant="outline">
+              <CheckCheck className="w-4 h-4 mr-2" />
+              Mark All as Read
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2 border-b">
-        <button
-          onClick={() => setActiveTab('all')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'all' 
-              ? 'border-blue-600 text-blue-600' 
-              : 'border-transparent text-gray-600 hover:text-gray-800'
-          }`}
-        >
-          All ({notifications.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('warnings')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'warnings' 
-              ? 'border-red-600 text-red-600' 
-              : 'border-transparent text-gray-600 hover:text-gray-800'
-          }`}
-        >
-          Warnings ({notifications.filter(n => n.type === 'warning').length})
-        </button>
-        <button
-          onClick={() => setActiveTab('awards')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'awards' 
-              ? 'border-yellow-600 text-yellow-600' 
-              : 'border-transparent text-gray-600 hover:text-gray-800'
-          }`}
-        >
-          Awards ({notifications.filter(n => n.type === 'award').length})
-        </button>
-
-      </div>
+      {/* Filters */}
+      <Tabs value={filter} onValueChange={(value) => setFilter(value as any)} className="mb-6">
+        <TabsList>
+          <TabsTrigger value="all">
+            All ({notifications.length})
+          </TabsTrigger>
+          <TabsTrigger value="unread">
+            Unread ({unreadCount})
+          </TabsTrigger>
+          <TabsTrigger value="acknowledged">
+            Acknowledged ({notifications.filter(n => n.acknowledged).length})
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Notifications List */}
-      <div className="space-y-4">
-        {filteredNotifications.length > 0 ? (
-          filteredNotifications.map((notification) => (
-            <Card key={notification.id} className="p-6 hover:shadow-md transition-shadow">
+      {loading ? (
+        <div className="flex items-center justify-center p-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      ) : filteredNotifications.length === 0 ? (
+        <Card className="p-12">
+          <div className="flex flex-col items-center justify-center text-gray-500">
+            <Bell className="w-16 h-16 mb-4 text-gray-300" />
+            <h3 className="text-xl font-semibold mb-2">No notifications</h3>
+            <p className="text-sm">You don't have any notifications to display</p>
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {filteredNotifications.map((notification) => (
+            <Card
+              key={notification._id}
+              className={`p-6 transition-all hover:shadow-lg ${
+                !notification.read ? 'border-l-4 border-l-blue-600 bg-blue-50 dark:bg-blue-900/10' : ''
+              }`}
+            >
               <div className="flex items-start gap-4">
-                <div className="flex-shrink-0">
+                {/* Icon */}
+                <div className="flex-shrink-0 mt-1">
                   {getNotificationIcon(notification.type)}
                 </div>
-                
+
+                {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {notification.title}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      {getNotificationBadge(notification.type, notification.severity)}
-                      <span className="text-sm text-gray-500">
-                        {getTimeAgo(notification.date)}
-                      </span>
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-4 mb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {notification.title}
+                      </h3>
+                      {!notification.read && (
+                        <Badge variant="default" className="text-xs">New</Badge>
+                      )}
+                      {getPriorityBadge(notification.priority)}
                     </div>
-                  </div>
-                  
-                  <p className="text-gray-600 mb-3">
-                    {notification.description}
-                  </p>
-                  
-                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                       <Calendar className="w-4 h-4" />
-                      <span>{new Date(notification.date).toLocaleDateString()}</span>
+                      {formatDate(notification.sentAt)}
                     </div>
-                    
-                    {notification.certificateUrl && (
+                  </div>
+
+                  {/* Message */}
+                  <p className="text-gray-700 dark:text-gray-300 mb-4">
+                    {notification.message}
+                  </p>
+
+                  {/* Metadata */}
+                  {notification.metadata && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {notification.metadata.kpiScore !== undefined && (
+                        <Badge variant="outline" className="text-sm">
+                          KPI Score: {notification.metadata.kpiScore}%
+                        </Badge>
+                      )}
+                      {notification.metadata.rating && (
+                        <Badge variant="outline" className="text-sm">
+                          Rating: {notification.metadata.rating}
+                        </Badge>
+                      )}
+                      {notification.metadata.period && (
+                        <Badge variant="outline" className="text-sm">
+                          Period: {notification.metadata.period}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-3">
+                    {!notification.read && (
                       <Button
-                        variant="outline"
                         size="sm"
-                        onClick={() => window.open(notification.certificateUrl, '_blank')}
+                        variant="outline"
+                        onClick={() => handleMarkAsRead(notification._id)}
                       >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
+                        <Check className="w-4 h-4 mr-2" />
+                        Mark as Read
+                      </Button>
+                    )}
+                    {notification.metadata?.actionRequired && !notification.acknowledged && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleAcknowledge(notification._id)}
+                      >
+                        Acknowledge
+                      </Button>
+                    )}
+                    {notification.metadata?.actionUrl && (
+                      <Button
+                        size="sm"
+                        variant="link"
+                        onClick={() => {
+                          window.location.hash = `#${notification.metadata?.actionUrl}`;
+                        }}
+                      >
+                        View Details →
                       </Button>
                     )}
                   </div>
                 </div>
               </div>
             </Card>
-          ))
-        ) : (
-          <Card className="p-12 text-center">
-            <Bell className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No notifications</h3>
-            <p className="text-gray-600">
-              {activeTab === 'all' 
-                ? "You don't have any notifications yet."
-                : `You don't have any ${activeTab} yet.`
-              }
-            </p>
-          </Card>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

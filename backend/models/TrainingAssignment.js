@@ -20,10 +20,15 @@ const trainingAssignmentSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Assigned by is required'],
     enum: {
-      values: ['kpi_trigger', 'manual', 'scheduled'],
-      message: 'Assigned by must be one of: kpi_trigger, manual, scheduled'
+      values: ['kpi_trigger', 'manual', 'scheduled', 'system'],
+      message: 'Assigned by must be one of: kpi_trigger, manual, scheduled, system'
     },
     default: 'kpi_trigger',
+    index: true
+  },
+  assignedAt: {
+    type: Date,
+    default: Date.now,
     index: true
   },
   dueDate: {
@@ -43,8 +48,7 @@ const trainingAssignmentSchema = new mongoose.Schema({
   },
   kpiTriggerId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'KPIScore',
-    index: true
+    ref: 'KPIScore'
   },
   completionDate: {
     type: Date,
@@ -62,6 +66,11 @@ const trainingAssignmentSchema = new mongoose.Schema({
   trainingModuleId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Module'
+  },
+  reason: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Reason cannot be more than 500 characters']
   },
   notes: {
     type: String,

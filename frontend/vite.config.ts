@@ -14,6 +14,27 @@ export default defineConfig({
     target: 'esnext',
     outDir: 'dist',
     sourcemap: false,
+    // Optimize bundle size
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separate vendor chunks for better caching
+          vendor: ['react', 'react-dom'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-toast'],
+          utils: ['axios', 'lucide-react', 'sonner'],
+        },
+      },
+    },
+    // Enable minification
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
+    // Increase chunk size warning limit
+    chunkSizeWarningLimit: 1000,
   },
   server: {
     port: 3000,
@@ -28,5 +49,24 @@ export default defineConfig({
         ws: true,
       },
     },
+  },
+  // Enable CSS code splitting
+  css: {
+    devSourcemap: true,
+  },
+  // Optimize dependencies
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'axios',
+      'lucide-react',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-select',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-toast',
+      'sonner',
+    ],
   },
 });

@@ -126,7 +126,7 @@ const userActivitySchema = new mongoose.Schema({
 // Indexes for better query performance
 userActivitySchema.index({ userId: 1, createdAt: -1 });
 userActivitySchema.index({ activityType: 1, createdAt: -1 });
-userActivitySchema.index({ sessionId: 1 });
+userActivitySchema.index({ sessionId: 1 }, { sparse: true });
 userActivitySchema.index({ ipAddress: 1 });
 userActivitySchema.index({ isSuspicious: 1 });
 userActivitySchema.index({ success: 1 });

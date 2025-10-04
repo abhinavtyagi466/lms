@@ -650,7 +650,7 @@ export const QuizPage: React.FC = () => {
             </Button>
 
             {currentQuestionIndex === selectedQuiz.questions.length - 1 ? (
-              <Button onClick={submitQuiz} className="bg-green-600 hover:bg-green-700">
+              <Button onClick={submitQuiz} variant="success">
                 Submit Quiz
               </Button>
             ) : (

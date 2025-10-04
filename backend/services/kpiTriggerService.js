@@ -1,663 +1,732 @@
-const TrainingAssignment = require('../models/TrainingAssignment');
-const EmailLog = require('../models/EmailLog');
-const AuditSchedule = require('../models/AuditSchedule');
-const KPIScore = require('../models/KPIScore');
 const User = require('../models/User');
-const emailService = require('./emailService');
-const LifecycleService = require('./lifecycleService');
+const KPIScore = require('../models/KPIScore');
+const TrainingAssignment = require('../models/TrainingAssignment');
+const AuditSchedule = require('../models/AuditSchedule');
+const Notification = require('../models/Notification');
+const EmailTemplateService = require('./emailTemplateService');
 
 class KPITriggerService {
-  /**
-   * Main method to process all KPI triggers and automation
-   * @param {Object} kpiScore - The KPI score document
-   * @returns {Object} - Processing results
-   */
-  static async processKPITriggers(kpiScore) {
-    const startTime = Date.now();
-    const results = {
-      success: false,
-      trainingAssignments: [],
-      auditSchedules: [],
-      emailLogs: [],
-      lifecycleEvents: [],
-      errors: [],
-      processingTime: 0
+  constructor() {
+    this.triggerRules = {
+      // KPI Score based triggers
+      scoreBased: {
+        '85-100': {
+          rating: 'Outstanding',
+          training: null,
+          audit: null,
+          reward: true
+        },
+        '70-84': {
+          rating: 'Excellent',
+          training: null,
+          audit: 'Audit Call'
+        },
+        '50-69': {
+          rating: 'Satisfactory',
+          training: null,
+          audit: 'Audit Call + Cross-check last 3 months data'
+        },
+        '40-49': {
+          rating: 'Need Improvement',
+          training: 'Basic Training Module (Joining-level training)',
+          audit: 'Audit Call + Cross-check last 3 months data + Dummy Audit Case'
+        },
+        'below-40': {
+          rating: 'Unsatisfactory',
+          training: 'Basic Training Module (Joining-level training)',
+          audit: 'Audit Call + Cross-check last 3 months data + Dummy Audit Case',
+          warning: true
+        }
+      }
     };
+  }
 
-    try {
-      console.log(`Starting KPI trigger processing for user ${kpiScore.userId}, score: ${kpiScore.overallScore}%`);
-
-      // Mark KPI as processing
-      await kpiScore.markAsProcessing();
-
-      // Get user details
-      const user = await User.findById(kpiScore.userId);
-      if (!user) {
-        throw new Error(`User not found: ${kpiScore.userId}`);
+  // Process KPI data from Excel and trigger actions
+  async processKPIFromExcel(excelData, period, submittedBy = null) {
+    const results = [];
+    
+    for (const row of excelData) {
+      try {
+        const result = await this.processKPIRow(row, period, submittedBy);
+        results.push(result);
+      } catch (error) {
+        console.error(`Error processing KPI row for ${row.FE}:`, error);
+        results.push({
+          fe: row.FE,
+          success: false,
+          error: error.message
+        });
       }
-
-      // Calculate all triggers based on KPI score and individual metrics
-      const triggers = this.calculateTriggers(kpiScore);
-      console.log('Calculated triggers:', triggers);
-
-      // Process training assignments
-      if (triggers.trainings.length > 0) {
-        results.trainingAssignments = await this.createTrainingAssignments(kpiScore, triggers.trainings);
-        console.log(`Created ${results.trainingAssignments.length} training assignments`);
-      }
-
-      // Schedule audits
-      if (triggers.audits.length > 0) {
-        results.auditSchedules = await this.scheduleAudits(kpiScore, triggers.audits);
-        console.log(`Scheduled ${results.auditSchedules.length} audits`);
-      }
-
-      // Send automated emails
-      if (triggers.emails.length > 0) {
-        results.emailLogs = await this.sendAutomatedEmails(kpiScore, triggers.emails, user);
-        console.log(`Sent ${results.emailLogs.length} emails`);
-      }
-
-      // Update user status
-      await this.updateUserStatus(kpiScore.userId, kpiScore);
-
-      // Create lifecycle events
-      if (triggers.lifecycleEvents.length > 0) {
-        results.lifecycleEvents = await this.createLifecycleEvents(kpiScore.userId, triggers.lifecycleEvents);
-        console.log(`Created ${results.lifecycleEvents.length} lifecycle events`);
-      }
-
-      // Mark KPI as completed
-      await kpiScore.markAsCompleted();
-
-      results.success = true;
-      results.processingTime = Date.now() - startTime;
-
-      console.log(`KPI trigger processing completed successfully in ${results.processingTime}ms`);
-
-    } catch (error) {
-      console.error('Error in KPI trigger processing:', error);
-      results.errors.push({
-        type: 'processing_error',
-        message: error.message,
-        timestamp: new Date()
-      });
-
-      // Mark KPI as failed
-      await kpiScore.markAsFailed();
-
-      results.processingTime = Date.now() - startTime;
     }
-
+    
     return results;
   }
 
-  /**
-   * Calculate all triggers based on KPI score and individual metrics
-   * @param {Object} kpiScore - The KPI score document
-   * @returns {Object} - All calculated triggers
-   */
-  static calculateTriggers(kpiScore) {
-    const triggers = {
-      trainings: [],
-      audits: [],
-      emails: [],
-      lifecycleEvents: []
+  // Process individual KPI row
+  async processKPIRow(row, period, submittedBy = null) {
+    const fe = row.FE;
+    const kpiScore = this.calculateKPIScore(row);
+    const rating = this.getRating(kpiScore);
+    
+    // Find or create user
+    const user = await this.findOrCreateUser(fe, row['Email'], row['Employee ID']);
+    
+    // Save KPI score
+    const kpiRecord = await this.saveKPIScore(user._id, period, kpiScore, rating, row, submittedBy);
+    
+    // Process triggers
+    const triggers = await this.processTriggers(user, kpiRecord, row, submittedBy);
+    
+    return {
+      fe: fe,
+      userId: user._id,
+      kpiScore: kpiScore,
+      rating: rating,
+      triggers: triggers,
+      success: true
     };
+  }
 
-    const { overallScore, rating } = kpiScore;
-    const { tat, majorNegativity, quality, neighborCheck, negativity, appUsage, insufficiency } = kpiScore;
+  // Calculate KPI score from Excel row data - ENHANCED with exact KPI logic
+  calculateKPIScore(row) {
+    const tatPercentage = parseFloat(row['TAT %']) || 0;
+    const majorNegPercentage = parseFloat(row['Major Negative %']) || 0;
+    const negPercentage = parseFloat(row['Negative %']) || 0;
+    const qualityPercentage = parseFloat(row['Quality Concern % Age']) || 0;
+    const insuffPercentage = parseFloat(row['Insuff %']) || 0;
+    const neighborCheckPercentage = parseFloat(row['Neighbor Check % Age']) || 0;
+    const onlinePercentage = parseFloat(row['Online % Age']) || 0;
 
-    // Training assignment logic
-    if (overallScore < 55 || overallScore < 40) {
-      triggers.trainings.push({
-        type: 'basic',
-        reason: `Overall KPI score ${overallScore}% is below threshold`,
-        priority: overallScore < 40 ? 'high' : 'medium'
+    // Calculate individual scores based on KPI criteria (weightage: 20%, 20%, 20%, 10%, 10%, 10%, 10%)
+    let tatScore = 0;
+    if (tatPercentage >= 95) tatScore = 20;
+    else if (tatPercentage >= 90) tatScore = 10;
+    else if (tatPercentage >= 85) tatScore = 5;
+    else tatScore = 0;
+
+    let majorNegScore = 0;
+    if (majorNegPercentage >= 2.5) majorNegScore = 20;
+    else if (majorNegPercentage >= 2.0) majorNegScore = 15;
+    else if (majorNegPercentage >= 1.5) majorNegScore = 5;
+    else majorNegScore = 0;
+
+    let qualityScore = 0;
+    if (qualityPercentage === 0) qualityScore = 20;
+    else if (qualityPercentage <= 0.25) qualityScore = 15;
+    else if (qualityPercentage <= 0.5) qualityScore = 10;
+    else qualityScore = 0;
+
+    let neighborScore = 0;
+    if (neighborCheckPercentage >= 90) neighborScore = 10;
+    else if (neighborCheckPercentage >= 85) neighborScore = 5;
+    else if (neighborCheckPercentage >= 80) neighborScore = 2;
+    else neighborScore = 0;
+
+    let negScore = 0;
+    if (negPercentage >= 25) negScore = 10;
+    else if (negPercentage >= 20) negScore = 5;
+    else if (negPercentage >= 15) negScore = 2;
+    else negScore = 0;
+
+    let onlineScore = 0;
+    if (onlinePercentage >= 90) onlineScore = 10;
+    else if (onlinePercentage >= 85) onlineScore = 5;
+    else if (onlinePercentage >= 80) onlineScore = 2;
+    else onlineScore = 0;
+
+    let insuffScore = 0;
+    if (insuffPercentage < 1) insuffScore = 10;
+    else if (insuffPercentage <= 1.5) insuffScore = 5;
+    else if (insuffPercentage <= 2) insuffScore = 2;
+    else insuffScore = 0;
+
+    // Sum all scores
+    const overallScore = tatScore + majorNegScore + qualityScore + neighborScore + negScore + onlineScore + insuffScore;
+
+    return Math.round(overallScore * 100) / 100;
+  }
+
+  // Get rating based on score
+  getRating(score) {
+    if (score >= 85) return 'Outstanding';
+    if (score >= 70) return 'Excellent';
+    if (score >= 50) return 'Satisfactory';
+    if (score >= 40) return 'Need Improvement';
+    return 'Unsatisfactory';
+  }
+
+  // Find or create user based on FE name
+  // Find or create user by employeeId, email, or name (priority order)
+  async findOrCreateUser(feName, email = null, employeeId = null) {
+    let user = null;
+    
+    // Priority 1: Find by Employee ID
+    if (employeeId) {
+      user = await User.findOne({ employeeId: employeeId });
+    }
+    
+    // Priority 2: Find by Email
+    if (!user && email) {
+      user = await User.findOne({ email: email });
+    }
+    
+    // Priority 3: Find by Name (regex)
+    if (!user && feName) {
+      user = await User.findOne({ 
+        name: { $regex: feName, $options: 'i' }
       });
     }
-
-    if (majorNegativity.percentage > 0 && negativity.percentage < 25) {
-      triggers.trainings.push({
-        type: 'negativity_handling',
-        reason: `Major negativity ${majorNegativity.percentage}% detected with low general negativity ${negativity.percentage}%`,
-        priority: 'medium'
+    
+    // Create new user if still not found
+    if (!user) {
+      const [firstName, lastName] = feName.split(' ');
+      user = new User({
+        name: feName,
+        email: email || `${firstName?.toLowerCase() || 'user'}@company.com`,
+        employeeId: employeeId || `FE-${Date.now()}`,
+        password: 'defaultPassword123',
+        userType: 'user',
+        isActive: true,
+        department: 'Field Operations'
       });
+      await user.save();
     }
 
-    if (quality.percentage > 1) {
-      triggers.trainings.push({
-        type: 'dos_donts',
-        reason: `Quality concerns ${quality.percentage}% above threshold`,
-        priority: 'high'
-      });
-    }
+    return user;
+  }
 
-    if (appUsage.percentage < 80) {
-      triggers.trainings.push({
-        type: 'app_usage',
-        reason: `App usage ${appUsage.percentage}% below target`,
-        priority: 'medium'
-      });
-    }
-
-    // Audit scheduling logic
-    if (overallScore < 70) {
-      triggers.audits.push({
-        type: 'audit_call',
-        reason: `Overall KPI score ${overallScore}% below 70% threshold`,
-        priority: overallScore < 50 ? 'high' : 'medium'
-      });
-
-      triggers.audits.push({
-        type: 'cross_check',
-        reason: `Cross-check last 3 months data required for score ${overallScore}%`,
-        priority: 'medium'
-      });
-    }
-
-    if (overallScore < 50) {
-      triggers.audits.push({
-        type: 'dummy_audit',
-        reason: `Dummy audit case required for score ${overallScore}% below 50%`,
-        priority: 'high'
-      });
-    }
-
-    if (insufficiency.percentage > 2) {
-      triggers.audits.push({
-        type: 'cross_verify_insuff',
-        reason: `Insufficiency rate ${insufficiency.percentage}% above 2% threshold`,
-        priority: 'high'
-      });
-    }
-
-    // Email notification logic
-    if (triggers.trainings.length > 0) {
-      triggers.emails.push({
-        type: 'training',
-        recipients: ['fe', 'coordinator', 'manager', 'hod'],
-        data: {
-          trainingCount: triggers.trainings.length,
-          trainingTypes: triggers.trainings.map(t => t.type)
-        }
-      });
-    }
-
-    if (triggers.audits.length > 0) {
-      triggers.emails.push({
-        type: 'audit',
-        recipients: ['compliance', 'hod'],
-        data: {
-          auditCount: triggers.audits.length,
-          auditTypes: triggers.audits.map(a => a.type)
-        }
-      });
-    }
-
-    if (overallScore < 40) {
-      triggers.emails.push({
-        type: 'warning',
-        recipients: ['fe', 'coordinator', 'manager', 'compliance', 'hod'],
-        data: {
-          kpiScore: overallScore,
-          rating: rating,
-          improvementAreas: this.getImprovementAreas(kpiScore)
-        }
-      });
-    }
-
-    // Always send KPI score notification
-    triggers.emails.push({
-      type: 'kpi_score',
-      recipients: ['fe', 'coordinator', 'manager'],
-      data: {
-        kpiScore: overallScore,
-        rating: rating,
-        period: kpiScore.period,
-        scores: { tat, majorNegativity, quality, neighborCheck, negativity, appUsage, insufficiency },
-        actions: [...triggers.trainings.map(t => t.reason), ...triggers.audits.map(a => a.reason)]
-      }
+  // Save KPI score to database
+  async saveKPIScore(userId, period, score, rating, rawData, submittedBy = null) {
+    const kpiScore = new KPIScore({
+      userId: userId,
+      period: period,
+      overallScore: score,
+      rating: rating,
+      // All required percentage fields
+      tat: {
+        percentage: parseFloat(rawData['TAT %']) || 0
+      },
+      majorNegativity: {
+        percentage: parseFloat(rawData['Major Negative %']) || 0
+      },
+      quality: {
+        percentage: parseFloat(rawData['Quality Concern % Age']) || 0
+      },
+      neighborCheck: {
+        percentage: parseFloat(rawData['Neighbor Check % Age']) || 0
+      },
+      negativity: {
+        percentage: parseFloat(rawData['Negative %']) || 0
+      },
+      appUsage: {
+        percentage: parseFloat(rawData['Online % Age']) || 0
+      },
+      insufficiency: {
+        percentage: parseFloat(rawData['Insuff %']) || 0
+      },
+      submittedBy: submittedBy, // Required field
+      isActive: true
     });
 
-    // Lifecycle events
-    if (overallScore < 50) {
-      triggers.lifecycleEvents.push({
-        type: 'audit',
-        title: 'KPI Audit Triggered',
-        description: `Audit triggered due to low KPI score: ${overallScore}%`,
-        category: 'negative'
+    await kpiScore.save();
+    return kpiScore;
+  }
+
+  // Process all triggers for a user - ENHANCED with condition-based triggers
+  async processTriggers(user, kpiRecord, rawData, adminUser = null) {
+    const triggers = [];
+
+    // 1. Score-based triggers
+    const scoreTriggers = this.getScoreBasedTriggers(kpiRecord.overallScore);
+    for (const trigger of scoreTriggers) {
+      const result = await this.executeTrigger(user, kpiRecord, trigger, rawData, adminUser);
+      triggers.push(result);
+    }
+
+    // 2. Condition-based triggers
+    const conditionTriggers = this.getConditionBasedTriggers(kpiRecord.overallScore, rawData);
+    for (const trigger of conditionTriggers) {
+      const result = await this.executeTrigger(user, kpiRecord, trigger, rawData, adminUser);
+      triggers.push(result);
+    }
+
+    return triggers;
+  }
+
+  // Get condition-based triggers
+  getConditionBasedTriggers(overallScore, rawData) {
+    const triggers = [];
+    const majorNegPercentage = parseFloat(rawData['Major Negative %']) || 0;
+    const negPercentage = parseFloat(rawData['Negative %']) || 0;
+    const qualityPercentage = parseFloat(rawData['Quality Concern % Age']) || 0;
+    const onlinePercentage = parseFloat(rawData['Online % Age']) || 0;
+    const insuffPercentage = parseFloat(rawData['Insuff %']) || 0;
+
+    // Condition 1: Overall KPI Score < 55%
+    if (overallScore < 55) {
+      triggers.push({
+        training: 'Basic Training Module (Joining-level training)',
+        audit: 'Audit Call + Cross-check last 3 months data + Dummy Audit Case',
+        conditionMet: 'Overall KPI Score < 55%',
+        emailRecipients: {
+          training: ['FE', 'Coordinator', 'Manager', 'Compliance Team', 'HOD'],
+          audit: ['Compliance Team', 'HOD']
+        }
       });
     }
 
+    // Condition 2: Overall KPI Score < 40%
     if (overallScore < 40) {
-      triggers.lifecycleEvents.push({
-        type: 'warning',
-        title: 'Performance Warning Issued',
-        description: `Warning issued due to KPI score: ${overallScore}%`,
-        category: 'negative'
+      triggers.push({
+        training: 'Basic Training Module (Joining-level training)',
+        audit: 'Audit Call + Cross-check last 3 months data + Dummy Audit Case',
+        warning: true,
+        conditionMet: 'Overall KPI Score < 40%',
+        emailRecipients: {
+          training: ['FE', 'Coordinator', 'Manager', 'Compliance Team', 'HOD'],
+          audit: ['Compliance Team', 'HOD'],
+          warning: ['FE', 'Coordinator', 'Manager', 'Compliance', 'HOD']
+        }
       });
     }
 
-    if (triggers.trainings.length > 0) {
-      triggers.lifecycleEvents.push({
-        type: 'training',
-        title: 'Training Assignments Created',
-        description: `${triggers.trainings.length} training(s) assigned based on KPI performance`,
-        category: 'neutral'
+    // Condition 3: Major Negativity > 0% AND General Negativity < 25%
+    if (majorNegPercentage > 0 && negPercentage < 25) {
+      triggers.push({
+        training: 'Negativity Handling Training Module',
+        audit: 'Audit Call + Cross-check last 3 months',
+        conditionMet: 'Major Negativity > 0% AND General Negativity < 25%',
+        emailRecipients: {
+          training: ['FE', 'Coordinator', 'Manager', 'Compliance Team', 'HOD'],
+          audit: ['Compliance Team', 'HOD']
+        }
+      });
+    }
+
+    // Condition 4: Quality Concern > 1%
+    if (qualityPercentage > 1) {
+      triggers.push({
+        training: "Do's & Don'ts Training Module",
+        audit: 'Audit Call + Cross-check last 3 months + RCA of complaints',
+        conditionMet: 'Quality Concern > 1%',
+        emailRecipients: {
+          training: ['FE', 'Coordinator', 'Manager', 'Compliance Team', 'HOD'],
+          audit: ['Compliance Team', 'HOD']
+        }
+      });
+    }
+
+    // Condition 5: Cases Done on App < 80%
+    if (onlinePercentage < 80) {
+      triggers.push({
+        training: 'Application Usage Training',
+        audit: null,
+        conditionMet: 'Cases Done on App < 80%',
+        emailRecipients: {
+          training: ['FE', 'Coordinator', 'Manager', 'Compliance Team', 'HOD']
+        }
+      });
+    }
+
+    // Condition 6: Insufficiency > 2%
+    if (insuffPercentage > 2) {
+      triggers.push({
+        training: null,
+        audit: 'Cross-verification of selected insuff cases by another FE',
+        conditionMet: 'Insufficiency > 2%',
+        emailRecipients: {
+          audit: ['Compliance Team', 'HOD']
+        }
       });
     }
 
     return triggers;
   }
 
-  /**
-   * Create training assignments based on triggers
-   * @param {Object} kpiScore - The KPI score document
-   * @param {Array} trainingTriggers - Array of training triggers
-   * @returns {Array} - Created training assignments
-   */
-  static async createTrainingAssignments(kpiScore, trainingTriggers) {
-    const assignments = [];
+  // Get score-based triggers
+  getScoreBasedTriggers(score) {
+    const triggers = [];
 
-    for (const trigger of trainingTriggers) {
-      try {
-        // Calculate due date (7 days from now for high priority, 14 days for others)
-        const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + (trigger.priority === 'high' ? 7 : 14));
-
-        const assignment = new TrainingAssignment({
-          userId: kpiScore.userId,
-          trainingType: trigger.type,
-          assignedBy: 'kpi_trigger',
-          dueDate: dueDate,
-          kpiTriggerId: kpiScore._id,
-          notes: trigger.reason
-        });
-
-        await assignment.save();
-
-        // Add to KPI score
-        await kpiScore.addTrainingAssignment(assignment._id);
-
-        assignments.push(assignment);
-
-        console.log(`Created training assignment: ${trigger.type} for user ${kpiScore.userId}`);
-
-      } catch (error) {
-        console.error(`Error creating training assignment ${trigger.type}:`, error);
-        throw error;
-      }
+    if (score >= 85) {
+      triggers.push(this.triggerRules.scoreBased['85-100']);
+    } else if (score >= 70) {
+      triggers.push(this.triggerRules.scoreBased['70-84']);
+    } else if (score >= 50) {
+      triggers.push(this.triggerRules.scoreBased['50-69']);
+    } else if (score >= 40) {
+      triggers.push(this.triggerRules.scoreBased['40-49']);
+    } else {
+      triggers.push(this.triggerRules.scoreBased['below-40']);
     }
 
-    return assignments;
+    return triggers;
   }
 
-  /**
-   * Schedule audits based on triggers
-   * @param {Object} kpiScore - The KPI score document
-   * @param {Array} auditTriggers - Array of audit triggers
-   * @returns {Array} - Created audit schedules
-   */
-  static async scheduleAudits(kpiScore, auditTriggers) {
-    const schedules = [];
+  // Execute individual trigger - ENHANCED with email template service
+  async executeTrigger(user, kpiRecord, trigger, rawData, adminUser) {
+    const result = {
+      type: trigger.training ? 'training' : trigger.audit ? 'audit' : 'warning',
+      action: trigger.training || trigger.audit || 'Warning Letter',
+      executed: false,
+      error: null,
+      conditionMet: trigger.conditionMet || null,
+      emailsSent: []
+    };
 
-    for (const trigger of auditTriggers) {
-      try {
-        // Calculate scheduled date (3 days from now for high priority, 7 days for others)
-        const scheduledDate = new Date();
-        scheduledDate.setDate(scheduledDate.getDate() + (trigger.priority === 'high' ? 3 : 7));
-
-        const schedule = new AuditSchedule({
-          userId: kpiScore.userId,
-          auditType: trigger.type,
-          scheduledDate: scheduledDate,
-          kpiTriggerId: kpiScore._id,
-          priority: trigger.priority,
-          auditScope: trigger.reason,
-          auditMethod: this.getAuditMethod(trigger.type)
-        });
-
-        await schedule.save();
-
-        // Add to KPI score
-        await kpiScore.addAuditSchedule(schedule._id);
-
-        schedules.push(schedule);
-
-        console.log(`Scheduled audit: ${trigger.type} for user ${kpiScore.userId}`);
-
-      } catch (error) {
-        console.error(`Error scheduling audit ${trigger.type}:`, error);
-        throw error;
-      }
-    }
-
-    return schedules;
-  }
-
-  /**
-   * Send automated emails based on triggers
-   * @param {Object} kpiScore - The KPI score document
-   * @param {Array} emailTriggers - Array of email triggers
-   * @param {Object} user - User document
-   * @returns {Array} - Created email logs
-   */
-  static async sendAutomatedEmails(kpiScore, emailTriggers, user) {
-    const emailLogs = [];
-
-    for (const trigger of emailTriggers) {
-      try {
-        // Get recipients based on roles
-        const recipients = await this.getRecipientsByRoles(trigger.recipients, kpiScore.userId);
-
-        for (const recipient of recipients) {
-          try {
-            // Send email using existing email service
-            let emailResult;
-            const emailData = {
-              userName: user.name,
-              employeeId: user.employeeId,
-              period: kpiScore.period,
-              ...trigger.data
-            };
-
-            switch (trigger.type) {
-              case 'training':
-                emailResult = await emailService.sendTrainingNotification(kpiScore.userId, emailData);
-                break;
-              case 'audit':
-                emailResult = await emailService.sendAuditNotification(kpiScore.userId, emailData);
-                break;
-              case 'warning':
-                emailResult = await emailService.sendWarningNotification(kpiScore.userId, emailData);
-                break;
-              case 'kpi_score':
-                emailResult = await emailService.sendKPIScoreNotification(kpiScore.userId, emailData);
-                break;
-              default:
-                throw new Error(`Unknown email type: ${trigger.type}`);
-            }
-
-            // Log successful email
-            const emailLog = new EmailLog({
-              recipientEmail: recipient.email,
-              recipientRole: recipient.role,
-              templateType: trigger.type,
-              subject: this.getEmailSubject(trigger.type, emailData),
-              status: 'sent',
-              kpiTriggerId: kpiScore._id,
-              userId: kpiScore.userId,
-              sentAt: new Date()
-            });
-
-            await emailLog.save();
-
-            // Add to KPI score
-            await kpiScore.addEmailLog(emailLog._id);
-
-            emailLogs.push(emailLog);
-
-            console.log(`Sent ${trigger.type} email to ${recipient.email}`);
-
-          } catch (emailError) {
-            console.error(`Error sending email to ${recipient.email}:`, emailError);
-
-            // Log failed email
-            const emailLog = new EmailLog({
-              recipientEmail: recipient.email,
-              recipientRole: recipient.role,
-              templateType: trigger.type,
-              subject: this.getEmailSubject(trigger.type, trigger.data),
-              status: 'failed',
-              kpiTriggerId: kpiScore._id,
-              userId: kpiScore.userId,
-              errorMessage: emailError.message,
-              sentAt: new Date()
-            });
-
-            await emailLog.save();
-            emailLogs.push(emailLog);
-          }
-        }
-
-      } catch (error) {
-        console.error(`Error processing email trigger ${trigger.type}:`, error);
-        throw error;
-      }
-    }
-
-    return emailLogs;
-  }
-
-  /**
-   * Update user status based on KPI score
-   * @param {String} userId - User ID
-   * @param {Object} kpiScore - KPI score document
-   */
-  static async updateUserStatus(userId, kpiScore) {
     try {
-      const user = await User.findById(userId);
-      if (!user) {
-        throw new Error(`User not found: ${userId}`);
+      let trainingId = null;
+      let auditId = null;
+
+      // Create training assignment if needed
+      if (trigger.training) {
+        const training = await this.createTrainingAssignment(user, trigger.training, kpiRecord, trigger.conditionMet);
+        trainingId = training._id;
+        
+        // Send email notifications using template service
+        if (trigger.emailRecipients?.training) {
+          const emailResult = await this.sendTemplatedEmail(
+            'training',
+            user,
+            kpiRecord,
+            trigger,
+            adminUser,
+            { trainingAssignmentId: training._id, trainingDetails: training }
+          );
+          result.emailsSent.push(...emailResult.results);
+        }
+        
+        result.executed = true;
+        result.trainingAssignmentId = training._id;
       }
 
-      // Update user status based on KPI score
-      let newStatus = 'Active';
-      if (kpiScore.overallScore < 50) {
-        newStatus = 'Audited';
-      } else if (kpiScore.overallScore < 70) {
-        newStatus = 'Warning';
+      // Create audit schedule if needed
+      if (trigger.audit) {
+        const audit = await this.createAuditSchedule(user, trigger.audit, kpiRecord, trigger.conditionMet);
+        auditId = audit._id;
+        
+        // Send email notifications using template service
+        if (trigger.emailRecipients?.audit) {
+          const emailResult = await this.sendTemplatedEmail(
+            'audit',
+            user,
+            kpiRecord,
+            trigger,
+            adminUser,
+            { auditScheduleId: audit._id, auditDetails: audit }
+          );
+          result.emailsSent.push(...emailResult.results);
+        }
+        
+        result.executed = true;
+        result.auditScheduleId = audit._id;
       }
 
-      // Update KPI score in user document
-      user.kpiScore = kpiScore.overallScore;
-      user.status = newStatus;
-
-      await user.save();
-
-      console.log(`Updated user ${userId} status to ${newStatus} with KPI score ${kpiScore.overallScore}%`);
+      // Send warning letter if needed
+      if (trigger.warning) {
+        // Send email notifications using template service
+        if (trigger.emailRecipients?.warning) {
+          const emailResult = await this.sendTemplatedEmail(
+            'warning',
+            user,
+            kpiRecord,
+            trigger,
+            adminUser,
+            {}
+          );
+          result.emailsSent.push(...emailResult.results);
+        }
+        
+        result.executed = true;
+      }
 
     } catch (error) {
-      console.error(`Error updating user status for ${userId}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Create lifecycle events based on triggers
-   * @param {String} userId - User ID
-   * @param {Array} lifecycleTriggers - Array of lifecycle event triggers
-   * @returns {Array} - Created lifecycle events
-   */
-  static async createLifecycleEvents(userId, lifecycleTriggers) {
-    const events = [];
-
-    for (const trigger of lifecycleTriggers) {
-      try {
-        const event = await LifecycleService.trackLifecycleEvent(userId, {
-          type: trigger.type,
-          title: trigger.title,
-          description: trigger.description,
-          category: trigger.category,
-          metadata: {
-            timestamp: new Date(),
-            automated: true
-          }
-        });
-
-        events.push(event);
-
-        console.log(`Created lifecycle event: ${trigger.title} for user ${userId}`);
-
-      } catch (error) {
-        console.error(`Error creating lifecycle event ${trigger.title}:`, error);
-        throw error;
-      }
+      result.error = error.message;
+      console.error('Error executing trigger:', error);
     }
 
-    return events;
+    return result;
   }
 
-  /**
-   * Get recipients by roles
-   * @param {Array} roles - Array of role names
-   * @param {String} userId - User ID for FE role
-   * @returns {Array} - Array of recipient objects
-   */
-  static async getRecipientsByRoles(roles, userId) {
-    const recipients = [];
-
-    for (const role of roles) {
-      switch (role) {
-        case 'fe':
-          if (userId) {
-            const fe = await User.findById(userId).select('email');
-            if (fe) recipients.push({ email: fe.email, role: 'fe' });
-          }
-          break;
-        case 'coordinator':
-          const coordinators = await User.find({ userType: 'admin', department: 'Coordination' }).select('email');
-          recipients.push(...coordinators.map(c => ({ email: c.email, role: 'coordinator' })));
-          break;
-        case 'manager':
-          const managers = await User.find({ userType: 'admin', department: 'Management' }).select('email');
-          recipients.push(...managers.map(m => ({ email: m.email, role: 'manager' })));
-          break;
-        case 'hod':
-          const hods = await User.find({ userType: 'admin', department: 'HOD' }).select('email');
-          recipients.push(...hods.map(h => ({ email: h.email, role: 'hod' })));
-          break;
-        case 'compliance':
-          const compliance = await User.find({ userType: 'admin', department: 'Compliance' }).select('email');
-          recipients.push(...compliance.map(c => ({ email: c.email, role: 'compliance' })));
-          break;
-      }
-    }
-
-    // Remove duplicates
-    const uniqueRecipients = recipients.filter((recipient, index, self) =>
-      index === self.findIndex(r => r.email === recipient.email)
-    );
-
-    return uniqueRecipients;
-  }
-
-  /**
-   * Get audit method based on audit type
-   * @param {String} auditType - Type of audit
-   * @returns {String} - Audit method description
-   */
-  static getAuditMethod(auditType) {
-    const methods = {
-      'audit_call': 'Phone call audit with performance review',
-      'cross_check': 'Cross-verification of last 3 months data',
-      'dummy_audit': 'Dummy case audit to test performance',
-      'cross_verify_insuff': 'Cross-verification of insufficient cases by another FE'
-    };
-    return methods[auditType] || 'Standard audit procedure';
-  }
-
-  /**
-   * Get email subject based on email type
-   * @param {String} emailType - Type of email
-   * @param {Object} data - Email data
-   * @returns {String} - Email subject
-   */
-  static getEmailSubject(emailType, data) {
-    const subjects = {
-      'training': `Training Required: ${data.trainingTypes?.join(', ') || 'Multiple Trainings'}`,
-      'audit': `Audit Notification: ${data.auditTypes?.join(', ') || 'Multiple Audits'}`,
-      'warning': 'Performance Warning Notice',
-      'kpi_score': `KPI Score Update: ${data.period}`
-    };
-    return subjects[emailType] || 'System Notification';
-  }
-
-  /**
-   * Get improvement areas based on KPI scores
-   * @param {Object} kpiScore - KPI score document
-   * @returns {Array} - Array of improvement areas
-   */
-  static getImprovementAreas(kpiScore) {
-    const areas = [];
-    const { tat, majorNegativity, quality, neighborCheck, negativity, appUsage, insufficiency } = kpiScore;
-
-    if (tat.score < 10) areas.push('Turn Around Time (TAT) below target');
-    if (majorNegativity.score < 10) areas.push('High Major Negativity rate');
-    if (quality.score < 10) areas.push('Quality concerns');
-    if (neighborCheck.score < 5) areas.push('Insufficient neighbor checks');
-    if (negativity.score < 5) areas.push('High general negativity rate');
-    if (appUsage.score < 5) areas.push('Low application usage');
-    if (insufficiency.score < 5) areas.push('High insufficiency rate');
-
-    return areas;
-  }
-
-  /**
-   * Process pending KPI scores for automation
-   * @returns {Object} - Processing results
-   */
-  static async processPendingKPIs() {
+  // Send templated emails using EmailTemplateService
+  async sendTemplatedEmail(type, user, kpiRecord, trigger, adminUser, additionalData = {}) {
     try {
-      const pendingKPIs = await KPIScore.getPendingAutomation();
-      const results = {
-        processed: 0,
-        failed: 0,
-        errors: []
+      // Determine template type and recipients
+      let templateType;
+      let recipientRoles = [];
+
+      switch (type) {
+        case 'training':
+          templateType = 'training_assignment';
+          recipientRoles = trigger.emailRecipients?.training || ['FE', 'Coordinator', 'Manager', 'HOD'];
+          break;
+
+        case 'audit':
+          templateType = 'audit_schedule';
+          recipientRoles = trigger.emailRecipients?.audit || ['Compliance Team', 'HOD'];
+          break;
+
+        case 'warning':
+          templateType = 'performance_warning';
+          recipientRoles = trigger.emailRecipients?.warning || ['FE', 'Coordinator', 'Manager', 'Compliance Team', 'HOD'];
+          break;
+
+        default:
+          // Determine by rating
+          if (kpiRecord.rating === 'Outstanding') {
+            templateType = 'kpi_outstanding';
+            recipientRoles = ['FE', 'Manager', 'HOD'];
+          } else if (kpiRecord.rating === 'Excellent') {
+            templateType = 'kpi_excellent';
+            recipientRoles = ['FE', 'Coordinator'];
+          } else {
+            templateType = 'kpi_need_improvement';
+            recipientRoles = ['FE', 'Coordinator', 'Manager', 'HOD'];
+          }
+      }
+
+      // Get recipients
+      const recipients = await EmailTemplateService.getRecipientsByRole(recipientRoles, user._id);
+
+      // Prepare variables for template
+      const variables = {
+        userName: user.name,
+        email: user.email,
+        employeeId: user.employeeId || 'N/A',
+        kpiScore: kpiRecord.overallScore.toFixed(2),
+        rating: kpiRecord.rating,
+        period: kpiRecord.period,
+        tatPercentage: kpiRecord.metrics.tat.percentage?.toFixed(2) || '0',
+        majorNegPercentage: kpiRecord.metrics.majorNegativity.percentage?.toFixed(2) || '0',
+        qualityPercentage: kpiRecord.metrics.quality.percentage?.toFixed(2) || '0',
+        neighborCheckPercentage: kpiRecord.metrics.neighborCheck.percentage?.toFixed(2) || '0',
+        generalNegPercentage: kpiRecord.metrics.negativity.percentage?.toFixed(2) || '0',
+        onlinePercentage: kpiRecord.metrics.appUsage.percentage?.toFixed(2) || '0',
+        insuffPercentage: kpiRecord.metrics.insufficiency.percentage?.toFixed(2) || '0',
+        trainingType: trigger.training || 'Basic Training Module',
+        trainingReason: trigger.conditionMet || `KPI Score: ${kpiRecord.overallScore.toFixed(2)}%`,
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        trainingDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        priority: 'High',
+        auditType: trigger.audit || 'Audit Call',
+        auditScope: trigger.conditionMet || 'Performance review based on KPI triggers',
+        scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        preAuditDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        auditDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        performanceConcerns: trigger.conditionMet || 'Low KPI performance',
+        improvementAreas: `TAT: ${kpiRecord.metrics.tat.percentage?.toFixed(2)}%, Quality: ${kpiRecord.metrics.quality.percentage?.toFixed(2)}%`
       };
 
-      console.log(`Found ${pendingKPIs.length} pending KPI scores for automation`);
-
-      for (const kpiScore of pendingKPIs) {
-        try {
-          await this.processKPITriggers(kpiScore);
-          results.processed++;
-        } catch (error) {
-          console.error(`Error processing KPI ${kpiScore._id}:`, error);
-          results.failed++;
-          results.errors.push({
-            kpiId: kpiScore._id,
-            error: error.message
-          });
+      // Send email
+      const result = await EmailTemplateService.sendEmail({
+        templateType: templateType,
+        variables: variables,
+        recipients: recipients,
+        userId: user._id,
+        sentBy: adminUser?._id || user._id,
+        kpiTriggerId: kpiRecord._id,
+        trainingAssignmentId: additionalData.trainingAssignmentId,
+        auditScheduleId: additionalData.auditScheduleId,
+        createNotification: true,
+        notificationMetadata: {
+          kpiScore: kpiRecord.overallScore,
+          rating: kpiRecord.rating,
+          period: kpiRecord.period,
+          trainingId: additionalData.trainingAssignmentId,
+          auditId: additionalData.auditScheduleId
         }
-      }
+      });
 
-      console.log(`Processed ${results.processed} KPI scores, ${results.failed} failed`);
-      return results;
-
+      return result;
     } catch (error) {
-      console.error('Error processing pending KPIs:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get automation statistics
-   * @returns {Object} - Automation statistics
-   */
-  static async getAutomationStats() {
-    try {
-      const [kpiStats, trainingStats, emailStats, auditStats] = await Promise.all([
-        KPIScore.getAutomationStats(),
-        TrainingAssignment.getTrainingStats(),
-        EmailLog.getEmailStats(),
-        AuditSchedule.getAuditStats()
-      ]);
-
+      console.error('Error sending templated email:', error);
       return {
-        kpi: kpiStats,
-        training: trainingStats,
-        email: emailStats,
-        audit: auditStats,
-        timestamp: new Date()
+        success: false,
+        error: error.message,
+        results: []
       };
-
-    } catch (error) {
-      console.error('Error getting automation stats:', error);
-      throw error;
     }
+  }
+
+  // Create user notification
+  async createUserNotification(user, type, action, kpiRecord) {
+    const notification = new Notification({
+      userId: user._id,
+      type: type,
+      title: `New ${type === 'training' ? 'Training' : 'Audit'} Assignment`,
+      message: `You have been assigned: ${action}. KPI Score: ${kpiRecord.overallScore}% (${kpiRecord.rating})`,
+      priority: 'high',
+      isRead: false,
+      metadata: {
+        kpiScoreId: kpiRecord._id,
+        period: kpiRecord.period,
+        score: kpiRecord.overallScore,
+        rating: kpiRecord.rating
+      }
+    });
+
+    await notification.save();
+    return notification;
+  }
+
+  // Send training notifications via email
+  async sendTrainingNotifications(user, training, kpiRecord, recipients) {
+    const emailData = {
+      fe: user.name,
+      feEmail: user.email,
+      trainingType: training.trainingType,
+      kpiScore: kpiRecord.overallScore,
+      rating: kpiRecord.rating,
+      period: kpiRecord.period,
+      dueDate: training.dueDate.toLocaleDateString()
+    };
+
+    // Send to specified recipients
+    if (recipients.includes('FE')) {
+      console.log(`[EMAIL] Training notification sent to FE: ${user.email}`);
+    }
+    if (recipients.includes('Coordinator')) {
+      console.log(`[EMAIL] Training notification sent to Coordinator for FE: ${user.name}`);
+    }
+    if (recipients.includes('Manager')) {
+      console.log(`[EMAIL] Training notification sent to Manager for FE: ${user.name}`);
+    }
+    if (recipients.includes('HOD')) {
+      console.log(`[EMAIL] Training notification sent to HOD for FE: ${user.name}`);
+    }
+    if (recipients.includes('Compliance Team')) {
+      console.log(`[EMAIL] Training notification sent to Compliance Team for FE: ${user.name}`);
+    }
+
+    // TODO: Implement actual email sending using emailService
+    // await emailService.sendTrainingAssignmentEmail(emailData, recipients);
+  }
+
+  // Send audit notifications via email
+  async sendAuditNotifications(user, audit, kpiRecord, recipients) {
+    const emailData = {
+      fe: user.name,
+      feEmail: user.email,
+      auditType: audit.auditType,
+      kpiScore: kpiRecord.overallScore,
+      rating: kpiRecord.rating,
+      period: kpiRecord.period,
+      scheduledDate: audit.scheduledDate.toLocaleDateString()
+    };
+
+    // Send to specified recipients
+    if (recipients.includes('Compliance Team')) {
+      console.log(`[EMAIL] Audit notification sent to Compliance Team for FE: ${user.name}`);
+    }
+    if (recipients.includes('HOD')) {
+      console.log(`[EMAIL] Audit notification sent to HOD for FE: ${user.name}`);
+    }
+
+    // TODO: Implement actual email sending using emailService
+    // await emailService.sendAuditScheduleEmail(emailData, recipients);
+  }
+
+  // Send warning notifications via email
+  async sendWarningNotifications(user, kpiRecord, recipients) {
+    const emailData = {
+      fe: user.name,
+      feEmail: user.email,
+      kpiScore: kpiRecord.overallScore,
+      rating: kpiRecord.rating,
+      period: kpiRecord.period,
+      warningReason: `Performance below acceptable standards (${kpiRecord.overallScore}%)`
+    };
+
+    // Send to specified recipients
+    for (const recipient of recipients) {
+      console.log(`[EMAIL] Warning letter sent to ${recipient} for FE: ${user.name}`);
+    }
+
+    // TODO: Implement actual email sending using emailService
+    // await emailService.sendWarningLetterEmail(emailData, recipients);
+  }
+
+  // Create training assignment - ENHANCED with condition tracking
+  async createTrainingAssignment(user, trainingType, kpiRecord, conditionMet = null) {
+    const trainingAssignment = new TrainingAssignment({
+      userId: user._id,
+      trainingType: trainingType,
+      assignedBy: 'system',
+      assignedAt: new Date(),
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+      status: 'assigned',
+      priority: 'high',
+      reason: conditionMet || `KPI Score: ${kpiRecord.overallScore}% (${kpiRecord.rating})`,
+      notes: `Automatically assigned based on KPI performance for period ${kpiRecord.period}`
+    });
+
+    await trainingAssignment.save();
+    return trainingAssignment;
+  }
+
+  // Create audit schedule - ENHANCED with condition tracking
+  async createAuditSchedule(user, auditType, kpiRecord, conditionMet = null) {
+    const auditSchedule = new AuditSchedule({
+      userId: user._id,
+      auditType: auditType,
+      scheduledBy: 'system',
+      scheduledAt: new Date(),
+      scheduledDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
+      status: 'scheduled',
+      priority: 'high',
+      reason: conditionMet || `KPI Score: ${kpiRecord.overallScore}% (${kpiRecord.rating})`,
+      notes: `Automatically scheduled based on KPI performance for period ${kpiRecord.period}`
+    });
+
+    await auditSchedule.save();
+    return auditSchedule;
+  }
+
+  // Send warning letter
+  async sendWarningLetter(user, kpiRecord) {
+    const notification = new Notification({
+      userId: user._id,
+      type: 'warning',
+      title: 'Performance Warning Letter',
+      message: `Your KPI score of ${kpiRecord.overallScore}% (${kpiRecord.rating}) requires immediate attention. Please improve your performance to meet company standards.`,
+      priority: 'high',
+      isRead: false
+    });
+
+    await notification.save();
+    return notification;
+  }
+
+  // Get all pending triggers
+  async getPendingTriggers() {
+    const pendingTraining = await TrainingAssignment.find({ status: 'assigned' })
+      .populate('userId', 'name email')
+      .sort({ assignedAt: -1 });
+
+    const pendingAudits = await AuditSchedule.find({ status: 'scheduled' })
+      .populate('userId', 'name email')
+      .sort({ scheduledAt: -1 });
+
+    return {
+      training: pendingTraining,
+      audits: pendingAudits
+    };
+  }
+
+  // Get trigger history for a user
+  async getTriggerHistory(userId, limit = 10) {
+    const trainingAssignments = await TrainingAssignment.find({ userId })
+      .sort({ assignedAt: -1 })
+      .limit(limit);
+
+    const auditSchedules = await AuditSchedule.find({ userId })
+      .sort({ scheduledAt: -1 })
+      .limit(limit);
+
+    return {
+      training: trainingAssignments,
+      audits: auditSchedules
+    };
   }
 }
 
-module.exports = KPITriggerService;
+module.exports = new KPITriggerService();

@@ -12,6 +12,7 @@ const MongoStore = require('connect-mongo');
 const fileUpload = require('express-fileupload');
 const path = require('path');
 const fs = require('fs');
+const NodeCache = require('node-cache');
 
 require('dotenv').config();
 
@@ -22,6 +23,13 @@ const io = socketIo(server, {
     origin: process.env.CLIENT_ORIGIN || 'http://localhost:3000',
     methods: ['GET', 'POST']
   }
+});
+
+// Initialize cache with TTL (Time To Live) settings
+const cache = new NodeCache({
+  stdTTL: 300, // Default TTL: 5 minutes
+  checkperiod: 120, // Check for expired keys every 2 minutes
+  useClones: false // Better performance
 });
 
 // Create uploads directory if it doesn't exist
@@ -38,7 +46,7 @@ app.use(helmet({
 // Rate limiting
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 500, // limit each IP to 500 requests per windowMs
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
@@ -143,19 +151,72 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('combined'));
 }
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Body parsing middleware - FIXED: Skip for multipart/form-data
+app.use((req, res, next) => {
+  // Skip body parsing for multipart/form-data (let multer handle it)
+  if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
+    return next();
+  }
+  express.json({ limit: '10mb' })(req, res, next);
+});
 
-// File upload middleware
-app.use(fileUpload({
-  createParentPath: true,
-  limits: { 
-    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024 // 10MB max
-  },
-  abortOnLimit: true,
-  responseOnLimit: 'File size limit exceeded'
-}));
+app.use((req, res, next) => {
+  // Skip for multipart/form-data
+  if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
+    return next();
+  }
+  express.urlencoded({ extended: true, limit: '10mb' })(req, res, next);
+});
+
+// File upload middleware - SKIP for kpi-triggers routes (uses multer instead)
+app.use((req, res, next) => {
+  // Skip fileUpload for kpi-triggers routes (they use multer)
+  if (req.path.startsWith('/api/kpi-triggers')) {
+    return next();
+  }
+  // Apply fileUpload for other routes
+  fileUpload({
+    createParentPath: true,
+    limits: { 
+      fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024 // 10MB max
+    },
+    abortOnLimit: true,
+    responseOnLimit: 'File size limit exceeded'
+  })(req, res, next);
+});
+
+// Cache middleware
+const cacheMiddleware = (duration = 300) => {
+  return (req, res, next) => {
+    // Only cache GET requests
+    if (req.method !== 'GET') {
+      return next();
+    }
+
+    const key = `__express__${req.originalUrl || req.url}`;
+    const cachedBody = cache.get(key);
+    
+    if (cachedBody) {
+      console.log(`Cache hit for: ${key}`);
+      return res.json(cachedBody);
+    } else {
+      // Store the original res.json method
+      const originalJson = res.json;
+      
+      // Override res.json to cache the response
+      res.json = function(body) {
+        // Cache successful responses
+        if (res.statusCode === 200) {
+          cache.set(key, body, duration);
+          console.log(`Cached response for: ${key} (TTL: ${duration}s)`);
+        }
+        originalJson.call(this, body);
+      };
+      
+      next();
+    }
+  };
+};
 
 // Database connection
 const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/edutech-pro';
@@ -175,13 +236,15 @@ app.use(session({
 // Static files
 app.use('/uploads', express.static(uploadsDir));
 
-// Try to connect to MongoDB (optional for development)
+// Try to connect to MongoDB with optimized settings
 mongoose.connect(mongoUri, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+  maxPoolSize: 10, // Maintain up to 10 socket connections
+  serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
+  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+  maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
 })
 .then(() => {
-  console.log('✅ Connected to MongoDB');
+  console.log('✅ Connected to MongoDB with optimized settings');
 })
 .catch((error) => {
   console.error('❌ MongoDB connection error:', error);
@@ -206,7 +269,15 @@ const notificationRoutes = require('./routes/notifications');
 const trainingAssignmentRoutes = require('./routes/trainingAssignments');
 const quizAttemptRoutes = require('./routes/quizAttempts');
 const userActivityRoutes = require('./routes/userActivity');
+const kpiTriggerRoutes = require('./routes/kpiTriggers');
+const emailTemplateRoutes = require('./routes/emailTemplates');
 const autoKPIScheduler = require('./services/autoKPIScheduler');
+
+// Apply caching to read-only endpoints
+app.use('/api/users', cacheMiddleware(300)); // 5 minutes
+app.use('/api/modules', cacheMiddleware(600)); // 10 minutes
+app.use('/api/reports', cacheMiddleware(300)); // 5 minutes
+app.use('/api/awards', cacheMiddleware(300)); // 5 minutes
 
 // Use routes
 app.use('/api/auth', authRoutes);
@@ -226,6 +297,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/training-assignments', trainingAssignmentRoutes);
 app.use('/api/quiz-attempts', quizAttemptRoutes);
 app.use('/api/user-activity', userActivityRoutes);
+app.use('/api/kpi-triggers', kpiTriggerRoutes);
+app.use('/api/email-templates', emailTemplateRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

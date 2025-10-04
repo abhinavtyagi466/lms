@@ -45,9 +45,21 @@ apiClient.interceptors.response.use(
     }
     
     if (error.response?.status === 401) {
-      // Unauthorized - clear token and redirect to login
+      // Unauthorized - clear token and prevent further requests
       localStorage.removeItem('authToken');
-      window.location.href = '/';
+      
+      // Only redirect if we're not already on the login page
+      if (!window.location.pathname.includes('login') && !window.location.hash.includes('login')) {
+        // Dispatch a custom event to notify components about auth failure
+        window.dispatchEvent(new CustomEvent('auth-failed'));
+        // Small delay to allow components to handle the event
+        setTimeout(() => {
+          window.location.href = '/#user-login';
+        }, 100);
+      }
+      
+      // Return a specific error that components can handle
+      return Promise.reject(new Error('Authentication failed. Please login again.'));
     }
     
     if (error.response?.status === 404) {
@@ -139,21 +151,36 @@ export const apiService = {
       return response;
     },
 
-    createUser: async (userData: {
+    getUserById: async (userId: string) => {
+      const response = await apiClient.get(`/users/${userId}/profile`);
+      return response;
+    },
+
+    createUser: async (userData: FormData | {
       name: string;
       email: string;
       password: string;
       phone?: string;
+      userType?: string;
+      dateOfBirth?: string;
+      fathersName?: string;
+      dateOfJoining?: string;
+      designation?: string;
       department?: string;
-      manager?: string;
-      address?: string;
+      reportingManager?: string;
+      highestEducation?: string;
+      currentAddress?: string;
+      nativeAddress?: string;
       location?: string;
       city?: string;
       state?: string;
+      region?: string;
       aadhaarNo?: string;
       panNo?: string;
     }) => {
-      const response = await apiClient.post('/users', userData);
+      const response = await apiClient.post('/users', userData, {
+        headers: userData instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {}
+      });
       return response;
     },
 
@@ -487,7 +514,9 @@ export const apiService = {
   },
 
   // Notifications APIs
-  notifications: {
+  // Notification APIs moved to enhanced version below (line 1577+)
+  // Keeping only admin-specific methods here
+  notificationsAdmin: {
     getUserNotifications: async (userId: string, options?: {
       unreadOnly?: boolean;
       limit?: number;
@@ -497,11 +526,6 @@ export const apiService = {
       if (options?.limit) params.append('limit', options.limit.toString());
       
       const response = await apiClient.get(`/notifications/user/${userId}?${params.toString()}`);
-      return response;
-    },
-
-    markAsRead: async (notificationIds: string[]) => {
-      const response = await apiClient.post('/notifications/mark-read', { notificationIds });
       return response;
     },
 
@@ -520,6 +544,11 @@ export const apiService = {
 
   // Awards APIs
   awards: {
+    getUserAwards: async (userId: string) => {
+      const response = await apiClient.get(`/awards/user/${userId}`);
+      return response;
+    },
+
     getAllAwards: async (filters?: {
       userId?: string;
       limit?: number;
@@ -572,6 +601,11 @@ export const apiService = {
 
   // Audit & Warning APIs
   audits: {
+    getUserAudits: async (userId: string) => {
+      const response = await apiClient.get(`/audits/user/${userId}`);
+      return response;
+    },
+
     getAllRecords: async (filters?: {
       status?: string;
       type?: string;
@@ -660,6 +694,11 @@ export const apiService = {
 
   // KPI APIs
   kpi: {
+    getUserKPIScores: async (userId: string) => {
+      const response = await apiClient.get(`/kpi/user/${userId}`);
+      return response;
+    },
+
     submitKPI: async (kpiData: {
       userId: string;
       period: string;
@@ -985,6 +1024,22 @@ export const apiService = {
 
   // Training Assignment APIs
   trainingAssignments: {
+    getUserAssignments: async (userId: string, filters?: {
+      page?: number;
+      limit?: number;
+      status?: string;
+      trainingType?: string;
+    }) => {
+      const params = new URLSearchParams();
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.trainingType) params.append('trainingType', filters.trainingType);
+      
+      const response = await apiClient.get(`/training-assignments/user/${userId}?${params.toString()}`);
+      return response;
+    },
+
     autoAssign: async (kpiScoreId: string) => {
       const response = await apiClient.post('/training-assignments/auto-assign', { kpiScoreId });
       return response;
@@ -1025,22 +1080,6 @@ export const apiService = {
       notes?: string;
     }) => {
       const response = await apiClient.put(`/training-assignments/${assignmentId}/complete`, data);
-      return response;
-    },
-
-    getUserAssignments: async (userId: string, filters?: {
-      page?: number;
-      limit?: number;
-      status?: string;
-      trainingType?: string;
-    }) => {
-      const params = new URLSearchParams();
-      if (filters?.page) params.append('page', filters.page.toString());
-      if (filters?.limit) params.append('limit', filters.limit.toString());
-      if (filters?.status) params.append('status', filters.status);
-      if (filters?.trainingType) params.append('trainingType', filters.trainingType);
-      
-      const response = await apiClient.get(`/training-assignments/user/${userId}?${params.toString()}`);
       return response;
     },
 
@@ -1281,61 +1320,8 @@ export const apiService = {
     }
   },
 
-  emailTemplates: {
-    getAll: async () => {
-      const response = await apiClient.get('/email-templates');
-      return response;
-    },
-
-    getById: async (templateId: string) => {
-      const response = await apiClient.get(`/email-templates/${templateId}`);
-      return response;
-    },
-
-    create: async (data: {
-      name: string;
-      type: string;
-      category: string;
-      subject: string;
-      content: string;
-      variables: string[];
-    }) => {
-      const response = await apiClient.post('/email-templates', data);
-      return response;
-    },
-
-    update: async (templateId: string, data: {
-      name?: string;
-      type?: string;
-      category?: string;
-      subject?: string;
-      content?: string;
-      variables?: string[];
-      isActive?: boolean;
-    }) => {
-      const response = await apiClient.put(`/email-templates/${templateId}`, data);
-      return response;
-    },
-
-    delete: async (templateId: string) => {
-      const response = await apiClient.delete(`/email-templates/${templateId}`);
-      return response;
-    },
-
-    preview: async (templateId: string, variables?: Record<string, any>) => {
-      const response = await apiClient.post(`/email-templates/${templateId}/preview`, { variables });
-      return response;
-    },
-
-    test: async (templateId: string, testEmail: string, variables?: Record<string, any>) => {
-      const response = await apiClient.post(`/email-templates/${templateId}/test`, { 
-        testEmail, 
-        variables 
-      });
-      return response;
-    }
-  },
-
+  // Email Templates (duplicate removed - using definition at line 1526)
+  
   recipientGroups: {
     getAll: async () => {
       const response = await apiClient.get('/recipient-groups');
@@ -1415,6 +1401,164 @@ export const apiService = {
       if (filters?.endDate) params.append('endDate', filters.endDate);
       
       const response = await apiClient.get(`/email-stats/template-performance?${params.toString()}`);
+      return response;
+    }
+  },
+
+  // KPI Trigger APIs
+  kpiTriggers: {
+    uploadExcel: async (file: File, period: string) => {
+      const formData = new FormData();
+      formData.append('excelFile', file);
+      formData.append('period', period);
+      
+      const response = await apiClient.post('/kpi-triggers/upload-excel', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      return response;
+    },
+
+    previewExcel: async (file: File, period: string) => {
+      const formData = new FormData();
+      formData.append('excelFile', file);
+      formData.append('period', period);
+      
+      const response = await apiClient.post('/kpi-triggers/preview', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      return response;
+    },
+
+    getPending: async () => {
+      const response = await apiClient.get('/kpi-triggers/pending');
+      return response;
+    },
+
+    getHistory: async (userId: string, limit?: number) => {
+      const params = new URLSearchParams();
+      if (limit) params.append('limit', limit.toString());
+      
+      const response = await apiClient.get(`/kpi-triggers/history/${userId}?${params.toString()}`);
+      return response;
+    },
+
+    processSingle: async (userId: string | null, period: string, kpiData: any, sendEmail: boolean = false) => {
+      const response = await apiClient.post('/kpi-triggers/process-single', {
+        userId,
+        period,
+        kpiData,
+        sendEmail
+      });
+      return response;
+    },
+
+    processBulk: async (period: string, kpiDataList: any[], sendEmail: boolean = false) => {
+      const response = await apiClient.post('/kpi-triggers/process-bulk', {
+        period,
+        kpiDataList,
+        sendEmail
+      });
+      return response;
+    },
+
+    downloadTemplate: async () => {
+      const response = await apiClient.get('/kpi-triggers/template', {
+        responseType: 'blob'
+      });
+      return response;
+    }
+  },
+
+  // Email Template APIs
+  emailTemplates: {
+    getAll: async () => {
+      const response = await apiClient.get('/email-templates');
+      return response;
+    },
+
+    getById: async (id: string) => {
+      const response = await apiClient.get(`/email-templates/${id}`);
+      return response;
+    },
+
+    create: async (templateData: any) => {
+      const response = await apiClient.post('/email-templates', templateData);
+      return response;
+    },
+
+    update: async (id: string, templateData: any) => {
+      const response = await apiClient.put(`/email-templates/${id}`, templateData);
+      return response;
+    },
+
+    delete: async (id: string) => {
+      const response = await apiClient.delete(`/email-templates/${id}`);
+      return response;
+    },
+
+    preview: async (id: string, sampleData?: any) => {
+      const response = await apiClient.post(`/email-templates/${id}/preview`, {
+        sampleData
+      });
+      return response;
+    },
+
+    sendTest: async (id: string, testEmail: string, sampleData?: any) => {
+      const response = await apiClient.post(`/email-templates/${id}/test`, {
+        testEmail,
+        sampleData
+      });
+      return response;
+    },
+
+    getStats: async () => {
+      const response = await apiClient.get('/email-templates/stats/usage');
+      return response;
+    }
+  },
+
+  // Notification APIs (Enhanced)
+  notifications: {
+    getAll: async (unreadOnly: boolean = false) => {
+      const params = new URLSearchParams();
+      if (unreadOnly) params.append('unreadOnly', 'true');
+      
+      const response = await apiClient.get(`/notifications?${params.toString()}`);
+      return response;
+    },
+
+    getById: async (id: string) => {
+      const response = await apiClient.get(`/notifications/${id}`);
+      return response;
+    },
+
+    markAsRead: async (notificationIds: string[]) => {
+      const response = await apiClient.post('/notifications/mark-read', {
+        notificationIds
+      });
+      return response;
+    },
+
+    markAllAsRead: async () => {
+      const response = await apiClient.post('/notifications/mark-all-read');
+      return response;
+    },
+
+    getUnreadCount: async () => {
+      const response = await apiClient.get('/notifications/unread-count');
+      return response;
+    },
+
+    acknowledge: async (id: string) => {
+      const response = await apiClient.post(`/notifications/${id}/acknowledge`);
+      return response;
+    },
+
+    getByType: async (type: string, limit?: number) => {
+      const params = new URLSearchParams();
+      if (limit) params.append('limit', limit.toString());
+      
+      const response = await apiClient.get(`/notifications/type/${type}?${params.toString()}`);
       return response;
     }
   }

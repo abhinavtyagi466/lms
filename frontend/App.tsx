@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { 
   Users, 
   BookOpen, 
@@ -8,8 +8,7 @@ import {
   LogOut,
   Home,
   Bell,
-  Mail,
-  Calendar
+  Mail
 } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Sidebar } from './components/common/Sidebar';
@@ -17,29 +16,36 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LoginPopup } from './components/common/LoginPopup';
 import { LogoutPopup } from './components/common/LogoutPopup';
+import { LoadingSpinner } from './components/common/LoadingSpinner';
+import { Toaster } from './components/ui/sonner';
 
-// Import page components
-import { UserLogin } from './pages/user/UserLogin';
-import { UserRegister } from './pages/user/UserRegister';
-import { UserDashboard } from './pages/user/UserDashboard';
-import { TrainingModule } from './pages/user/TrainingModule';
-import { ModulesPage } from './pages/user/ModulesPage';
+// Lazy load page components for better performance
+const UserLogin = lazy(() => import('./pages/user/UserLogin').then(module => ({ default: module.UserLogin })));
+const UserRegister = lazy(() => import('./pages/user/UserRegister').then(module => ({ default: module.UserRegister })));
+const UserDashboard = lazy(() => import('./pages/user/UserDashboard').then(module => ({ default: module.UserDashboard })));
+const TrainingModule = lazy(() => import('./pages/user/TrainingModule').then(module => ({ default: module.TrainingModule })));
+const ModulesPage = lazy(() => import('./pages/user/ModulesPage').then(module => ({ default: module.ModulesPage })));
+const NotificationsPage = lazy(() => import('./pages/user/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
+const QuizPage = lazy(() => import('./pages/user/QuizPage').then(module => ({ default: module.QuizPage })));
 
-import { NotificationsPage } from './pages/user/NotificationsPage';
-import { QuizPage } from './pages/user/QuizPage';
-import { AdminLogin } from './pages/admin/AdminLogin';
-import { AdminDashboardEnhanced } from './pages/admin/AdminDashboardEnhanced';
-import { UserManagement } from './pages/admin/UserManagement';
-import { UserLifecycle } from './pages/admin/UserLifecycle';
-import { ModuleManagement } from './pages/admin/ModuleManagement';
-
-import { WarningAuditRecord } from './pages/admin/WarningAuditRecord';
-import { AwardsRecognition } from './pages/admin/AwardsRecognition';
-import { LifecycleDashboard } from './pages/admin/LifecycleDashboard';
-import { MailPreview } from './pages/admin/MailPreview';
-import { KPITriggers } from './pages/admin/KPITriggers';
-import EmailNotificationCenter from './pages/admin/EmailNotificationCenter';
-import AuditManager from './pages/admin/AuditSchedulerDashboardV2';
+const AdminLogin = lazy(() => import('./pages/admin/AdminLogin').then(module => ({ default: module.AdminLogin })));
+const AdminDashboardEnhanced = lazy(() => import('./pages/admin/AdminDashboardEnhanced').then(module => ({ default: module.AdminDashboardEnhanced })));
+const UserManagement = lazy(() => import('./pages/admin/UserManagement').then(module => ({ default: module.UserManagement })));
+const UserLifecycle = lazy(() => import('./pages/admin/UserLifecycle').then(module => ({ default: module.UserLifecycle })));
+const ModuleManagement = lazy(() => import('./pages/admin/ModuleManagement').then(module => ({ default: module.ModuleManagement })));
+const WarningAuditRecord = lazy(() => import('./pages/admin/WarningAuditRecord').then(module => ({ default: module.WarningAuditRecord })));
+const AwardsRecognition = lazy(() => import('./pages/admin/AwardsRecognition').then(module => ({ default: module.AwardsRecognition })));
+const LifecycleDashboard = lazy(() => import('./pages/admin/LifecycleDashboard').then(module => ({ default: module.LifecycleDashboard })));
+const MailPreview = lazy(() => import('./pages/admin/MailPreview').then(module => ({ default: module.MailPreview })));
+const KPITriggerDashboard = lazy(() => import('./pages/admin/KPITriggerDashboard').then(module => ({ default: module.KPITriggerDashboard })));
+const KPIManualEntry = lazy(() => import('./pages/admin/KPIManualEntry').then(module => ({ default: module.KPIManualEntry })));
+const UserDetailsPage = lazy(() => import('./pages/admin/UserDetailsPage').then(module => ({ default: module.UserDetailsPage })));
+const KPIScoresPage = lazy(() => import('./pages/admin/KPIScoresPage').then(module => ({ default: module.KPIScoresPage })));
+const UserKPIScoresPage = lazy(() => import('./pages/user/KPIScoresPage').then(module => ({ default: module.KPIScoresPage })));
+const EmailTemplatesPage = lazy(() => import('./pages/admin/EmailTemplatesPage').then(module => ({ default: module.EmailTemplatesPage })));
+// Temporarily commented out unused components
+// const EmailNotificationCenter = lazy(() => import('./pages/admin/EmailNotificationCenter'));
+// const AuditManager = lazy(() => import('./pages/admin/AuditSchedulerDashboardV2'));
 
 // Navigation items
 const userSidebarItems = [
@@ -55,6 +61,8 @@ const adminSidebarItems = [
   { key: 'user-management', label: 'User Management', icon: Users },
   { key: 'module-management', label: 'Module Management', icon: BookOpen },
   { key: 'kpi-triggers', label: 'KPI Triggers', icon: BarChart3 },
+  { key: 'kpi-manual-entry', label: 'KPI Manual Entry', icon: BarChart3 },
+  { key: 'email-templates', label: 'Emails', icon: Mail },
   // { key: 'audit-scheduler', label: 'Audit Scheduler', icon: Calendar }, // TEMPORARILY HIDDEN
   // { key: 'email-center', label: 'Email Center', icon: Mail }, // TEMPORARILY HIDDEN
   { key: 'warnings-audit', label: 'Audit / Warnings', icon: FileText },
@@ -164,6 +172,24 @@ const AppContent: React.FC = () => {
     };
 
     const renderPage = () => {
+      // Check for user-details with userId first
+      if (currentPage.startsWith('user-details/')) {
+        const userDetailsMatch = currentPage.match(/user-details\/([^\/]+)/);
+        if (userDetailsMatch) {
+          return <UserDetailsPage userId={userDetailsMatch[1]} />;
+        }
+        return <UserDetailsPage userId="" />;
+      }
+
+      // Check for kpi-scores with userId
+      if (currentPage.startsWith('kpi-scores/')) {
+        const kpiScoresMatch = currentPage.match(/kpi-scores\/([^\/]+)/);
+        if (kpiScoresMatch) {
+          return <KPIScoresPage userId={kpiScoresMatch[1]} />;
+        }
+        return <KPIScoresPage userId="" />;
+      }
+
       switch (currentPage) {
         case 'user-login': return <UserLogin />;
         case 'user-register': return <UserRegister />;
@@ -173,12 +199,15 @@ const AppContent: React.FC = () => {
         case 'quiz': return <QuizPage />;
         case 'quizzes': return <QuizPage />;
         case 'notifications': return <NotificationsPage />;
-        case 'admin-login': return <AdminLogin />;
-        case 'admin-dashboard': return <AdminDashboardEnhanced />;
-        case 'user-management': return <UserManagement />;
-        case 'user-lifecycle': return <UserLifecycle />;
-        case 'module-management': return <ModuleManagement />;
-        case 'kpi-triggers': return <KPITriggers />;
+        case 'kpi-scores': return <UserKPIScoresPage />;
+               case 'admin-login': return <AdminLogin />;
+               case 'admin-dashboard': return <AdminDashboardEnhanced />;
+               case 'user-management': return <UserManagement />;
+               case 'user-lifecycle': return <UserLifecycle />;
+               case 'module-management': return <ModuleManagement />;
+               case 'kpi-triggers': return <KPITriggerDashboard />;
+               case 'kpi-manual-entry': return <KPIManualEntry />;
+        case 'email-templates': return <EmailTemplatesPage />;
         // case 'audit-scheduler': return <AuditManager />; // TEMPORARILY HIDDEN
         // case 'email-center': return <EmailNotificationCenter />; // TEMPORARILY HIDDEN
         case 'warnings-audit': return <WarningAuditRecord />;
@@ -199,7 +228,9 @@ const AppContent: React.FC = () => {
               onItemClick={handleNavigation}
             />
             <div className="flex-1 overflow-auto">
-              {renderPage()}
+              <Suspense fallback={<LoadingSpinner size="lg" fullScreen={false} text="Loading page..." />}>
+                {renderPage()}
+              </Suspense>
             </div>
           </div>
         ) : (
@@ -226,7 +257,9 @@ const AppContent: React.FC = () => {
                 </Button>
               </div>
             )}
-            {renderPage()}
+            <Suspense fallback={<LoadingSpinner size="lg" fullScreen={false} text="Loading page..." />}>
+              {renderPage()}
+            </Suspense>
           </div>
         )}
 
@@ -279,6 +312,7 @@ export default function App() {
         <AuthProvider>
           <ErrorBoundary>
             <AppContent />
+            <Toaster position="top-right" richColors closeButton />
           </ErrorBoundary>
         </AuthProvider>
       </ThemeProvider>

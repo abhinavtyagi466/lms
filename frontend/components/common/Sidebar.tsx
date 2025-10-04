@@ -2,6 +2,7 @@ import React from 'react';
 import { GraduationCap, User } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { DarkModeToggle } from './DarkModeToggle';
+import { NotificationBell } from './NotificationBell';
 
 interface SidebarItem {
   key: string;
@@ -46,7 +47,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, onItemClick }) => {
               {user?.email || 'user@example.com'}
             </p>
           </div>
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 flex items-center gap-1">
+            <NotificationBell />
             <DarkModeToggle size="sm" />
           </div>
         </div>

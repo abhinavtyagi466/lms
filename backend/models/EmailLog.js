@@ -50,8 +50,7 @@ const emailLogSchema = new mongoose.Schema({
   },
   kpiTriggerId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'KPIScore',
-    index: true
+    ref: 'KPIScore'
   },
   errorMessage: {
     type: String,

@@ -21,7 +21,7 @@ router.get('/user/:userId', authenticateToken, validateUserId, validatePaginatio
     const { moduleId, limit = 10, page = 1 } = req.query;
     
     // Check if user is accessing their own data or is admin
-    if (req.user.id !== userId && req.user.role !== 'admin') {
+    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own quiz attempts'
@@ -69,7 +69,7 @@ router.get('/stats/:userId', authenticateToken, validateUserId, async (req, res)
     const { userId } = req.params;
     
     // Check if user is accessing their own data or is admin
-    if (req.user.id !== userId && req.user.role !== 'admin') {
+    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own quiz statistics'
@@ -167,7 +167,7 @@ router.get('/history/:userId', authenticateToken, validateUserId, async (req, re
     const { moduleId } = req.query;
     
     // Check if user is accessing their own data or is admin
-    if (req.user.id !== userId && req.user.role !== 'admin') {
+    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own quiz history'
@@ -203,7 +203,7 @@ router.get('/violations/:userId', authenticateToken, validateUserId, async (req,
     const { userId } = req.params;
     
     // Check if user is accessing their own data or is admin
-    if (req.user.id !== userId && req.user.role !== 'admin') {
+    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own quiz violations'
@@ -406,7 +406,7 @@ router.get('/:attemptId', authenticateToken, validateObjectId, async (req, res) 
     }
 
     // Check if user is accessing their own data or is admin
-    if (req.user.id !== attempt.userId._id.toString() && req.user.role !== 'admin') {
+    if (req.user._id.toString() !== attempt.userId._id.toString() && req.user.userType !== 'admin') {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own quiz attempts'

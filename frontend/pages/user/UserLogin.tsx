@@ -171,11 +171,12 @@ export const UserLogin: React.FC = () => {
               
               <Button 
                 type="submit" 
-                className={`w-full h-12 text-white font-medium transition-all duration-200 ${
-                  isDarkMode 
-                    ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500' 
-                    : 'bg-blue-500 hover:bg-blue-600 focus:ring-blue-400'
-                } focus:ring-2 focus:ring-offset-2`}
+                size="lg"
+                className={`w-full h-12 font-medium rounded-xl transition-all duration-200 ${
+                  isDarkMode
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-blue-200 text-black hover:bg-blue-300'
+                }`}
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -204,11 +205,7 @@ export const UserLogin: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={toggleDarkMode}
-                className={`p-2 rounded-lg transition-colors ${
-                  isDarkMode 
-                    ? 'hover:bg-gray-700 text-gray-300' 
-                    : 'hover:bg-gray-100 text-gray-600'
-                }`}
+                className="p-2"
               >
                 {isDarkMode ? (
                   <Sun className="w-4 h-4" />

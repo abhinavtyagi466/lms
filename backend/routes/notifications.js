@@ -6,6 +6,70 @@ const { validateObjectId } = require('../middleware/validation');
 
 const router = express.Router();
 
+// @route   GET /api/notifications
+// @desc    Get current user's notifications
+// @access  Private
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { unreadOnly, limit } = req.query;
+
+    const notifications = await Notification.getUserNotifications(userId, {
+      unreadOnly: unreadOnly === 'true',
+      limit: parseInt(limit) || 50
+    });
+
+    res.json({
+      success: true,
+      data: notifications
+    });
+
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching notifications'
+    });
+  }
+});
+
+// @route   GET /api/notifications/unread-count
+// @desc    Get unread notification count for current user
+// @access  Private
+router.get('/unread-count', authenticateToken, async (req, res) => {
+  try {
+    const count = await Notification.getUnreadCount(req.user._id);
+    res.json({ success: true, count });
+  } catch (error) {
+    console.error('Get unread count error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching unread count'
+    });
+  }
+});
+
+// @route   GET /api/notifications/type/:type
+// @desc    Get notifications by type for current user
+// @access  Private
+router.get('/type/:type', authenticateToken, async (req, res) => {
+  try {
+    const { limit = 20 } = req.query;
+    const notifications = await Notification.getByType(
+      req.user._id, 
+      req.params.type,
+      { limit: parseInt(limit) }
+    );
+    res.json({ success: true, data: notifications });
+  } catch (error) {
+    console.error('Get notifications by type error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching notifications'
+    });
+  }
+});
+
 // @route   GET /api/notifications/user/:id
 // @desc    Get user's notifications
 // @access  Private (user can access own notifications, admin can access any)
@@ -59,6 +123,55 @@ router.post('/mark-read', authenticateToken, async (req, res) => {
     res.status(500).json({
       error: 'Server Error',
       message: 'Error marking notifications as read'
+    });
+  }
+});
+
+// @route   POST /api/notifications/mark-all-read
+// @desc    Mark all notifications as read for current user
+// @access  Private
+router.post('/mark-all-read', authenticateToken, async (req, res) => {
+  try {
+    await Notification.markAllAsRead(req.user._id);
+    res.json({
+      success: true,
+      message: 'All notifications marked as read'
+    });
+  } catch (error) {
+    console.error('Mark all read error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error marking all as read'
+    });
+  }
+});
+
+// @route   POST /api/notifications/:id/acknowledge
+// @desc    Acknowledge a notification
+// @access  Private
+router.post('/:id/acknowledge', authenticateToken, async (req, res) => {
+  try {
+    const notification = await Notification.acknowledgeNotification(
+      req.user._id, 
+      req.params.id
+    );
+    
+    if (!notification) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Notification not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: notification
+    });
+  } catch (error) {
+    console.error('Acknowledge notification error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error acknowledging notification'
     });
   }
 });

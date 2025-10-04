@@ -4,14 +4,14 @@ const UserProgress = require('../models/UserProgress');
 const Module = require('../models/Module');
 const Question = require('../models/Question');
 const { authenticateToken } = require('../middleware/auth');
-const { validateObjectId } = require('../middleware/validation');
+const { validateObjectId, validateUserId } = require('../middleware/validation');
 
 const router = express.Router();
 
 // @route   GET /api/user-progress/:userId
 // @desc    Get all user progress for a user
 // @access  Private
-router.get('/:userId', authenticateToken, validateObjectId, async (req, res) => {
+router.get('/:userId', authenticateToken, validateUserId, async (req, res) => {
   try {
     const { userId } = req.params;
 

@@ -57,10 +57,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   
   const [user, setUser] = useState<User | null>(null);
   const [userType, setUserType] = useState<'user' | 'admin' | null>(null);
-  const [currentPage, setCurrentPage] = useState('user-login');
+  const [currentPage, setCurrentPage] = useState(() => {
+    // Get page from URL hash or localStorage, default to user-login
+    const hash = window.location.hash.replace('#', '');
+    const savedPage = localStorage.getItem('currentPage');
+    return hash || savedPage || 'user-login';
+  });
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
+
+  // Handle URL hash changes and localStorage persistence
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash && hash !== currentPage) {
+        setCurrentPage(hash);
+        localStorage.setItem('currentPage', hash);
+      }
+    };
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashChange);
+    
+    // Save current page to localStorage whenever it changes
+    if (currentPage && currentPage !== 'user-login') {
+      localStorage.setItem('currentPage', currentPage);
+      // Update URL hash
+      if (window.location.hash !== `#${currentPage}`) {
+        window.location.hash = currentPage;
+      }
+    }
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, [currentPage]);
 
   // Check for existing auth token on app load
   useEffect(() => {
@@ -71,18 +103,49 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const token = localStorage.getItem('authToken');
         console.log('AuthProvider: Token found:', !!token);
         if (token) {
-          const response = await apiService.auth.getMe() as unknown as AuthResponse;
-          console.log('AuthProvider: getMe response:', response);
-          if (response && response.success && response.user) {
-            setUser(response.user);
-            setUserType(response.user.userType);
-            setCurrentPage(response.user.userType === 'user' ? 'user-dashboard' : 'admin-dashboard');
-            console.log('AuthProvider: User authenticated successfully');
-          } else {
-            // Invalid response, clear token
+          try {
+            console.log('AuthProvider: Validating token with getMe API');
+            const response = await apiService.auth.getMe() as unknown as AuthResponse;
+            console.log('AuthProvider: getMe response:', response);
+            if (response && response.success && response.user) {
+              console.log('AuthProvider: Token valid, setting user state');
+              setUser(response.user);
+              setUserType(response.user.userType);
+              // Set default page based on user type
+              const currentHash = window.location.hash.replace('#', '');
+              const savedPage = localStorage.getItem('currentPage');
+              
+              // If no hash and no saved page, set default
+              if (!currentHash && !savedPage) {
+                const defaultPage = response.user.userType === 'user' ? 'user-dashboard' : 'admin-dashboard';
+                setCurrentPage(defaultPage);
+                console.log('AuthProvider: Set default page to:', defaultPage);
+              } else if (savedPage && !currentHash) {
+                // If there's a saved page but no hash, use saved page
+                setCurrentPage(savedPage);
+                console.log('AuthProvider: Using saved page:', savedPage);
+              }
+              console.log('AuthProvider: User authenticated successfully');
+            } else {
+              // Invalid response, clear token
+              console.log('AuthProvider: Invalid response, clearing token');
+              localStorage.removeItem('authToken');
+              setUser(null);
+              setUserType(null);
+              console.log('AuthProvider: Token cleared due to invalid response');
+            }
+          } catch (authError) {
+            console.error('AuthProvider: getMe failed:', authError);
+            // Clear token on auth failure
             localStorage.removeItem('authToken');
-            console.log('AuthProvider: Invalid response, cleared token');
+            setUser(null);
+            setUserType(null);
+            console.log('AuthProvider: Token cleared due to auth error');
           }
+        } else {
+          console.log('AuthProvider: No token found, user not authenticated');
+          // Clear any stored page data when not authenticated
+          localStorage.removeItem('currentPage');
         }
       } catch (error) {
         console.error('AuthProvider: Token validation failed:', error);
@@ -96,6 +159,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // For other errors (invalid token, etc.), clear the token
         localStorage.removeItem('authToken');
+        setUser(null);
+        setUserType(null);
         console.log('AuthProvider: Cleared invalid token');
       } finally {
         console.log('AuthProvider: Setting loading to false and initialized to true');
@@ -104,29 +169,54 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     };
 
+    // Listen for auth-failed events from API interceptor
+    const handleAuthFailed = () => {
+      console.log('AuthProvider: Auth failed event received');
+      setUser(null);
+      setUserType(null);
+      setCurrentPage('user-login');
+    };
+
+    window.addEventListener('auth-failed', handleAuthFailed);
     checkAuthStatus();
+
+    return () => {
+      window.removeEventListener('auth-failed', handleAuthFailed);
+    };
   }, []);
 
   const login = async (email: string, password: string, type: 'user' | 'admin') => {
     setLoading(true);
     try {
+      console.log('AuthProvider: Starting login for:', email, type);
       const response = await apiService.auth.login(email, password, type) as unknown as AuthResponse;
+      console.log('AuthProvider: Login response:', response);
       
       if (response && response.success && response.user) {
+        console.log('AuthProvider: Login successful, setting user state');
         setUser(response.user);
         setUserType(type);
-        setCurrentPage(type === 'user' ? 'user-dashboard' : 'admin-dashboard');
         
-        // Store auth token
+        // Store auth token first
         if (response.user.token) {
           localStorage.setItem('authToken', response.user.token);
+          console.log('AuthProvider: Token stored in localStorage');
         }
         
+        // Set current page based on user type
+        const targetPage = type === 'user' ? 'user-dashboard' : 'admin-dashboard';
+        setCurrentPage(targetPage);
+        localStorage.setItem('currentPage', targetPage);
+        console.log('AuthProvider: Current page set to:', targetPage);
+        
         toast.success(`Welcome back, ${response.user.name}!`);
+        console.log('AuthProvider: Login completed successfully');
       } else {
+        console.error('AuthProvider: Login failed - invalid response:', response);
         throw new Error('Login failed');
       }
     } catch (error: any) {
+      console.error('AuthProvider: Login error:', error);
       const errorMessage = error.message || 'Login failed. Please try again.';
       toast.error(errorMessage);
       throw error;
@@ -145,6 +235,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUserType(null);
       setCurrentPage('user-login');
       localStorage.removeItem('authToken');
+      localStorage.removeItem('currentPage');
       toast.success('Logged out successfully');
     }
   };
@@ -162,6 +253,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // Enhanced setCurrentPage function that updates URL and localStorage
+  const handleSetCurrentPage = (page: string) => {
+    setCurrentPage(page);
+    localStorage.setItem('currentPage', page);
+    window.location.hash = page;
+  };
+
   const authContextValue = {
     user,
     userType,
@@ -169,7 +267,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     logout,
     currentPage,
-    setCurrentPage,
+    setCurrentPage: handleSetCurrentPage,
     selectedModuleId,
     setSelectedModuleId,
     refreshUser
@@ -178,8 +276,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   console.log('AuthProvider: Current state:', { user, userType, loading, initialized });
 
   // Don't render children until context is initialized
-  if (!initialized) {
-    console.log('AuthProvider: Not initialized yet, showing loading');
+  if (!initialized || loading) {
+    console.log('AuthProvider: Not initialized yet or still loading, showing loading');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -188,6 +286,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         </div>
       </div>
     );
+  }
+
+  // Debug: Log when user is null but should be authenticated
+  if (!user && initialized && !loading) {
+    console.log('AuthProvider: User is null but context is initialized - showing login');
   }
 
   console.log('AuthProvider: Initialized, rendering context provider');

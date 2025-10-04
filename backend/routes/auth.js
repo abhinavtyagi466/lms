@@ -43,11 +43,21 @@ router.post('/login', validateLogin, async (req, res) => {
       });
     }
 
-    // Check user type
-    if (user.userType !== userType) {
+    // Check user type - allow admin panel access for manager, hod, hr, admin
+    const adminPanelTypes = ['manager', 'hod', 'hr', 'admin'];
+    const userPanelTypes = ['user'];
+    
+    if (userType === 'admin' && !adminPanelTypes.includes(user.userType)) {
       return res.status(401).json({
         error: 'Authentication Failed',
-        message: 'Invalid user type for this portal'
+        message: 'Invalid user type for admin portal'
+      });
+    }
+    
+    if (userType === 'user' && !userPanelTypes.includes(user.userType)) {
+      return res.status(401).json({
+        error: 'Authentication Failed',
+        message: 'Invalid user type for user portal'
       });
     }
 

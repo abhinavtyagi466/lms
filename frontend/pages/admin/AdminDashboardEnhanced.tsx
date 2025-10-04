@@ -2,31 +2,25 @@ import React, { useState, useEffect } from 'react';
 import {
   Users,
   BookOpen,
-  CheckCircle,
-  TrendingUp,
   BarChart3,
   Award,
   FileText,
   Zap,
   Shield,
   Lightbulb,
-  Star,
   Activity,
-  Clock,
   Target,
-  AlertTriangle,
   RefreshCw,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { Progress } from '../../components/ui/progress';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
 import MetricCard from '../../components/ui/metric-card';
 import { DashboardSkeleton } from '../../components/skeletons/dashboard-skeleton';
 import { NoDataState, ErrorState } from '../../components/empty-states/empty-state';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface DashboardStats {
   totalUsers: number;
@@ -59,6 +53,7 @@ interface UserProgress {
 }
 
 export const AdminDashboardEnhanced: React.FC = () => {
+  const { user, userType, setCurrentPage } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,8 +61,13 @@ export const AdminDashboardEnhanced: React.FC = () => {
   const [selectedModule, setSelectedModule] = useState<string>('all');
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    // Only fetch data if user is authenticated and is admin
+    if (user && userType === 'admin') {
+      fetchDashboardData();
+    } else {
+      setLoading(false);
+    }
+  }, [user, userType]);
 
   const fetchDashboardData = async () => {
     try {
@@ -92,10 +92,13 @@ export const AdminDashboardEnhanced: React.FC = () => {
       if (progressResponse.status === 'fulfilled' && progressResponse.value?.data) {
         setUserProgress(progressResponse.value.data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
-      setError('Failed to load dashboard data');
-      toast.error('Failed to load dashboard data');
+      // Don't show error toast for auth failures, let the auth system handle it
+      if (!error.message?.includes('Authentication failed')) {
+        setError('Failed to load dashboard data');
+        toast.error('Failed to load dashboard data');
+      }
     } finally {
       setLoading(false);
     }
@@ -391,28 +394,38 @@ export const AdminDashboardEnhanced: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <Button 
-                  onClick={() => window.location.href = '/admin/user-management'}
-                  className="w-full justify-start bg-blue-50 hover:bg-blue-100 dark:bg-blue-600 dark:hover:bg-blue-700 text-blue-700 dark:text-white border border-blue-200 dark:border-blue-500 transition-all duration-200"
+                  onClick={() => setCurrentPage('user-management')}
+                  variant="outline"
+                  className="w-full justify-start border-blue-200 dark:border-blue-500 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                 >
                   <Users className="w-4 h-4 mr-2" />
                   Manage Users
                 </Button>
                 <Button 
-                  onClick={() => window.location.href = '/admin/user-lifecycle'}
-                  className="w-full justify-start bg-purple-50 hover:bg-purple-100 dark:bg-purple-600 dark:hover:bg-purple-700 text-purple-700 dark:text-white border border-purple-200 dark:border-purple-500 transition-all duration-200"
+                  onClick={() => setCurrentPage('user-details')}
+                  variant="outline"
+                  className="w-full justify-start border-indigo-200 dark:border-indigo-500 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  User Details
+                </Button>
+                <Button 
+                  onClick={() => setCurrentPage('user-lifecycle')}
+                  variant="outline"
+                  className="w-full justify-start border-purple-200 dark:border-purple-500 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
                 >
                   <Activity className="w-4 h-4 mr-2" />
                   User Lifecycle
                 </Button>
                 <Button 
-                  onClick={() => window.location.href = '/admin/module-management'}
+                  onClick={() => setCurrentPage('module-management')}
                   className="w-full justify-start bg-green-50 hover:bg-green-100 dark:bg-green-600 dark:hover:bg-green-700 text-green-700 dark:text-white border border-green-200 dark:border-green-500 transition-all duration-200"
                 >
                   <BookOpen className="w-4 h-4 mr-2" />
                   Manage Modules
                 </Button>
                 <Button 
-                  onClick={() => window.location.href = '/admin/quiz-management'}
+                  onClick={() => setCurrentPage('quiz-management')}
                   className="w-full justify-start bg-purple-50 hover:bg-purple-100 dark:bg-purple-600 dark:hover:bg-purple-700 text-purple-700 dark:text-white border border-purple-200 dark:border-purple-500 transition-all duration-200"
                 >
                   <FileText className="w-4 h-4 mr-2" />

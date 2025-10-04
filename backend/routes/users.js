@@ -16,6 +16,7 @@ const router = express.Router();
 router.get('/:id/profile', authenticateToken, validateObjectId, requireOwnershipOrAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
+    console.log('Users route: Getting profile for userId:', userId);
 
     // Check if database is connected
     // if (mongoose.connection.readyState !== 1) {
@@ -26,8 +27,10 @@ router.get('/:id/profile', authenticateToken, validateObjectId, requireOwnership
     // }
 
     const user = await User.findById(userId).select('-password');
+    console.log('Users route: Found user:', user ? 'Yes' : 'No');
     
     if (!user) {
+      console.log('Users route: User not found for userId:', userId);
       return res.status(404).json({
         error: 'Not Found',
         message: 'User not found'
@@ -43,6 +46,7 @@ router.get('/:id/profile', authenticateToken, validateObjectId, requireOwnership
       kpiRating: latestKPI ? latestKPI.rating : 'No Score'
     };
 
+    console.log('Users route: Sending user profile response');
     res.json(userProfile);
 
   } catch (error) {
@@ -133,7 +137,13 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
 router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req, res) => {
   try {
     console.log('Create user request received:', req.body);
-    const { name, email, password, phone, department, manager, address, location, city, state, aadhaarNo, panNo } = req.body;
+    const {
+      name, email, password, phone, userType,
+      dateOfBirth, fathersName,
+      dateOfJoining, designation, department, reportingManager, highestEducation,
+      currentAddress, nativeAddress, location, city, state, region,
+      aadhaarNo, panNo
+    } = req.body;
 
     // Check if database is connected
     // if (mongoose.connection.readyState !== 1) {
@@ -158,17 +168,33 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
     const user = new User({
       name: name.trim(),
       email: email.toLowerCase().trim(),
+      password: password,
       phone: phone?.trim(),
+      userType: userType || 'user',
+      
+      // Personal Information
+      dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+      fathersName: fathersName?.trim(),
+      
+      // Employment Information
+      dateOfJoining: dateOfJoining ? new Date(dateOfJoining) : undefined,
+      designation: designation?.trim(),
       department: department?.trim() || 'General',
-      manager: manager?.trim(),
-      address: address?.trim(),
+      reportingManager: reportingManager?.trim(),
+      highestEducation: highestEducation?.trim(),
+      
+      // Address Information
+      currentAddress: currentAddress?.trim(),
+      nativeAddress: nativeAddress?.trim(),
       location: location?.trim(),
       city: city?.trim(),
       state: state?.trim(),
+      region: region?.trim(),
+      
+      // Identification Documents
       aadhaarNo: aadhaarNo?.trim(),
       panNo: panNo?.trim(),
-      password: password,
-      userType: 'user',
+      
       status: 'Active',
       isActive: true
     });

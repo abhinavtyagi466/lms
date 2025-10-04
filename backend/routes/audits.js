@@ -252,4 +252,43 @@ router.post('/warning', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// @route   GET /api/audits/user/:userId
+// @desc    Get all audit records for a specific user
+// @access  Private (Admin only)
+router.get('/user/:userId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const { limit = 10, page = 1 } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const audits = await AuditRecord.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(skip)
+      .populate('userId', 'name email employeeId')
+      .populate('auditedBy', 'name email');
+
+    const total = await AuditRecord.countDocuments({ userId });
+
+    res.json({
+      success: true,
+      data: audits,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+
+  } catch (error) {
+    console.error('Get user audit records error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching user audit records'
+    });
+  }
+});
+
 module.exports = router;

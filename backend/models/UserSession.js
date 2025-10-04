@@ -121,7 +121,7 @@ const userSessionSchema = new mongoose.Schema({
 
 // Indexes for better query performance
 userSessionSchema.index({ userId: 1, startTime: -1 });
-userSessionSchema.index({ sessionId: 1 });
+userSessionSchema.index({ sessionId: 1 }, { unique: true });
 userSessionSchema.index({ ipAddress: 1 });
 userSessionSchema.index({ isActive: 1 });
 userSessionSchema.index({ isSuspicious: 1 });

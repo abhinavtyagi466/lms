@@ -19,6 +19,7 @@ import { Progress } from '../../components/ui/progress';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface DashboardStats {
   totalUsers: number;
@@ -52,14 +53,20 @@ interface UserProgress {
 
 
 export const AdminDashboard: React.FC = () => {
+  const { user, userType } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedModule, setSelectedModule] = useState<string>('all');
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    // Only fetch data if user is authenticated and is admin
+    if (user && userType === 'admin') {
+      fetchDashboardData();
+    } else {
+      setLoading(false);
+    }
+  }, [user, userType]);
 
   const fetchDashboardData = async () => {
     try {
@@ -85,7 +92,10 @@ export const AdminDashboard: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      // Don't show error toast for auth failures, let the auth system handle it
+      if (!error.message?.includes('Authentication failed')) {
+        toast.error('Failed to load dashboard data');
+      }
     } finally {
       setLoading(false);
     }

@@ -163,10 +163,12 @@ router.get('/admin', authenticateToken, requireAdmin, async (req, res) => {
 // @access  Private (Admin only)
 router.get('/admin/stats', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // Get basic counts
-    const totalUsers = await User.countDocuments({ isActive: true });
-    const totalModules = await Module.countDocuments();
-    const totalQuizzes = await Quiz.countDocuments();
+    // Get basic counts with error handling
+    const [totalUsers, totalModules, totalQuizzes] = await Promise.allSettled([
+      User.countDocuments({ isActive: true }),
+      Module.countDocuments(),
+      Quiz.countDocuments()
+    ]);
     
     // Get active users (users who accessed in last 30 days)
     const thirtyDaysAgo = new Date();
@@ -175,14 +177,14 @@ router.get('/admin/stats', authenticateToken, requireAdmin, async (req, res) => 
     const activeUsers = await User.countDocuments({
       isActive: true,
       lastLoginAt: { $gte: thirtyDaysAgo }
-    });
+    }).catch(() => 0);
 
-    // Get completion statistics
+    // Get completion statistics with error handling
     const completedModules = await UserProgress.countDocuments({
       status: { $in: ['completed', 'certified'] }
-    });
+    }).catch(() => 0);
 
-    // Calculate average progress across all users
+    // Calculate average progress across all users with error handling
     const allProgress = await UserProgress.aggregate([
       {
         $group: {
@@ -191,22 +193,22 @@ router.get('/admin/stats', authenticateToken, requireAdmin, async (req, res) => 
           totalWatchTime: { $sum: '$totalWatchTime' }
         }
       }
-    ]);
+    ]).catch(() => []);
 
     const averageProgress = allProgress.length > 0 ? Math.round(allProgress[0].avgProgress || 0) : 0;
     const totalWatchTime = allProgress.length > 0 ? allProgress[0].totalWatchTime || 0 : 0;
 
-    // Get certificates issued
+    // Get certificates issued with error handling
     const certificatesIssued = await UserProgress.countDocuments({
       status: 'certified'
-    });
+    }).catch(() => 0);
 
     res.json({
       success: true,
       data: {
-        totalUsers,
-        totalModules,
-        totalQuizzes,
+        totalUsers: totalUsers.status === 'fulfilled' ? totalUsers.value : 0,
+        totalModules: totalModules.status === 'fulfilled' ? totalModules.value : 0,
+        totalQuizzes: totalQuizzes.status === 'fulfilled' ? totalQuizzes.value : 0,
         activeUsers,
         completedModules,
         averageProgress,
@@ -217,9 +219,10 @@ router.get('/admin/stats', authenticateToken, requireAdmin, async (req, res) => 
 
   } catch (error) {
     console.error('Get admin stats error:', error);
+    console.error('Error details:', error.message);
     res.status(500).json({
       error: 'Server Error',
-      message: 'Error fetching admin statistics'
+      message: 'Error fetching admin statistics: ' + error.message
     });
   }
 });
@@ -229,21 +232,41 @@ router.get('/admin/stats', authenticateToken, requireAdmin, async (req, res) => 
 // @access  Private (Admin only)
 router.get('/admin/user-progress', authenticateToken, requireAdmin, async (req, res) => {
   try {
+    // First check if UserProgress collection exists and has data
+    const progressCount = await UserProgress.countDocuments();
+    
+    if (progressCount === 0) {
+      return res.json({
+        success: true,
+        data: [],
+        message: 'No user progress data found'
+      });
+    }
+
+    // Use lean() for better performance and handle populate errors
     const userProgress = await UserProgress.find()
       .populate('userId', 'name email')
       .populate('moduleId', 'title ytVideoId')
-      .sort({ lastAccessedAt: -1 });
+      .sort({ lastAccessedAt: -1 })
+      .lean()
+      .exec();
+
+    // Filter out any documents with null references
+    const validProgress = userProgress.filter(progress => 
+      progress.userId && progress.moduleId
+    );
 
     res.json({
       success: true,
-      data: userProgress
+      data: validProgress
     });
 
   } catch (error) {
     console.error('Get user progress error:', error);
+    console.error('Error details:', error.message);
     res.status(500).json({
       error: 'Server Error',
-      message: 'Error fetching user progress'
+      message: 'Error fetching user progress: ' + error.message
     });
   }
 });
