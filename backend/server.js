@@ -17,6 +17,10 @@ const NodeCache = require('node-cache');
 require('dotenv').config();
 
 const app = express();
+
+// Trust proxy - required when behind Nginx/reverse proxy for rate limiting
+app.set('trust proxy', 1);
+
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {

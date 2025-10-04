@@ -29,6 +29,7 @@ const validateLogin = [
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long'),
   body('userType')
+    .optional()
     .isIn(['user', 'manager', 'hod', 'hr', 'admin'])
     .withMessage('User type must be one of: user, manager, hod, hr, admin'),
   handleValidationErrors
