@@ -38,7 +38,6 @@ const AwardsRecognition = lazy(() => import('./pages/admin/AwardsRecognition').t
 const LifecycleDashboard = lazy(() => import('./pages/admin/LifecycleDashboard').then(module => ({ default: module.LifecycleDashboard })));
 const MailPreview = lazy(() => import('./pages/admin/MailPreview').then(module => ({ default: module.MailPreview })));
 const KPITriggerDashboard = lazy(() => import('./pages/admin/KPITriggerDashboard').then(module => ({ default: module.KPITriggerDashboard })));
-const KPIManualEntry = lazy(() => import('./pages/admin/KPIManualEntry').then(module => ({ default: module.KPIManualEntry })));
 const UserDetailsPage = lazy(() => import('./pages/admin/UserDetailsPage').then(module => ({ default: module.UserDetailsPage })));
 const KPIScoresPage = lazy(() => import('./pages/admin/KPIScoresPage').then(module => ({ default: module.KPIScoresPage })));
 const UserKPIScoresPage = lazy(() => import('./pages/user/KPIScoresPage').then(module => ({ default: module.KPIScoresPage })));
@@ -63,7 +62,6 @@ const adminSidebarItems = [
   { key: 'user-management', label: 'User Management', icon: Users },
   { key: 'module-management', label: 'Module Management', icon: BookOpen },
   { key: 'kpi-triggers', label: 'KPI Triggers', icon: BarChart3 },
-  { key: 'kpi-manual-entry', label: 'KPI Manual Entry', icon: BarChart3 },
   { key: 'kpi-configuration', label: 'KPI Configuration', icon: BarChart3 },
   { key: 'email-templates', label: 'Emails', icon: Mail },
   { key: 'email-testing', label: 'Email Testing', icon: Mail },
@@ -210,7 +208,6 @@ const AppContent: React.FC = () => {
                case 'user-lifecycle': return <UserLifecycle />;
                case 'module-management': return <ModuleManagement />;
                case 'kpi-triggers': return <KPITriggerDashboard />;
-               case 'kpi-manual-entry': return <KPIManualEntry />;
                case 'kpi-configuration': return <KPIConfigurationPage />;
         case 'email-templates': return <EmailTemplatesPage />;
         case 'email-testing': return <EmailTestingPage />;

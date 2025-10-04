@@ -18,8 +18,6 @@ import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Badge } from '../../components/ui/badge';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
-import { ConfirmationPopup } from '../../components/common/ConfirmationPopup';
-import { SuccessNotification } from '../../components/common/SuccessNotification';
 import { AdminModuleForm } from '../../components/AdminModuleForm';
 import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
@@ -42,7 +40,7 @@ interface Module {
 
 interface Quiz {
   _id: string;
-  moduleId: string;
+  moduleId: string | { _id: string; id?: string };
   questions: Array<{
     question: string;
     options: string[];
@@ -99,17 +97,9 @@ export const ModuleManagement: React.FC = () => {
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent'
   });
   const [users, setUsers] = useState<Array<{_id: string, name: string, email: string, employeeId: string}>>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isCreatingPersonalised, setIsCreatingPersonalised] = useState(false);
 
-  // Popup states
-  const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [showSuccessNotification, setShowSuccessNotification] = useState(false);
-  const [selectedModule, setSelectedModule] = useState<Module | null>(null);
-  const [successData, setSuccessData] = useState({
-    type: 'module' as 'user' | 'module' | 'quiz' | 'question' | 'award' | 'certificate',
-    action: 'created' as 'created' | 'updated' | 'deleted' | 'completed',
-    itemName: ''
-  });
 
   useEffect(() => {
     fetchModules();
@@ -162,11 +152,16 @@ export const ModuleManagement: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await apiService.users.getAllUsers();
-      setUsers(response.data?.users || response.data || []);
+      setIsLoadingUsers(true);
+      const response = await apiService.users.listSimple();
+      const usersData = response.data?.users || response.data || [];
+      console.log('Fetched users:', usersData);
+      setUsers(usersData);
     } catch (error) {
       console.error('Error fetching users:', error);
       setUsers([]);
+    } finally {
+      setIsLoadingUsers(false);
     }
   };
 
@@ -1198,11 +1193,21 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                     <SelectValue placeholder="Choose a user..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {users.map((user) => (
-                      <SelectItem key={user._id} value={user._id}>
-                        {user.name} ({user.employeeId}) - {user.email}
+                    {isLoadingUsers ? (
+                      <SelectItem value="" disabled>
+                        Loading users...
                       </SelectItem>
-                    ))}
+                    ) : users.length === 0 ? (
+                      <SelectItem value="" disabled>
+                        No users found
+                      </SelectItem>
+                    ) : (
+                      users.map((user) => (
+                        <SelectItem key={user._id} value={user._id}>
+                          {user.name || 'Unknown'} ({user.employeeId || 'No ID'}) - {user.email || 'No email'}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
