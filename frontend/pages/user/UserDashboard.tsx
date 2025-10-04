@@ -17,7 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
 import { ModuleWithProgress } from '../../types';
-import { usePerformance, useAPIPerformance } from '../../hooks/usePerformance';
+import { useAPIPerformance } from '../../hooks/usePerformance';
 
 interface UserStats {
   totalModules: number;
@@ -31,15 +31,15 @@ interface UserStats {
   lastActivity: string;
 }
 
-interface LifecycleStats {
-  totalEvents: number;
-  positiveEvents: number;
-  negativeEvents: number;
-  milestones: number;
-  typeDistribution: Array<{ type: string; count: number }>;
-  latestEvent: any;
-  firstEvent: any;
-}
+// interface LifecycleStats {
+//   totalEvents: number;
+//   positiveEvents: number;
+//   negativeEvents: number;
+//   milestones: number;
+//   typeDistribution: Array<{ type: string; count: number }>;
+//   latestEvent: any;
+//   firstEvent: any;
+// }
 
 // Enhanced KPI Score interface matching backend structure
 interface KPIScore {
@@ -404,7 +404,7 @@ export const UserDashboard: React.FC = () => {
             // Update secondary data
             setWarnings(secondaryData[0].status === 'fulfilled' ? (secondaryData[0].value as any).data?.warnings || [] : []);
             setAwards(secondaryData[1].status === 'fulfilled' ? (secondaryData[1].value as any).data?.awards || [] : []);
-            setLifecycleStats(secondaryData[2].status === 'fulfilled' ? (secondaryData[2].value as any).data?.statistics : null);
+            // setLifecycleStats(secondaryData[2].status === 'fulfilled' ? (secondaryData[2].value as any).data?.statistics : null);
             setRecentLifecycleEvents(secondaryData[3].status === 'fulfilled' ? (secondaryData[3].value as any).data?.events || [] : []);
             setQuizAttemptStats(secondaryData[4].status === 'fulfilled' ? (secondaryData[4].value as any).data : null);
             setQuizAttempts(secondaryData[5].status === 'fulfilled' ? (secondaryData[5].value as any).data || [] : []);
@@ -420,7 +420,7 @@ export const UserDashboard: React.FC = () => {
               measureAPI(() => apiService.kpi.getUserKPIHistory(userId), 'kpi/getUserKPIHistory').catch(() => ({ data: [] })),
               measureAPI(() => apiService.trainingAssignments.getUserAssignments(userId), 'trainingAssignments/getUserAssignments').catch(() => ({ data: [] })),
               measureAPI(() => apiService.auditScheduling.getUserAuditHistory(userId), 'auditScheduling/getUserAuditHistory').catch(() => ({ data: [] })),
-              measureAPI(() => apiService.notifications.getUserNotifications(userId), 'notifications/getUserNotifications').catch(() => ({ data: [] })),
+              measureAPI(() => apiService.notifications.getAll(), 'notifications/getAll').catch(() => ({ data: [] })),
               measureAPI(() => apiService.userActivity.getActivitySummary(userId, 30), 'userActivity/getActivitySummary').catch(() => ({ data: null })),
               measureAPI(() => apiService.userActivity.getLoginAttempts(userId, 30), 'userActivity/getLoginAttempts').catch(() => ({ data: null })),
               measureAPI(() => apiService.userActivity.getSessionData(userId, 7), 'userActivity/getSessionData').catch(() => ({ data: null })),
@@ -522,29 +522,29 @@ export const UserDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Header Section */}
+      {/* Header Section - Enhanced for Mobile */}
       <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-700/50 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-200">
-                <User className="w-8 h-8 text-white" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center space-x-4 sm:space-x-6">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-200">
+                <User className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold text-blue-600 dark:text-blue-400">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-blue-600 dark:text-blue-400">
                   Welcome back, {userProfile?.data?.name || user?.name || 'Learner'}!
                 </h1>
-                <p className="text-gray-600 dark:text-gray-300 mt-2 text-lg">
+                <p className="text-gray-600 dark:text-gray-300 mt-1 sm:mt-2 text-sm sm:text-base lg:text-lg">
                   {userProfile?.data?.email || user?.email} • Member since {userProfile?.data?.createdAt ? new Date(userProfile?.data?.createdAt).toLocaleDateString() : 'Recently'}
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <Badge variant="outline" className="bg-white/70 dark:bg-gray-700/70 border-blue-200 dark:border-blue-500 text-blue-700 dark:text-blue-300 px-5 py-2.5 rounded-full shadow-sm">
-                <Target className="w-4 h-4 mr-2" />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
+              <Badge variant="outline" className="bg-white/70 dark:bg-gray-700/70 border-blue-200 dark:border-blue-500 text-blue-700 dark:text-blue-300 px-3 sm:px-5 py-2 sm:py-2.5 rounded-full shadow-sm text-sm">
+                <Target className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 KPI Score: {kpiScore?.overallScore || 0}
                 {kpiScore?.rating && (
-                  <span className={`ml-2 px-2 py-1 rounded-full text-xs ${getKPIRatingColor(kpiScore.rating)}`}>
+                  <span className={`ml-1 sm:ml-2 px-1 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs ${getKPIRatingColor(kpiScore.rating)}`}>
                     {kpiScore.rating}
                   </span>
                 )}
@@ -553,9 +553,9 @@ export const UserDashboard: React.FC = () => {
                 onClick={() => setCurrentPage('modules')}
                 variant="secondary"
                 size="lg"
-                className="px-8 py-3"
+                className="px-4 sm:px-8 py-2 sm:py-3 w-full sm:w-auto text-sm sm:text-base"
               >
-                <BookOpen className="w-5 h-5 mr-2" />
+                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
                 Continue Learning
               </Button>
             </div>
@@ -563,18 +563,18 @@ export const UserDashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+        {/* Stats Overview - Enhanced for Mobile */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Modules</p>
-                  <p className="text-3xl font-bold text-gray-900">{stats.totalModules}</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-600">Total Modules</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.totalModules}</p>
                 </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                  <BookOpen className="w-6 h-6 text-white" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
               </div>
               <div className="mt-4">

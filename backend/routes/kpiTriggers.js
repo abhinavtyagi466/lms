@@ -404,7 +404,7 @@ router.post('/process-single', authenticateToken, requireAdmin, async (req, res)
       });
     }
 
-    const result = await kpiTriggerService.processKPIRow(kpiData, period);
+    const result = await kpiTriggerService.processKPIRow(kpiData, period, req.user._id);
     
     res.json({
       success: true,
@@ -474,8 +474,8 @@ router.post('/process-bulk', authenticateToken, requireAdmin, async (req, res) =
           continue;
         }
 
-        // Process KPI
-        const result = await kpiTriggerService.processKPIRow(kpiData, period);
+        // Process KPI with admin user context
+        const result = await kpiTriggerService.processKPIRow(kpiData, period, req.user._id);
         results.push({
           ...result,
           emailSent: sendEmail || false

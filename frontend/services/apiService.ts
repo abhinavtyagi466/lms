@@ -1560,6 +1560,17 @@ export const apiService = {
       
       const response = await apiClient.get(`/notifications/type/${type}?${params.toString()}`);
       return response;
+    },
+
+    sendNotification: async (notificationData: {
+      userIds: string[];
+      title: string;
+      message: string;
+      type?: string;
+      priority?: string;
+    }) => {
+      const response = await apiClient.post('/notifications/send', notificationData);
+      return response;
     }
   }
 };

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { GraduationCap, Sun, Moon, Mail, Lock } from 'lucide-react';
+import { GraduationCap, Sun, Moon, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { ErrorMessage } from '../../components/ui/error-message';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { toast } from 'sonner';
@@ -15,20 +16,75 @@ export const UserLogin: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setEmail(value);
+    setEmailError(null);
+    setError(null);
+    
+    if (value && !validateEmail(value)) {
+      setEmailError('Please enter a valid email address');
+    }
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPassword(value);
+    setPasswordError(null);
+    setError(null);
+    
+    if (value && value.length < 6) {
+      setPasswordError('Password must be at least 6 characters long');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast.error('Please fill in all fields');
+    
+    // Clear previous errors
+    setError(null);
+    setEmailError(null);
+    setPasswordError(null);
+    
+    // Validation
+    if (!email) {
+      setEmailError('Email is required');
+      return;
+    }
+    
+    if (!password) {
+      setPasswordError('Password is required');
+      return;
+    }
+    
+    if (!validateEmail(email)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+    
+    if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters long');
       return;
     }
     
     setIsLoading(true);
     try {
       await login(email, password, 'user');
-      toast.success('Login successful!');
-    } catch (error) {
-      toast.error('Login failed. Please try again.');
+      toast.success('Welcome back! Login successful.');
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Login failed. Please check your credentials and try again.';
+      setError(errorMessage);
+      toast.error('Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -104,6 +160,15 @@ export const UserLogin: React.FC = () => {
             </div>
             
             <form className="space-y-5" onSubmit={handleSubmit}>
+              {/* Error Message */}
+              {error && (
+                <ErrorMessage
+                  type="error"
+                  message={error}
+                  onDismiss={() => setError(null)}
+                />
+              )}
+              
               <div className="space-y-2">
                 <Label htmlFor="email" className={`text-sm font-medium ${
                   isDarkMode ? 'text-gray-300' : 'text-gray-700'
@@ -118,16 +183,24 @@ export const UserLogin: React.FC = () => {
                     id="email" 
                     type="email" 
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={handleEmailChange}
                     placeholder="your.email@company.com"
                     className={`pl-10 h-12 ${
-                      isDarkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
-                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+                      emailError 
+                        ? 'border-red-500 focus:border-red-500' 
+                        : isDarkMode 
+                          ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                          : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
                     }`}
                     disabled={isLoading}
                   />
                 </div>
+                {emailError && (
+                  <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {emailError}
+                  </p>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -142,18 +215,36 @@ export const UserLogin: React.FC = () => {
                   }`} />
                   <Input 
                     id="password" 
-                    type="password" 
+                    type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={handlePasswordChange}
                     placeholder="Enter your password"
-                    className={`pl-10 h-12 ${
-                      isDarkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
-                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+                    className={`pl-10 pr-10 h-12 ${
+                      passwordError 
+                        ? 'border-red-500 focus:border-red-500' 
+                        : isDarkMode 
+                          ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                          : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
                     }`}
                     disabled={isLoading}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${
+                      isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                    disabled={isLoading}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
+                {passwordError && (
+                  <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {passwordError}
+                  </p>
+                )}
               </div>
               
               <div className="flex items-center justify-between">

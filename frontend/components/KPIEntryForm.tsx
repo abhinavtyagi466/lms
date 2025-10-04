@@ -167,7 +167,7 @@ export const KPIEntryForm: React.FC<KPIEntryFormProps> = ({
     try {
       setIsLoading(true);
       const response = await apiService.users.getAllUsers({ limit: 1000 });
-      setUsers(response.users || []);
+      setUsers((response as any).users || response.data?.users || []);
     } catch (error) {
       console.error('Error loading users:', error);
     } finally {
@@ -330,6 +330,19 @@ export const KPIEntryForm: React.FC<KPIEntryFormProps> = ({
         userId: formData.userId,
         period: formData.period,
         comments: formData.comments,
+        rawData: {
+          totalCases: 100, // Default value - should be configurable
+          tatCases: Math.round((formData.metrics.tat / 100) * 100),
+          majorNegEvents: Math.round((formData.metrics.majorNegativity / 100) * 100),
+          clientComplaints: Math.round((formData.metrics.quality / 100) * 100),
+          fatalIssues: 0,
+          opsRejections: 0,
+          neighborChecksRequired: 100,
+          neighborChecksDone: Math.round((formData.metrics.neighborCheck / 100) * 100),
+          generalNegEvents: Math.round((formData.metrics.negativity / 100) * 100),
+          appCases: Math.round((formData.metrics.appUsage / 100) * 100),
+          insuffCases: Math.round((formData.metrics.insufficiency / 100) * 100)
+        },
         tat: formData.metrics.tat,
         quality: formData.metrics.quality,
         appUsage: formData.metrics.appUsage,
@@ -418,7 +431,7 @@ export const KPIEntryForm: React.FC<KPIEntryFormProps> = ({
   };
 
   const generatePeriodOptions = () => {
-    const options = [];
+    const options: Array<{ value: string; label: string }> = [];
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
     const currentMonth = currentDate.getMonth() + 1;

@@ -609,16 +609,22 @@ export const KPITriggerDashboard: React.FC = () => {
                               <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
                               <div>
                                 <p className="font-semibold text-green-900 dark:text-green-100 mb-1">
-                                  Email Notifications Will Be Sent To:
+                                  Notifications Will Be Sent:
                                 </p>
                                 <div className="text-sm text-green-700 dark:text-green-300 space-y-1">
-                                  <div>✓ <strong>User:</strong> {result.matchedUser.email}</div>
-                                  <div>✓ <strong>Coordinator</strong> (if exists in system)</div>
-                                  <div>✓ <strong>Manager</strong> (if exists in system)</div>
-                                  <div>✓ <strong>HOD</strong> (if exists in system)</div>
+                                  <div>📧 <strong>Email to User:</strong> {result.matchedUser.email}</div>
+                                  <div>📧 <strong>Email to Coordinator</strong> (if exists in system)</div>
+                                  <div>📧 <strong>Email to Manager</strong> (if exists in system)</div>
+                                  <div>📧 <strong>Email to HOD</strong> (if exists in system)</div>
                                   {result.triggers.some((t: any) => t.type === 'audit') && (
-                                    <div>✓ <strong>Compliance Team</strong> (for audits)</div>
+                                    <div>📧 <strong>Email to Compliance Team</strong> (for audits)</div>
                                   )}
+                                  <div className="mt-2 pt-2 border-t border-green-300">
+                                    <div>🔔 <strong>In-app notification to user dashboard</strong></div>
+                                    <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                      User will see notification in their dashboard notifications page
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             </div>

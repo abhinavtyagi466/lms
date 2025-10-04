@@ -404,35 +404,50 @@ export const QuizPage: React.FC = () => {
 
   const submitQuiz = async () => {
     try {
-      const correctAnswers = selectedQuiz.questions.filter((question: any, index: number) => {
-        const selectedAnswer = selectedAnswers[index];
-        const correctAnswer = question.correctIndex !== undefined ? question.correctIndex : question.correctOption;
-        return selectedAnswer === correctAnswer;
-      }).length;
-
-      const calculatedScore = Math.round((correctAnswers / selectedQuiz.questions.length) * 100);
-      setScore(calculatedScore);
-      setQuizCompleted(true);
-
-      // TODO: Save quiz attempt to database
-      // const quizAttempt = {
-      //   userId: user?.id,
-      //   moduleId: selectedQuiz.moduleId,
-      //   score: calculatedScore,
-      //   passed: calculatedScore >= selectedQuiz.passPercent,
-      //   answers: Object.keys(selectedAnswers).map(questionIndex => ({
-      //     questionId: selectedQuiz.questions[parseInt(questionIndex)]._id || questionIndex,
-      //     selectedAnswer: selectedAnswers[parseInt(questionIndex)],
-      //     isCorrect: selectedAnswers[parseInt(questionIndex)] === selectedQuiz.questions[parseInt(questionIndex)].correctIndex
-      //   })),
-      //   timeSpent: (30 * 60) - timeLeft,
-      //   startTime: new Date(Date.now() - ((30 * 60) - timeLeft) * 1000),
-      //   endTime: new Date(),
-      //   status: 'completed'
-      // };
-      // await apiService.quizAttempts.createQuizAttempt(quizAttempt);
+      // Calculate time spent
+      const timeSpent = (30 * 60) - timeLeft; // in seconds
       
-      toast.success(`Quiz completed! Score: ${calculatedScore}%`);
+      // Prepare answers in the format expected by backend
+      const answersData = selectedQuiz.questions.map((question: any, index: number) => ({
+        selectedOption: selectedAnswers[index] !== undefined ? selectedAnswers[index] : -1,
+        timeSpent: Math.floor(timeSpent / selectedQuiz.questions.length) // distribute time across questions
+      }));
+
+      // Submit quiz to backend
+      const userId = (user as any)?._id || (user as any)?.id;
+      const moduleId = selectedQuiz.moduleId;
+
+      const response = await apiService.quizzes.submitQuiz(
+        userId,
+        moduleId,
+        answersData,
+        timeSpent
+      );
+
+      // Update UI with backend response
+      if (response?.result) {
+        setScore(response.result.percentage);
+        setQuizCompleted(true);
+        
+        toast.success(
+          `Quiz submitted successfully! Score: ${response.result.percentage}% ${
+            response.result.passed ? '✅ PASSED' : '❌ FAILED'
+          }`
+        );
+      } else {
+        // Fallback to local calculation if backend response is unexpected
+        const correctAnswers = selectedQuiz.questions.filter((question: any, index: number) => {
+          const selectedAnswer = selectedAnswers[index];
+          const correctAnswer = question.correctIndex !== undefined ? question.correctIndex : question.correctOption;
+          return selectedAnswer === correctAnswer;
+        }).length;
+
+        const calculatedScore = Math.round((correctAnswers / selectedQuiz.questions.length) * 100);
+        setScore(calculatedScore);
+        setQuizCompleted(true);
+        
+        toast.success(`Quiz completed! Score: ${calculatedScore}%`);
+      }
       
       // Auto redirect to dashboard after 3 seconds
       setTimeout(() => {

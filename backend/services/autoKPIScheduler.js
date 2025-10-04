@@ -49,7 +49,7 @@ class AutoKPIScheduler {
     
     // Stop all scheduled jobs
     this.scheduledJobs.forEach((job, name) => {
-      job.destroy();
+      job.stop();
       console.log(`Stopped job: ${name}`);
     });
     

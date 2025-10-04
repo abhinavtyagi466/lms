@@ -74,8 +74,12 @@ class KPITriggerService {
     // Save KPI score
     const kpiRecord = await this.saveKPIScore(user._id, period, kpiScore, rating, row, submittedBy);
     
+    // Get admin user for context
+    const User = require('../models/User');
+    const adminUser = submittedBy ? await User.findById(submittedBy) : null;
+    
     // Process triggers
-    const triggers = await this.processTriggers(user, kpiRecord, row, submittedBy);
+    const triggers = await this.processTriggers(user, kpiRecord, row, adminUser);
     
     return {
       fe: fe,
@@ -249,6 +253,9 @@ class KPITriggerService {
       const result = await this.executeTrigger(user, kpiRecord, trigger, rawData, adminUser);
       triggers.push(result);
     }
+
+    // 3. Create main KPI notification for user dashboard
+    await this.createKPINotification(user, kpiRecord, triggers, adminUser);
 
     return triggers;
   }
@@ -445,6 +452,64 @@ class KPITriggerService {
     }
 
     return result;
+  }
+
+  // Create main KPI notification for user dashboard
+  async createKPINotification(user, kpiRecord, triggers, adminUser) {
+    try {
+      const Notification = require('../models/Notification');
+      
+      // Determine notification type and priority based on rating and triggers
+      let notificationType = 'kpi';
+      let priority = 'normal';
+      let title = `KPI Score Update - ${kpiRecord.period}`;
+      let message = `Your KPI score for ${kpiRecord.period} is ${kpiRecord.overallScore.toFixed(2)}% (${kpiRecord.rating}).`;
+
+      // Check if there are any active triggers
+      const activeTriggers = triggers.filter(t => t.executed);
+      if (activeTriggers.length > 0) {
+        priority = 'high';
+        const triggerActions = activeTriggers.map(t => t.action).join(', ');
+        message += ` Actions triggered: ${triggerActions}.`;
+        
+        // Set specific notification type based on triggers
+        if (activeTriggers.some(t => t.type === 'training')) {
+          notificationType = 'training';
+          title = `Training Assignment - ${kpiRecord.period}`;
+        } else if (activeTriggers.some(t => t.type === 'audit')) {
+          notificationType = 'audit';
+          title = `Audit Scheduled - ${kpiRecord.period}`;
+        } else if (activeTriggers.some(t => t.type === 'warning')) {
+          notificationType = 'performance';
+          title = `Performance Warning - ${kpiRecord.period}`;
+          priority = 'urgent';
+        }
+      }
+
+      // Create notification
+      await Notification.createNotification({
+        userId: user._id,
+        title: title,
+        message: message,
+        type: notificationType,
+        priority: priority,
+        sentBy: adminUser?._id || user._id,
+        metadata: {
+          kpiScore: kpiRecord.overallScore,
+          rating: kpiRecord.rating,
+          period: kpiRecord.period,
+          kpiRecordId: kpiRecord._id,
+          triggersExecuted: activeTriggers.length,
+          actionRequired: activeTriggers.length > 0,
+          actionUrl: activeTriggers.length > 0 ? '/notifications' : null
+        }
+      });
+
+      console.log(`✅ Created KPI notification for user ${user.name} (${user.email}) - ${notificationType} - ${priority}`);
+      
+    } catch (error) {
+      console.error('Error creating KPI notification:', error);
+    }
   }
 
   // Send templated emails using EmailTemplateService

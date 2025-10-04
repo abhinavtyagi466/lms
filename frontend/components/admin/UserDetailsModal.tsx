@@ -3,7 +3,7 @@ import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
-import { X, User, Mail, Phone, Clock, CheckCircle, Play, FileQuestion, Award, Target, TrendingUp, AlertTriangle } from 'lucide-react';
+import { X, User, Mail, Clock, CheckCircle, Play, FileQuestion, Target, TrendingUp, AlertTriangle } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 
@@ -191,9 +191,9 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
       } else if (progressResponse?.data?.progress) {
         console.log('UserDetailsModal: Setting video progress from data.progress:', progressResponse.data.progress);
         setVideoProgress(progressResponse.data.progress);
-      } else if (progressResponse?.progress) {
-        console.log('UserDetailsModal: Setting video progress from progress:', progressResponse.progress);
-        setVideoProgress(progressResponse.progress);
+      } else if ((progressResponse as any)?.progress) {
+        console.log('UserDetailsModal: Setting video progress from progress:', (progressResponse as any).progress);
+        setVideoProgress((progressResponse as any).progress);
       } else {
         console.log('UserDetailsModal: No progress data found in response');
         console.log('UserDetailsModal: Full progress response:', progressResponse);
@@ -204,9 +204,9 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
       if (modulesResponse?.data?.modules) {
         console.log('UserDetailsModal: Setting modules from data.modules:', modulesResponse.data.modules);
         setModules(modulesResponse.data.modules);
-      } else if (modulesResponse?.modules) {
-        console.log('UserDetailsModal: Setting modules from modules:', modulesResponse.modules);
-        setModules(modulesResponse.modules);
+      } else if ((modulesResponse as any)?.modules) {
+        console.log('UserDetailsModal: Setting modules from modules:', (modulesResponse as any).modules);
+        setModules((modulesResponse as any).modules);
       } else {
         console.log('UserDetailsModal: No modules data found in response');
         setModules([]);
@@ -216,9 +216,9 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
       if (quizResultsResponse?.data?.results) {
         console.log('UserDetailsModal: Setting quiz results from data.results:', quizResultsResponse.data.results);
         setQuizResults(quizResultsResponse.data.results);
-      } else if (quizResultsResponse?.results) {
-        console.log('UserDetailsModal: Setting quiz results from results:', quizResultsResponse.results);
-        setQuizResults(quizResultsResponse.results);
+      } else if ((quizResultsResponse as any)?.results) {
+        console.log('UserDetailsModal: Setting quiz results from results:', (quizResultsResponse as any).results);
+        setQuizResults((quizResultsResponse as any).results);
       } else {
         console.log('UserDetailsModal: No quiz results data found in response');
         setQuizResults([]);
@@ -650,7 +650,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                   {quizResults.length > 0 ? (
                     <div className="space-y-4">
                       <h4 className="text-md font-semibold text-gray-900">Quiz Attempts</h4>
-                      {quizResults.map((result, index) => (
+                      {quizResults.map((result) => (
                         <Card key={result._id} className="p-4">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1">
