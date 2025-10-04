@@ -274,6 +274,26 @@ export const apiService = {
     deleteModule: async (moduleId: string) => {
       const response = await apiClient.delete(`/modules/${moduleId}`);
       return response;
+    },
+
+    createPersonalisedModule: async (data: {
+      userId: string;
+      moduleId: string;
+      reason: string;
+      priority: 'low' | 'medium' | 'high' | 'urgent';
+    }) => {
+      const response = await apiClient.post('/modules/personalised', data);
+      return response;
+    },
+
+    getPersonalisedModules: async (userId: string) => {
+      const response = await apiClient.get(`/modules/personalised/${userId}`);
+      return response;
+    },
+
+    deletePersonalisedModule: async (moduleId: string) => {
+      const response = await apiClient.delete(`/modules/personalised/${moduleId}`);
+      return response;
     }
   },
 
@@ -1570,6 +1590,35 @@ export const apiService = {
       priority?: string;
     }) => {
       const response = await apiClient.post('/notifications/send', notificationData);
+      return response;
+    }
+  },
+
+  kpiConfiguration: {
+    getAll: async () => {
+      const response = await apiClient.get('/kpi-configuration');
+      return response;
+    },
+
+    updateMetrics: async (metrics: any[]) => {
+      const response = await apiClient.put('/kpi-configuration/metrics', { metrics });
+      return response;
+    },
+
+    updateTriggers: async (triggers: any[]) => {
+      const response = await apiClient.put('/kpi-configuration/triggers', { triggers });
+      return response;
+    },
+
+    resetToDefaults: async () => {
+      const response = await apiClient.post('/kpi-configuration/reset');
+      return response;
+    },
+
+    exportConfiguration: async () => {
+      const response = await apiClient.get('/kpi-configuration/export', {
+        responseType: 'blob'
+      });
       return response;
     }
   }

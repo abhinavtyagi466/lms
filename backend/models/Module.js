@@ -14,7 +14,14 @@ const moduleSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     publishedAt: { type: Date, default: null },
     viewCount: { type: Number, default: 0 },
-    completionCount: { type: Number, default: 0 }
+    completionCount: { type: Number, default: 0 },
+    // Personalised module fields
+    isPersonalised: { type: Boolean, default: false, index: true },
+    assignedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Specific users this module is assigned to
+    personalisedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Admin who created this personalised module
+    personalisedAt: { type: Date, default: null },
+    personalisedReason: { type: String, trim: true }, // Reason for personalisation
+    personalisedPriority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' }
   },
   { timestamps: { createdAt: true, updatedAt: true } }
 );
@@ -23,6 +30,8 @@ const moduleSchema = new mongoose.Schema(
 moduleSchema.index({ status: 1, createdAt: -1 });
 moduleSchema.index({ ytVideoId: 1 });
 moduleSchema.index({ tags: 1 });
+moduleSchema.index({ isPersonalised: 1, assignedTo: 1 });
+moduleSchema.index({ assignedTo: 1, status: 1 });
 
 // Virtual for YouTube embed URL
 moduleSchema.virtual('embedUrl').get(function() {

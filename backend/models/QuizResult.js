@@ -60,7 +60,11 @@ const QuizResultSchema = new mongoose.Schema(
     attemptNumber: { 
       type: Number, 
       default: 1 
-    } // track multiple attempts
+    }, // track multiple attempts
+    // Personalised quiz result fields
+    isPersonalised: { type: Boolean, default: false, index: true },
+    personalisedModuleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Module' }, // Reference to personalised module
+    personalisedQuizId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz' } // Reference to personalised quiz
   },
   { timestamps: { createdAt: true, updatedAt: true } }
 );
@@ -70,6 +74,8 @@ QuizResultSchema.index({ userId: 1, moduleId: 1 });
 QuizResultSchema.index({ userId: 1, quizId: 1 });
 QuizResultSchema.index({ moduleId: 1, createdAt: -1 });
 QuizResultSchema.index({ passed: 1, createdAt: -1 });
+QuizResultSchema.index({ isPersonalised: 1, userId: 1 });
+QuizResultSchema.index({ personalisedModuleId: 1, userId: 1 });
 
 // Virtual for pass/fail status
 QuizResultSchema.virtual('status').get(function() {

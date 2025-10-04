@@ -66,6 +66,7 @@ export const ModuleManagement: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showQuizModal, setShowQuizModal] = useState(false);
   const [showCSVModal, setShowCSVModal] = useState(false);
+  const [showPersonalisedModal, setShowPersonalisedModal] = useState(false);
   const [selectedModuleId, setSelectedModuleId] = useState('');
   const [createQuizData, setCreateQuizData] = useState({
     moduleId: '',
@@ -90,6 +91,16 @@ export const ModuleManagement: React.FC = () => {
     marks: 1
   });
 
+  // Personalised module state
+  const [personalisedModuleData, setPersonalisedModuleData] = useState({
+    userId: '',
+    moduleId: '',
+    reason: '',
+    priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent'
+  });
+  const [users, setUsers] = useState<Array<{_id: string, name: string, email: string, employeeId: string}>>([]);
+  const [isCreatingPersonalised, setIsCreatingPersonalised] = useState(false);
+
   // Popup states
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
@@ -103,6 +114,7 @@ export const ModuleManagement: React.FC = () => {
   useEffect(() => {
     fetchModules();
     fetchQuizzes();
+    fetchUsers();
   }, []);
 
   const fetchModules = async () => {
@@ -145,6 +157,16 @@ export const ModuleManagement: React.FC = () => {
     } catch (error) {
       console.error('Error fetching quizzes:', error);
       setQuizzes([]);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const response = await apiService.users.getAllUsers();
+      setUsers(response.data?.users || response.data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setUsers([]);
     }
   };
 
@@ -373,6 +395,48 @@ export const ModuleManagement: React.FC = () => {
     }
   };
 
+  const handleCreatePersonalisedModule = async () => {
+    try {
+      setIsCreatingPersonalised(true);
+      
+      if (!personalisedModuleData.userId || !personalisedModuleData.moduleId) {
+        toast.error('Please select both user and module');
+        return;
+      }
+
+      if (!personalisedModuleData.reason.trim()) {
+        toast.error('Please provide a reason for personalisation');
+        return;
+      }
+
+      // Create personalised module assignment
+      const response = await apiService.modules.createPersonalisedModule({
+        userId: personalisedModuleData.userId,
+        moduleId: personalisedModuleData.moduleId,
+        reason: personalisedModuleData.reason,
+        priority: personalisedModuleData.priority
+      });
+
+      if (response && ((response as any).success || (response as any).data?.success)) {
+        toast.success('Personalised module assigned successfully!');
+        setShowPersonalisedModal(false);
+        setPersonalisedModuleData({
+          userId: '',
+          moduleId: '',
+          reason: '',
+          priority: 'medium'
+        });
+        // Refresh modules to show updated data
+        await fetchModules();
+      }
+    } catch (error) {
+      console.error('Error creating personalised module:', error);
+      toast.error('Failed to assign personalised module');
+    } finally {
+      setIsCreatingPersonalised(false);
+    }
+  };
+
   const addQuestion = () => {
     if (!currentQuestion.question.trim()) {
       toast.error('Question is required');
@@ -482,6 +546,13 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
           >
             <Plus className="w-4 h-4 mr-2" />
             Add New Module
+          </Button>
+          <Button 
+            className="bg-purple-600 hover:bg-purple-700"
+            onClick={() => setShowPersonalisedModal(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Personalised Module
           </Button>
         </div>
       </div>
@@ -1097,6 +1168,113 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                   setShowCSVModal(false);
                   setCsvData('');
                   setSelectedModuleId('');
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Personalised Module Modal */}
+      {showPersonalisedModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Plus className="w-5 h-5 text-purple-600" />
+              Assign Personalised Module
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="personalisedUser">Select User</Label>
+                <Select
+                  value={personalisedModuleData.userId}
+                  onValueChange={(value) => setPersonalisedModuleData(prev => ({ ...prev, userId: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a user..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map((user) => (
+                      <SelectItem key={user._id} value={user._id}>
+                        {user.name} ({user.employeeId}) - {user.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="personalisedModule">Select Module</Label>
+                <Select
+                  value={personalisedModuleData.moduleId}
+                  onValueChange={(value) => setPersonalisedModuleData(prev => ({ ...prev, moduleId: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a module..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {modules.filter(m => m.status === 'published').map((module) => (
+                      <SelectItem key={module._id} value={module._id}>
+                        {module.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="personalisedPriority">Priority</Label>
+                <Select
+                  value={personalisedModuleData.priority}
+                  onValueChange={(value: 'low' | 'medium' | 'high' | 'urgent') => 
+                    setPersonalisedModuleData(prev => ({ ...prev, priority: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="personalisedReason">Reason for Personalisation</Label>
+                <Input
+                  id="personalisedReason"
+                  placeholder="e.g., Performance improvement, Special training requirement..."
+                  value={personalisedModuleData.reason}
+                  onChange={(e) => setPersonalisedModuleData(prev => ({ ...prev, reason: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <Button
+                onClick={handleCreatePersonalisedModule}
+                disabled={isCreatingPersonalised}
+                className="bg-purple-600 hover:bg-purple-700 flex-1"
+              >
+                {isCreatingPersonalised ? 'Assigning...' : 'Assign Personalised Module'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowPersonalisedModal(false);
+                  setPersonalisedModuleData({
+                    userId: '',
+                    moduleId: '',
+                    reason: '',
+                    priority: 'medium'
+                  });
                 }}
                 className="flex-1"
               >

@@ -38,6 +38,7 @@ export const ModulesPage: React.FC = () => {
   };
   const [modules, setModules] = useState<ModuleWithProgress[]>([]);
   const [, setUserProgress] = useState<ProgressData>({});
+  const [personalisedModules, setPersonalisedModules] = useState<ModuleWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,6 +72,12 @@ export const ModulesPage: React.FC = () => {
           }
         });
         setUserProgress(progressData);
+      }
+
+      // Fetch personalised modules
+      const personalisedResponse = await apiService.modules.getPersonalisedModules(userId);
+      if (personalisedResponse && (personalisedResponse as any).success && (personalisedResponse as any).data) {
+        setPersonalisedModules((personalisedResponse as any).data);
       }
 
     } catch (error) {
@@ -187,7 +194,121 @@ export const ModulesPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Modules Grid */}
+      {/* Personalised Modules Section */}
+      {personalisedModules.length > 0 && (
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+              <span className="text-purple-600 font-bold text-sm">P</span>
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900">Personalised Modules</h2>
+            <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+              {personalisedModules.length} assigned
+            </Badge>
+          </div>
+          <p className="text-gray-600 mb-4">
+            These modules have been specifically assigned to you by your admin for targeted training.
+          </p>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {personalisedModules.map((module) => {
+              const progressPercent = Math.round((module.progress || 0) * 100);
+              const isCompleted = progressPercent >= 95;
+              
+              return (
+                <Card key={module._id} className={`overflow-hidden ${isCompleted ? 'border-2 border-green-400' : 'border-2 border-purple-300'}`}>
+                  <div className="p-4 border-b relative">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                        {module.title}
+                        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                          Personalised
+                        </Badge>
+                      </h3>
+                      {isCompleted && (
+                        <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          Completed
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">{module.description}</p>
+                    
+                    {/* Personalisation Info */}
+                    <div className="mt-2 p-2 bg-purple-50 rounded text-xs text-purple-700">
+                      <strong>Reason:</strong> {(module as any).personalisedReason || 'Special training assignment'}
+                      <br />
+                      <strong>Priority:</strong> <span className="capitalize">{(module as any).personalisedPriority || 'medium'}</span>
+                    </div>
+                  </div>
+
+                  {/* Video Thumbnail */}
+                  <div className="relative">
+                    <img
+                      src={getYouTubeThumbnail(module.ytVideoId, 'medium') || '/placeholder-video.jpg'}
+                      alt={module.title}
+                      className="w-full h-48 object-cover cursor-pointer"
+                      onClick={() => {
+                        if (!isCompleted) {
+                          setSelectedModuleId(module._id);
+                          setCurrentPage('training-module');
+                        }
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
+                      <div className="bg-white bg-opacity-90 rounded-full p-3 opacity-0 hover:opacity-100 transition-opacity duration-200">
+                        <svg className="w-8 h-8 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress and Actions */}
+                  <div className="p-4">
+                    <div className="mb-3">
+                      <div className="flex justify-between text-sm text-gray-600 mb-1">
+                        <span>Progress</span>
+                        <span>{progressPercent}%</span>
+                      </div>
+                      <ProgressBar progress={progressPercent} />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => {
+                          setSelectedModuleId(module._id);
+                          setCurrentPage('training-module');
+                        }}
+                        className="flex-1 bg-purple-600 hover:bg-purple-700"
+                        disabled={isCompleted}
+                      >
+                        {isCompleted ? 'Review Module' : 'Start Training Module'}
+                      </Button>
+                      
+                      {module.hasQuiz && (
+                        <Button
+                          onClick={() => {
+                            setSelectedModuleId(module._id);
+                            setCurrentPage('quiz');
+                          }}
+                          variant="outline"
+                          className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                        >
+                          <FileQuestion className="w-4 h-4 mr-1" />
+                          Quiz
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* Regular Modules Grid */}
       {publishedModules.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {publishedModules.map((module) => {

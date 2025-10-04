@@ -44,6 +44,7 @@ const KPIScoresPage = lazy(() => import('./pages/admin/KPIScoresPage').then(modu
 const UserKPIScoresPage = lazy(() => import('./pages/user/KPIScoresPage').then(module => ({ default: module.KPIScoresPage })));
 const EmailTemplatesPage = lazy(() => import('./pages/admin/EmailTemplatesPage').then(module => ({ default: module.EmailTemplatesPage })));
 const EmailTestingPage = lazy(() => import('./pages/admin/EmailTestingPage').then(module => ({ default: module.EmailTestingPage })));
+const KPIConfigurationPage = lazy(() => import('./pages/admin/KPIConfigurationPage').then(module => ({ default: module.KPIConfigurationPage })));
 // Temporarily commented out unused components
 // const EmailNotificationCenter = lazy(() => import('./pages/admin/EmailNotificationCenter'));
 // const AuditManager = lazy(() => import('./pages/admin/AuditSchedulerDashboardV2'));
@@ -63,6 +64,7 @@ const adminSidebarItems = [
   { key: 'module-management', label: 'Module Management', icon: BookOpen },
   { key: 'kpi-triggers', label: 'KPI Triggers', icon: BarChart3 },
   { key: 'kpi-manual-entry', label: 'KPI Manual Entry', icon: BarChart3 },
+  { key: 'kpi-configuration', label: 'KPI Configuration', icon: BarChart3 },
   { key: 'email-templates', label: 'Emails', icon: Mail },
   { key: 'email-testing', label: 'Email Testing', icon: Mail },
   // { key: 'audit-scheduler', label: 'Audit Scheduler', icon: Calendar }, // TEMPORARILY HIDDEN
@@ -209,6 +211,7 @@ const AppContent: React.FC = () => {
                case 'module-management': return <ModuleManagement />;
                case 'kpi-triggers': return <KPITriggerDashboard />;
                case 'kpi-manual-entry': return <KPIManualEntry />;
+               case 'kpi-configuration': return <KPIConfigurationPage />;
         case 'email-templates': return <EmailTemplatesPage />;
         case 'email-testing': return <EmailTestingPage />;
         // case 'audit-scheduler': return <AuditManager />; // TEMPORARILY HIDDEN

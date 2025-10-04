@@ -119,8 +119,9 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
   const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
   const [warnings, setWarnings] = useState<Warning[]>([]);
   const [lifecycleEvents, setLifecycleEvents] = useState<LifecycleEvent[]>([]);
+  const [personalisedModules, setPersonalisedModules] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'progress' | 'quiz' | 'attempts' | 'warnings' | 'lifecycle' | 'kpi'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'progress' | 'quiz' | 'attempts' | 'warnings' | 'lifecycle' | 'kpi' | 'personalised'>('details');
 
   useEffect(() => {
     if (userId) {
@@ -304,6 +305,17 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
       }
       setLifecycleEvents(lifecycleEventsList);
 
+      // Fetch personalised modules
+      try {
+        const personalisedResponse = await apiService.modules.getPersonalisedModules(userId);
+        if (personalisedResponse && (personalisedResponse as any).success && (personalisedResponse as any).data) {
+          setPersonalisedModules((personalisedResponse as any).data);
+        }
+      } catch (error) {
+        console.error('Error fetching personalised modules:', error);
+        setPersonalisedModules([]);
+      }
+
       console.log('===== FINAL STATE =====');
       console.log('Modules count:', mappedModules.length);
       console.log('Video progress keys:', Object.keys(progressResponse?.progress || progressResponse?.data?.progress || {}).length);
@@ -472,6 +484,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                 { id: 'quiz', label: 'Quiz Stats', icon: FileQuestion },
                 { id: 'attempts', label: 'Quiz Attempts', icon: Target },
                 { id: 'kpi', label: 'KPI Scores', icon: BarChart3 },
+                { id: 'personalised', label: `Personalised Modules (${personalisedModules.length})`, icon: TrendingUp },
                 { id: 'warnings', label: `Warnings (${warnings.length})`, icon: AlertTriangle },
                 { id: 'lifecycle', label: 'Lifecycle Events', icon: Clock }
               ].map(({ id, label, icon: Icon }) => (
@@ -965,6 +978,108 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                     ))}
                   </div>
                           )}
+              </div>
+            )}
+
+            {activeTab === 'personalised' && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <TrendingUp className="w-5 h-5 text-purple-600" />
+                  <h3 className="text-lg font-semibold">Personalised Modules</h3>
+                  <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                    {personalisedModules.length} assigned
+                  </Badge>
+                </div>
+
+                {personalisedModules.length === 0 ? (
+                  <div className="text-center py-8">
+                    <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">No personalised modules assigned</p>
+                    <p className="text-xs text-gray-400 mt-2">This user has no special training modules assigned</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {personalisedModules.map((module) => {
+                      const progressPercent = Math.round((module.progress || 0) * 100);
+                      const isCompleted = progressPercent >= 95;
+                      
+                      return (
+                        <Card key={module._id} className={`p-4 ${isCompleted ? 'border-2 border-green-400' : 'border-2 border-purple-300'}`}>
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                              <span className="text-purple-600 font-bold text-sm">P</span>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="font-medium">{module.title}</div>
+                                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                                  Personalised
+                                </Badge>
+                                {isCompleted && (
+                                  <Badge className="bg-green-100 text-green-800 flex items-center gap-1">
+                                    <CheckCircle className="w-3 h-3" />
+                                    Completed
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              <div className="text-sm text-gray-600 mb-2">{module.description}</div>
+                              
+                              {/* Personalisation Details */}
+                              <div className="bg-purple-50 p-3 rounded-lg mb-3">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <strong className="text-purple-700">Reason:</strong>
+                                    <div className="text-purple-600">{(module as any).personalisedReason || 'Special training assignment'}</div>
+                                  </div>
+                                  <div>
+                                    <strong className="text-purple-700">Priority:</strong>
+                                    <div className="text-purple-600 capitalize">{(module as any).personalisedPriority || 'medium'}</div>
+                                  </div>
+                                  <div>
+                                    <strong className="text-purple-700">Assigned By:</strong>
+                                    <div className="text-purple-600">{(module as any).personalisedBy?.name || 'Admin'}</div>
+                                  </div>
+                                  <div>
+                                    <strong className="text-purple-700">Assigned Date:</strong>
+                                    <div className="text-purple-600">
+                                      {formatDate((module as any).personalisedAt || module.createdAt)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Progress */}
+                              <div className="mb-3">
+                                <div className="flex justify-between text-sm text-gray-600 mb-1">
+                                  <span>Progress</span>
+                                  <span>{progressPercent}%</span>
+                                </div>
+                                <Progress value={progressPercent} className="h-2" />
+                              </div>
+
+                              {/* Module Stats */}
+                              <div className="grid grid-cols-3 gap-2 text-xs">
+                                <div className="text-center p-2 bg-gray-50 rounded">
+                                  <div className="font-semibold text-gray-700">Video</div>
+                                  <div className="text-gray-600">{progressPercent >= 95 ? 'Completed' : 'In Progress'}</div>
+                                </div>
+                                <div className="text-center p-2 bg-gray-50 rounded">
+                                  <div className="font-semibold text-gray-700">Quiz</div>
+                                  <div className="text-gray-600">{module.hasQuiz ? 'Available' : 'N/A'}</div>
+                                </div>
+                                <div className="text-center p-2 bg-gray-50 rounded">
+                                  <div className="font-semibold text-gray-700">Status</div>
+                                  <div className="text-gray-600">{isCompleted ? 'Completed' : 'Active'}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -469,7 +469,11 @@ router.post('/submit', authenticateToken, async (req, res) => {
         status: 'completed',
         ipAddress: req.ip,
         userAgent: req.get('User-Agent'),
-        deviceInfo: req.get('User-Agent') // Can be enhanced with device detection
+        deviceInfo: req.get('User-Agent'), // Can be enhanced with device detection
+        // Personalised quiz fields
+        isPersonalised: quiz.isPersonalised || false,
+        personalisedModuleId: quiz.isPersonalised ? moduleId : null,
+        personalisedQuizId: quiz.isPersonalised ? quiz._id : null
       });
       
       await quizAttempt.save();
@@ -487,7 +491,11 @@ router.post('/submit', authenticateToken, async (req, res) => {
       answers: evaluatedAnswers,
       timeTaken: timeTaken || 0,
       attemptNumber,
-      completedAt: new Date()
+      completedAt: new Date(),
+      // Personalised quiz fields
+      isPersonalised: quiz.isPersonalised || false,
+      personalisedModuleId: quiz.isPersonalised ? moduleId : null,
+      personalisedQuizId: quiz.isPersonalised ? quiz._id : null
     });
 
     await quizResult.save();

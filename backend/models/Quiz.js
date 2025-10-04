@@ -18,7 +18,14 @@ const QuizSchema = new mongoose.Schema(
     passPercent: { type: Number, default: 70, min: 0, max: 100 },
     isActive: { type: Boolean, default: true },
     totalQuestions: { type: Number, default: 0 },
-    estimatedTime: { type: Number, default: 10 } // in minutes
+    estimatedTime: { type: Number, default: 10 }, // in minutes
+    // Personalised quiz fields
+    isPersonalised: { type: Boolean, default: false, index: true },
+    assignedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Specific users this quiz is assigned to
+    personalisedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Admin who created this personalised quiz
+    personalisedAt: { type: Date, default: null },
+    personalisedReason: { type: String, trim: true }, // Reason for personalisation
+    personalisedPriority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' }
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );
@@ -32,5 +39,7 @@ QuizSchema.pre('save', function(next) {
 // Indexes for better performance
 QuizSchema.index({ moduleId: 1, isActive: 1 });
 QuizSchema.index({ isActive: 1 });
+QuizSchema.index({ isPersonalised: 1, assignedTo: 1 });
+QuizSchema.index({ assignedTo: 1, isActive: 1 });
 
 module.exports = mongoose.model('Quiz', QuizSchema);

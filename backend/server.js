@@ -303,6 +303,7 @@ app.use('/api/quiz-attempts', quizAttemptRoutes);
 app.use('/api/user-activity', userActivityRoutes);
 app.use('/api/kpi-triggers', kpiTriggerRoutes);
 app.use('/api/email-templates', emailTemplateRoutes);
+app.use('/api/kpi-configuration', require('./routes/kpiConfiguration'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

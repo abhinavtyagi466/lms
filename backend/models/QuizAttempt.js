@@ -91,7 +91,11 @@ const quizAttemptSchema = new mongoose.Schema({
   },
   deviceInfo: {
     type: String
-  }
+  },
+  // Personalised quiz attempt fields
+  isPersonalised: { type: Boolean, default: false, index: true },
+  personalisedModuleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Module' }, // Reference to personalised module
+  personalisedQuizId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz' } // Reference to personalised quiz
 }, {
   timestamps: true
 });
@@ -101,6 +105,8 @@ quizAttemptSchema.index({ userId: 1, moduleId: 1 });
 quizAttemptSchema.index({ startTime: -1 });
 quizAttemptSchema.index({ status: 1 });
 quizAttemptSchema.index({ violations: 1 });
+quizAttemptSchema.index({ isPersonalised: 1, userId: 1 });
+quizAttemptSchema.index({ personalisedModuleId: 1, userId: 1 });
 
 // Virtual for duration
 quizAttemptSchema.virtual('duration').get(function() {
