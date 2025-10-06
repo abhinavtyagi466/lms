@@ -8,6 +8,7 @@ const AuditRecord = require('../models/AuditRecord');
 const LifecycleEvent = require('../models/LifecycleEvent');
 const Quiz = require('../models/Quiz'); // Added Quiz import
 const UserProgress = require('../models/UserProgress'); // Added UserProgress import
+const QuizAttempt = require('../models/QuizAttempt'); // NEW: Added QuizAttempt import
 const { authenticateToken, requireAdmin, requireOwnershipOrAdmin } = require('../middleware/auth');
 const { validateUserId } = require('../middleware/validation');
 
@@ -437,6 +438,347 @@ router.get('/export/users', authenticateToken, requireAdmin, async (req, res) =>
     res.status(500).json({
       error: 'Server Error',
       message: 'Error exporting user data'
+    });
+  }
+});
+
+// NEW: User Score Reports Endpoints (ADDED WITHOUT TOUCHING EXISTING)
+
+// @route   GET /api/reports/user-scores
+// @desc    Get all user scores for admin dashboard
+// @access  Private (Admin only)
+router.get('/user-scores', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { searchTerm, selectedUser, sortBy, sortOrder, dateRange } = req.query;
+
+    // Build aggregation pipeline
+    const pipeline = [
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      { $unwind: '$user' },
+      {
+        $lookup: {
+          from: 'modules',
+          localField: 'moduleId',
+          foreignField: '_id',
+          as: 'module'
+        }
+      },
+      { $unwind: '$module' },
+      {
+        $group: {
+          _id: '$userId',
+          userName: { $first: '$user.name' },
+          userEmail: { $first: '$user.email' },
+          employeeId: { $first: '$user.employeeId' },
+          totalModules: { $addToSet: '$moduleId' },
+          completedModules: {
+            $addToSet: {
+              $cond: [{ $eq: ['$status', 'completed'] }, '$moduleId', null]
+            }
+          },
+          scores: { $push: '$score' },
+          lastActivity: { $max: '$createdAt' }
+        }
+      },
+      {
+        $project: {
+          userId: '$_id',
+          userName: 1,
+          userEmail: 1,
+          employeeId: 1,
+          totalModules: { $size: '$totalModules' },
+          completedModules: {
+            $size: {
+              $filter: {
+                input: '$completedModules',
+                cond: { $ne: ['$$this', null] }
+              }
+            }
+          },
+          averageScore: { $avg: '$scores' },
+          lastActivity: 1
+        }
+      }
+    ];
+
+    // Apply filters
+    if (selectedUser) {
+      pipeline.push({ $match: { userId: selectedUser } });
+    }
+
+    if (searchTerm) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { userName: { $regex: searchTerm, $options: 'i' } },
+            { userEmail: { $regex: searchTerm, $options: 'i' } },
+            { employeeId: { $regex: searchTerm, $options: 'i' } }
+          ]
+        }
+      });
+    }
+
+    // Apply sorting
+    const sortField = sortBy || 'averageScore';
+    const sortDirection = sortOrder === 'asc' ? 1 : -1;
+    pipeline.push({ $sort: { [sortField]: sortDirection } });
+
+    const userScores = await QuizAttempt.aggregate(pipeline);
+
+    res.json({
+      success: true,
+      data: userScores
+    });
+
+  } catch (error) {
+    console.error('Get user scores error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching user scores'
+    });
+  }
+});
+
+// @route   POST /api/reports/export-user-scores
+// @desc    Export user scores to CSV
+// @access  Private (Admin only)
+router.post('/export-user-scores', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { searchTerm, selectedUser, sortBy, sortOrder, dateRange } = req.body;
+
+    // Get user scores data
+    const pipeline = [
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      { $unwind: '$user' },
+      {
+        $lookup: {
+          from: 'modules',
+          localField: 'moduleId',
+          foreignField: '_id',
+          as: 'module'
+        }
+      },
+      { $unwind: '$module' },
+      {
+        $group: {
+          _id: '$userId',
+          userName: { $first: '$user.name' },
+          userEmail: { $first: '$user.email' },
+          employeeId: { $first: '$user.employeeId' },
+          totalModules: { $addToSet: '$moduleId' },
+          completedModules: {
+            $addToSet: {
+              $cond: [{ $eq: ['$status', 'completed'] }, '$moduleId', null]
+            }
+          },
+          scores: { $push: '$score' },
+          lastActivity: { $max: '$createdAt' }
+        }
+      },
+      {
+        $project: {
+          userId: '$_id',
+          userName: 1,
+          userEmail: 1,
+          employeeId: 1,
+          totalModules: { $size: '$totalModules' },
+          completedModules: {
+            $size: {
+              $filter: {
+                input: '$completedModules',
+                cond: { $ne: ['$$this', null] }
+              }
+            }
+          },
+          averageScore: { $avg: '$scores' },
+          lastActivity: 1
+        }
+      }
+    ];
+
+    // Apply filters
+    if (selectedUser) {
+      pipeline.push({ $match: { userId: selectedUser } });
+    }
+
+    if (searchTerm) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { userName: { $regex: searchTerm, $options: 'i' } },
+            { userEmail: { $regex: searchTerm, $options: 'i' } },
+            { employeeId: { $regex: searchTerm, $options: 'i' } }
+          ]
+        }
+      });
+    }
+
+    // Apply sorting
+    const sortField = sortBy || 'averageScore';
+    const sortDirection = sortOrder === 'asc' ? 1 : -1;
+    pipeline.push({ $sort: { [sortField]: sortDirection } });
+
+    const userScores = await QuizAttempt.aggregate(pipeline);
+
+    // Generate CSV
+    const csvHeader = 'User Name,Email,Employee ID,Total Modules,Completed Modules,Average Score,Completion Rate,Last Activity,Status\n';
+    const csvRows = userScores.map(score => {
+      const completionRate = score.totalModules > 0 ? Math.round((score.completedModules / score.totalModules) * 100) : 0;
+      const status = score.totalModules > 0 ? 'Active' : 'Inactive';
+      const lastActivity = score.lastActivity ? new Date(score.lastActivity).toLocaleDateString() : 'Never';
+      
+      return `"${score.userName || 'Unknown'}","${score.userEmail || ''}","${score.employeeId || ''}",${score.totalModules},${score.completedModules},${Math.round(score.averageScore || 0)}%,${completionRate}%,"${lastActivity}","${status}"`;
+    }).join('\n');
+
+    const csvData = csvHeader + csvRows;
+
+    res.json({
+      success: true,
+      data: csvData
+    });
+
+  } catch (error) {
+    console.error('Export user scores error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error exporting user scores'
+    });
+  }
+});
+
+// @route   POST /api/reports/export-user-scores-pdf
+// @desc    Export user scores to PDF
+// @access  Private (Admin only)
+router.post('/export-user-scores-pdf', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { searchTerm, selectedUser, sortBy, sortOrder, dateRange } = req.body;
+
+    // Get user scores data (same as CSV export)
+    const pipeline = [
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      { $unwind: '$user' },
+      {
+        $lookup: {
+          from: 'modules',
+          localField: 'moduleId',
+          foreignField: '_id',
+          as: 'module'
+        }
+      },
+      { $unwind: '$module' },
+      {
+        $group: {
+          _id: '$userId',
+          userName: { $first: '$user.name' },
+          userEmail: { $first: '$user.email' },
+          employeeId: { $first: '$user.employeeId' },
+          totalModules: { $addToSet: '$moduleId' },
+          completedModules: {
+            $addToSet: {
+              $cond: [{ $eq: ['$status', 'completed'] }, '$moduleId', null]
+            }
+          },
+          scores: { $push: '$score' },
+          lastActivity: { $max: '$createdAt' }
+        }
+      },
+      {
+        $project: {
+          userId: '$_id',
+          userName: 1,
+          userEmail: 1,
+          employeeId: 1,
+          totalModules: { $size: '$totalModules' },
+          completedModules: {
+            $size: {
+              $filter: {
+                input: '$completedModules',
+                cond: { $ne: ['$$this', null] }
+              }
+            }
+          },
+          averageScore: { $avg: '$scores' },
+          lastActivity: 1
+        }
+      }
+    ];
+
+    // Apply filters
+    if (selectedUser) {
+      pipeline.push({ $match: { userId: selectedUser } });
+    }
+
+    if (searchTerm) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { userName: { $regex: searchTerm, $options: 'i' } },
+            { userEmail: { $regex: searchTerm, $options: 'i' } },
+            { employeeId: { $regex: searchTerm, $options: 'i' } }
+          ]
+        }
+      });
+    }
+
+    // Apply sorting
+    const sortField = sortBy || 'averageScore';
+    const sortDirection = sortOrder === 'asc' ? 1 : -1;
+    pipeline.push({ $sort: { [sortField]: sortDirection } });
+
+    const userScores = await QuizAttempt.aggregate(pipeline);
+
+    // Generate PDF content (simplified - in real implementation, use a PDF library)
+    const pdfContent = `
+      User Score Report
+      Generated on: ${new Date().toLocaleDateString()}
+      
+      Total Users: ${userScores.length}
+      Average Score: ${userScores.length > 0 ? Math.round(userScores.reduce((sum, score) => sum + (score.averageScore || 0), 0) / userScores.length) : 0}%
+      
+      User Details:
+      ${userScores.map(score => `
+        Name: ${score.userName || 'Unknown'}
+        Email: ${score.userEmail || ''}
+        Employee ID: ${score.employeeId || ''}
+        Total Modules: ${score.totalModules}
+        Completed Modules: ${score.completedModules}
+        Average Score: ${Math.round(score.averageScore || 0)}%
+        Last Activity: ${score.lastActivity ? new Date(score.lastActivity).toLocaleDateString() : 'Never'}
+        ---
+      `).join('')}
+    `;
+
+    res.json({
+      success: true,
+      data: pdfContent
+    });
+
+  } catch (error) {
+    console.error('Export user scores PDF error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error exporting user scores PDF'
     });
   }
 });

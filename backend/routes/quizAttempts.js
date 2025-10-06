@@ -426,4 +426,91 @@ router.get('/:attemptId', authenticateToken, validateObjectId, async (req, res) 
   }
 });
 
+// NEW: Get module scores for user (ADDED WITHOUT TOUCHING EXISTING)
+// @route   GET /api/quiz-attempts/module-scores/:userId
+// @desc    Get module-wise scores for a user
+// @access  Private
+router.get('/module-scores/:userId', authenticateToken, validateUserId, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Check if user is accessing their own data or is admin
+    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You can only access your own module scores'
+      });
+    }
+
+    // Get all quiz attempts for the user with module information
+    const attempts = await QuizAttempt.find({ userId })
+      .populate('moduleId', 'title')
+      .sort({ createdAt: -1 });
+
+    // Group attempts by module and calculate scores
+    const moduleScoresMap = new Map();
+    
+    attempts.forEach(attempt => {
+      const moduleId = attempt.moduleId._id.toString();
+      const moduleTitle = attempt.moduleId.title;
+      
+      if (!moduleScoresMap.has(moduleId)) {
+        moduleScoresMap.set(moduleId, {
+          moduleId,
+          moduleTitle,
+          attempts: 0,
+          bestScore: 0,
+          lastAttempt: '',
+          passed: false,
+          timeSpent: 0,
+          scores: []
+        });
+      }
+      
+      const moduleData = moduleScoresMap.get(moduleId);
+      moduleData.attempts++;
+      moduleData.scores.push(attempt.score);
+      
+      if (attempt.score > moduleData.bestScore) {
+        moduleData.bestScore = attempt.score;
+      }
+      
+      if (attempt.passed) {
+        moduleData.passed = true;
+      }
+      
+      if (attempt.timeSpent > moduleData.timeSpent) {
+        moduleData.timeSpent = attempt.timeSpent;
+      }
+      
+      if (!moduleData.lastAttempt || new Date(attempt.createdAt) > new Date(moduleData.lastAttempt)) {
+        moduleData.lastAttempt = attempt.createdAt;
+      }
+    });
+
+    // Convert map to array and calculate average scores
+    const moduleScores = Array.from(moduleScoresMap.values()).map(moduleData => ({
+      moduleId: moduleData.moduleId,
+      moduleTitle: moduleData.moduleTitle,
+      score: moduleData.scores.length > 0 ? Math.round(moduleData.scores.reduce((a, b) => a + b, 0) / moduleData.scores.length) : 0,
+      attempts: moduleData.attempts,
+      bestScore: moduleData.bestScore,
+      lastAttempt: moduleData.lastAttempt,
+      passed: moduleData.passed,
+      timeSpent: moduleData.timeSpent
+    }));
+
+    res.json({
+      success: true,
+      data: moduleScores
+    });
+  } catch (error) {
+    console.error('Error fetching module scores:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch module scores'
+    });
+  }
+});
+
 module.exports = router;

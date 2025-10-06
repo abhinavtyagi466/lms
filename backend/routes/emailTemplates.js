@@ -281,5 +281,47 @@ router.get('/stats/usage', authenticateToken, requireAdmin, async (req, res) => 
   }
 });
 
+// NEW: Update Email Template Endpoint (ADDED WITHOUT TOUCHING EXISTING)
+// @route   PUT /api/email-templates/:id
+// @desc    Update an existing email template
+// @access  Private (Admin only)
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    // Validate required fields
+    if (!updateData.name || !updateData.subject || !updateData.content) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, subject, and content are required'
+      });
+    }
+
+    // Update template using service
+    const updatedTemplate = await EmailTemplateService.updateTemplate(id, updateData);
+    
+    if (!updatedTemplate) {
+      return res.status(404).json({
+        success: false,
+        message: 'Template not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Template updated successfully',
+      data: updatedTemplate
+    });
+  } catch (error) {
+    console.error('Error updating template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update template',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
 

@@ -18,6 +18,7 @@ import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
 import { ModuleWithProgress } from '../../types';
 import { useAPIPerformance } from '../../hooks/usePerformance';
+import { ModuleScoreCard } from '../../components/ModuleScoreCard';
 
 interface UserStats {
   totalModules: number;
@@ -303,6 +304,19 @@ interface SessionData {
   period: string;
 }
 
+// NEW: Module Score Interface (ADDED WITHOUT TOUCHING EXISTING)
+interface ModuleScore {
+  moduleId: string;
+  moduleTitle: string;
+  score: number;
+  attempts: number;
+  bestScore: number;
+  lastAttempt: string;
+  passed: boolean;
+  timeSpent: number;
+  completionDate?: string;
+}
+
 export const UserDashboard: React.FC = () => {
   const { user, setCurrentPage } = useAuth();
   const { measureAPI } = useAPIPerformance();
@@ -339,6 +353,10 @@ export const UserDashboard: React.FC = () => {
     totalWatchTime: 0,
     lastActivity: ''
   });
+  
+  // NEW: Module Scores State (ADDED WITHOUT TOUCHING EXISTING)
+  const [moduleScores, setModuleScores] = useState<ModuleScore[]>([]);
+  const [loadingModuleScores, setLoadingModuleScores] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -439,6 +457,21 @@ export const UserDashboard: React.FC = () => {
             console.error('Error fetching tertiary data:', error);
           }
         }, 300);
+        
+        // NEW: Fetch module scores (ADDED WITHOUT TOUCHING EXISTING)
+        setTimeout(async () => {
+          try {
+            setLoadingModuleScores(true);
+            const moduleScoresResponse = await measureAPI(() => apiService.quizAttempts.getModuleScores(userId), 'quizAttempts/getModuleScores');
+            if (moduleScoresResponse && (moduleScoresResponse as any).success) {
+              setModuleScores((moduleScoresResponse as any).data || []);
+            }
+          } catch (error) {
+            console.error('Error fetching module scores:', error);
+          } finally {
+            setLoadingModuleScores(false);
+          }
+        }, 500);
         
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -1631,6 +1664,38 @@ export const UserDashboard: React.FC = () => {
             </Card>
           </div>
         </div>
+
+        {/* NEW: Module Scores Section (ADDED WITHOUT TOUCHING EXISTING) */}
+        {moduleScores.length > 0 && (
+          <div className="mt-8">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Module Performance Scores
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Detailed performance breakdown for each training module
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {moduleScores.map((score) => (
+                <ModuleScoreCard key={score.moduleId} score={score} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Loading state for module scores */}
+        {loadingModuleScores && (
+          <div className="mt-8">
+            <div className="flex items-center justify-center py-8">
+              <LoadingSpinner size="md" />
+              <span className="ml-3 text-gray-600 dark:text-gray-400">
+                Loading module scores...
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Plus, Trash2, Eye, Send, BarChart3 } from 'lucide-react';
+import { Mail, Plus, Trash2, Eye, Send, BarChart3, Edit, Copy } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -36,6 +36,11 @@ export const EmailTemplatesPage: React.FC = () => {
   const [previewContent, setPreviewContent] = useState<{ subject: string; content: string } | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
   const { toast } = useToast();
+
+  // NEW: Edit Template State (ADDED WITHOUT TOUCHING EXISTING)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     fetchTemplates();
@@ -93,6 +98,69 @@ export const EmailTemplatesPage: React.FC = () => {
       toast({
         title: 'Error',
         description: 'Failed to delete template',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // NEW: Edit Template Functions (ADDED WITHOUT TOUCHING EXISTING)
+  const handleEdit = (template: EmailTemplate) => {
+    setEditingTemplate({ ...template });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateTemplate = async () => {
+    if (!editingTemplate) return;
+
+    try {
+      setIsUpdating(true);
+      const response = await apiService.emailTemplates.update(editingTemplate._id, editingTemplate);
+      
+      if (response && (response as any).success) {
+        setTemplates(prev => prev.map(t => 
+          t._id === editingTemplate._id ? editingTemplate : t
+        ));
+        setIsEditModalOpen(false);
+        setEditingTemplate(null);
+        toast({
+          title: 'Success',
+          description: 'Template updated successfully',
+        });
+      }
+    } catch (error) {
+      console.error('Error updating template:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update template',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDuplicate = async (template: EmailTemplate) => {
+    try {
+      const duplicateTemplate = {
+        ...template,
+        name: `${template.name} (Copy)`,
+        _id: undefined
+      };
+      
+      const response = await apiService.emailTemplates.create(duplicateTemplate);
+      
+      if (response && (response as any).success) {
+        await fetchTemplates(); // Refresh the list
+        toast({
+          title: 'Success',
+          description: 'Template duplicated successfully',
+        });
+      }
+    } catch (error) {
+      console.error('Error duplicating template:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to duplicate template',
         variant: 'destructive',
       });
     }
@@ -279,6 +347,24 @@ export const EmailTemplatesPage: React.FC = () => {
                       <Eye className="w-3.5 h-3.5 mr-1.5" />
                       Preview
                     </Button>
+                    {/* NEW: Edit Button (ADDED WITHOUT TOUCHING EXISTING) */}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-green-600 dark:hover:text-green-400"
+                      onClick={() => handleEdit(template)}
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </Button>
+                    {/* NEW: Duplicate Button (ADDED WITHOUT TOUCHING EXISTING) */}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400"
+                      onClick={() => handleDuplicate(template)}
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"
@@ -444,6 +530,144 @@ export const EmailTemplatesPage: React.FC = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* NEW: Edit Template Modal (ADDED WITHOUT TOUCHING EXISTING) */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Email Template</DialogTitle>
+            <DialogDescription>
+              Edit the email template details and content
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingTemplate && (
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="editName">Template Name</Label>
+                  <input
+                    id="editName"
+                    type="text"
+                    value={editingTemplate.name}
+                    onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, name: e.target.value } : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editType">Template Type</Label>
+                  <input
+                    id="editType"
+                    type="text"
+                    value={editingTemplate.type}
+                    onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, type: e.target.value } : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="editCategory">Category</Label>
+                  <select
+                    id="editCategory"
+                    value={editingTemplate.category}
+                    onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, category: e.target.value } : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="kpi">KPI</option>
+                    <option value="training">Training</option>
+                    <option value="audit">Audit</option>
+                    <option value="warning">Warning</option>
+                    <option value="general">General</option>
+                    <option value="achievement">Achievement</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="editActive"
+                    type="checkbox"
+                    checked={editingTemplate.isActive}
+                    onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, isActive: e.target.checked } : null)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <Label htmlFor="editActive">Active</Label>
+                </div>
+              </div>
+
+              {/* Subject */}
+              <div>
+                <Label htmlFor="editSubject">Email Subject</Label>
+                <input
+                  id="editSubject"
+                  type="text"
+                  value={editingTemplate.subject}
+                  onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, subject: e.target.value } : null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter email subject..."
+                />
+              </div>
+
+              {/* Variables */}
+              <div>
+                <Label htmlFor="editVariables">Variables (comma-separated)</Label>
+                <input
+                  id="editVariables"
+                  type="text"
+                  value={editingTemplate.variables.join(', ')}
+                  onChange={(e) => setEditingTemplate(prev => prev ? { 
+                    ...prev, 
+                    variables: e.target.value.split(',').map(v => v.trim()).filter(v => v) 
+                  } : null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="userName, employeeId, kpiScore..."
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Use these variables in your content with double curly braces: {`{{userName}}`}
+                </p>
+              </div>
+
+              {/* Content */}
+              <div>
+                <Label htmlFor="editContent">Email Content (HTML)</Label>
+                <textarea
+                  id="editContent"
+                  value={editingTemplate.content}
+                  onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, content: e.target.value } : null)}
+                  rows={12}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                  placeholder="Enter HTML content..."
+                />
+              </div>
+
+              {/* Preview */}
+              <div>
+                <Label>Preview</Label>
+                <div className="border border-gray-300 rounded-md p-4 bg-gray-50 max-h-64 overflow-y-auto">
+                  <div 
+                    dangerouslySetInnerHTML={{ __html: editingTemplate.content }}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleUpdateTemplate}
+              disabled={isUpdating}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isUpdating ? 'Updating...' : 'Update Template'}
             </Button>
           </DialogFooter>
         </DialogContent>

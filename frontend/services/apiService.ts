@@ -936,6 +936,12 @@ export const apiService = {
       return response;
     },
 
+    // NEW: Get module scores (ADDED WITHOUT TOUCHING EXISTING)
+    getModuleScores: async (userId: string) => {
+      const response = await apiClient.get(`/quiz-attempts/module-scores/${userId}`);
+      return response;
+    },
+
     // Admin methods
     getAllQuizAttempts: async (filters?: {
       userId?: string;
@@ -1619,6 +1625,24 @@ export const apiService = {
       const response = await apiClient.get('/kpi-configuration/export', {
         responseType: 'blob'
       });
+      return response;
+    }
+  },
+
+  // NEW: Reports API Methods (ADDED WITHOUT TOUCHING EXISTING)
+  reports: {
+    getAllUserScores: async () => {
+      const response = await apiClient.get('/reports/user-scores');
+      return response;
+    },
+
+    exportUserScores: async (filters: any) => {
+      const response = await apiClient.post('/reports/export-user-scores', filters);
+      return response;
+    },
+
+    exportUserScoresPDF: async (filters: any) => {
+      const response = await apiClient.post('/reports/export-user-scores-pdf', filters);
       return response;
     }
   }

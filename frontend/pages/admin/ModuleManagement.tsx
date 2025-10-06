@@ -9,7 +9,8 @@ import {
   CheckCircle,
   FileQuestion,
   Upload,
-  FileText
+  FileText,
+  Edit
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -100,6 +101,18 @@ export const ModuleManagement: React.FC = () => {
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isCreatingPersonalised, setIsCreatingPersonalised] = useState(false);
 
+  // NEW: Edit Questions State (ADDED WITHOUT TOUCHING EXISTING)
+  const [showEditQuestionModal, setShowEditQuestionModal] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<{
+    questionId: string;
+    question: string;
+    options: string[];
+    correctOption: number;
+    explanation: string;
+    marks: number;
+  } | null>(null);
+  const [isUpdatingQuestion, setIsUpdatingQuestion] = useState(false);
+
 
   useEffect(() => {
     fetchModules();
@@ -154,8 +167,21 @@ export const ModuleManagement: React.FC = () => {
     try {
       setIsLoadingUsers(true);
       const response = await apiService.users.listSimple();
-      const usersData = response.data?.users || response.data || [];
-      console.log('Fetched users:', usersData);
+      console.log('Raw API response:', response);
+      
+      // Handle different response structures
+      let usersData = [];
+      if (response && response.users) {
+        usersData = response.users;
+      } else if (response && response.data && response.data.users) {
+        usersData = response.data.users;
+      } else if (Array.isArray(response)) {
+        usersData = response;
+      } else if (response && Array.isArray(response.data)) {
+        usersData = response.data;
+      }
+      
+      console.log('Processed users data:', usersData);
       setUsers(usersData);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -394,7 +420,8 @@ export const ModuleManagement: React.FC = () => {
     try {
       setIsCreatingPersonalised(true);
       
-      if (!personalisedModuleData.userId || !personalisedModuleData.moduleId) {
+      if (!personalisedModuleData.userId || !personalisedModuleData.moduleId || 
+          personalisedModuleData.userId === 'loading' || personalisedModuleData.userId === 'no-users') {
         toast.error('Please select both user and module');
         return;
       }
@@ -495,6 +522,76 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     toast.success('CSV template downloaded successfully!');
+  };
+
+  // NEW: Edit Question Functions (ADDED WITHOUT TOUCHING EXISTING)
+  const handleEditQuestion = (question: any, questionIndex: number) => {
+    setEditingQuestion({
+      questionId: `temp_${questionIndex}`, // Temporary ID for editing
+      question: question.question,
+      options: [...question.options],
+      correctOption: question.correctOption,
+      explanation: question.explanation || '',
+      marks: question.marks || 1
+    });
+    setShowEditQuestionModal(true);
+  };
+
+  const handleUpdateQuestion = async () => {
+    if (!editingQuestion) return;
+
+    try {
+      setIsUpdatingQuestion(true);
+
+      // Validate question
+      if (!editingQuestion.question.trim()) {
+        toast.error('Question is required');
+        return;
+      }
+
+      const validOptions = editingQuestion.options.filter(opt => opt.trim());
+      if (validOptions.length < 2) {
+        toast.error('At least 2 options are required');
+        return;
+      }
+
+      // Update the question in the quiz data
+      const questionIndex = parseInt(editingQuestion.questionId.replace('temp_', ''));
+      setCreateQuizData(prev => ({
+        ...prev,
+        questions: prev.questions.map((q, index) => 
+          index === questionIndex 
+            ? {
+                ...q,
+                question: editingQuestion.question,
+                options: validOptions,
+                correctOption: Math.min(editingQuestion.correctOption, validOptions.length - 1),
+                explanation: editingQuestion.explanation,
+                marks: editingQuestion.marks
+              }
+            : q
+        )
+      }));
+
+      toast.success('Question updated successfully!');
+      setShowEditQuestionModal(false);
+      setEditingQuestion(null);
+    } catch (error) {
+      console.error('Error updating question:', error);
+      toast.error('Failed to update question');
+    } finally {
+      setIsUpdatingQuestion(false);
+    }
+  };
+
+  const handleDeleteQuestion = (questionIndex: number) => {
+    if (window.confirm('Are you sure you want to delete this question?')) {
+      setCreateQuizData(prev => ({
+        ...prev,
+        questions: prev.questions.filter((_, index) => index !== questionIndex)
+      }));
+      toast.success('Question deleted successfully!');
+    }
   };
 
   const filteredModules = modules.filter(module => {
@@ -1021,13 +1118,25 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                             Options: {question.options.join(', ')} | Correct: {question.options[question.correctOption]}
                           </div>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => removeQuestion(index)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+                        <div className="flex gap-1">
+                          {/* NEW: Edit Button (ADDED WITHOUT TOUCHING EXISTING) */}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditQuestion(question, index)}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteQuestion(index)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1183,6 +1292,16 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
             </h2>
             
             <div className="space-y-4">
+              {/* Debug info - remove this after fixing */}
+              <div className="bg-gray-100 p-2 rounded text-xs">
+                <strong>Debug Info:</strong> Users loaded: {users.length}, Loading: {isLoadingUsers ? 'Yes' : 'No'}
+                {users.length > 0 && (
+                  <div className="mt-1">
+                    First user: {users[0]?.name} ({users[0]?._id})
+                  </div>
+                )}
+              </div>
+              
               <div>
                 <Label htmlFor="personalisedUser">Select User</Label>
                 <Select
@@ -1194,19 +1313,22 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                   </SelectTrigger>
                   <SelectContent>
                     {isLoadingUsers ? (
-                      <SelectItem value="" disabled>
+                      <SelectItem value="loading" disabled>
                         Loading users...
                       </SelectItem>
                     ) : users.length === 0 ? (
-                      <SelectItem value="" disabled>
-                        No users found
+                      <SelectItem value="no-users" disabled>
+                        No users found (Total: {users.length})
                       </SelectItem>
                     ) : (
-                      users.map((user) => (
-                        <SelectItem key={user._id} value={user._id}>
-                          {user.name || 'Unknown'} ({user.employeeId || 'No ID'}) - {user.email || 'No email'}
-                        </SelectItem>
-                      ))
+                      users.map((user) => {
+                        console.log('Rendering user:', user);
+                        return (
+                          <SelectItem key={user._id} value={user._id}>
+                            {user.name || 'Unknown'} ({user.employeeId || 'No ID'}) - {user.email || 'No email'}
+                          </SelectItem>
+                        );
+                      })
                     )}
                   </SelectContent>
                 </Select>
@@ -1280,6 +1402,139 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                     reason: '',
                     priority: 'medium'
                   });
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NEW: Edit Question Modal (ADDED WITHOUT TOUCHING EXISTING) */}
+      {showEditQuestionModal && editingQuestion && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+              Edit Question
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="editQuestion">Question</Label>
+                <Input
+                  id="editQuestion"
+                  placeholder="Enter your question..."
+                  value={editingQuestion.question}
+                  onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, question: e.target.value } : null)}
+                />
+              </div>
+
+              <div>
+                <Label>Options</Label>
+                <div className="space-y-2">
+                  {editingQuestion.options.map((option, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        placeholder={`Option ${index + 1}`}
+                        value={option}
+                        onChange={(e) => {
+                          const newOptions = [...editingQuestion.options];
+                          newOptions[index] = e.target.value;
+                          setEditingQuestion(prev => prev ? { ...prev, options: newOptions } : null);
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const newOptions = editingQuestion.options.filter((_, i) => i !== index);
+                          setEditingQuestion(prev => prev ? { ...prev, options: newOptions } : null);
+                        }}
+                        disabled={editingQuestion.options.length <= 2}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingQuestion(prev => prev ? { 
+                        ...prev, 
+                        options: [...prev.options, ''] 
+                      } : null);
+                    }}
+                    disabled={editingQuestion.options.length >= 6}
+                  >
+                    Add Option
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="editCorrectOption">Correct Option</Label>
+                <Select
+                  value={editingQuestion.correctOption.toString()}
+                  onValueChange={(value) => setEditingQuestion(prev => prev ? { 
+                    ...prev, 
+                    correctOption: parseInt(value) 
+                  } : null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select correct option..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editingQuestion.options.map((option, index) => (
+                      <SelectItem key={index} value={index.toString()}>
+                        Option {index + 1}: {option || 'Empty'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="editExplanation">Explanation (Optional)</Label>
+                <Input
+                  id="editExplanation"
+                  placeholder="Explain why this is the correct answer..."
+                  value={editingQuestion.explanation}
+                  onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, explanation: e.target.value } : null)}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="editMarks">Marks</Label>
+                <Input
+                  id="editMarks"
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={editingQuestion.marks}
+                  onChange={(e) => setEditingQuestion(prev => prev ? { 
+                    ...prev, 
+                    marks: parseInt(e.target.value) || 1 
+                  } : null)}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <Button
+                onClick={handleUpdateQuestion}
+                disabled={isUpdatingQuestion}
+                className="bg-blue-600 hover:bg-blue-700 flex-1"
+              >
+                {isUpdatingQuestion ? 'Updating...' : 'Update Question'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowEditQuestionModal(false);
+                  setEditingQuestion(null);
                 }}
                 className="flex-1"
               >

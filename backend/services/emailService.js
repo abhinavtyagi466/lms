@@ -385,6 +385,101 @@ const emailTemplates = {
         </div>
       </div>
     `
+  }),
+
+  // NEW: Enhanced Email Templates (ADDED WITHOUT TOUCHING EXISTING)
+  
+  // Training notification template for stakeholders
+  trainingNotification: (data) => ({
+    subject: `Training Assignment Notification: ${data.userName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #2c3e50; margin-bottom: 20px;">Training Assignment Notification</h2>
+          <p>Dear ${data.recipientName},</p>
+          <p>This is to inform you that training has been assigned to the following Field Executive:</p>
+          
+          <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0;">
+            <p><strong>Field Executive:</strong> ${data.userName} (${data.employeeId})</p>
+            <p><strong>Training Types:</strong> ${data.trainingTypes.join(', ')}</p>
+            <p><strong>Reason:</strong> ${data.reason}</p>
+            <p><strong>Priority:</strong> <span style="color: ${data.priority === 'high' ? '#d32f2f' : '#f57c00'}; font-weight: bold;">${data.priority?.toUpperCase()}</span></p>
+            <p><strong>Due Date:</strong> <span style="color: #d32f2f; font-weight: bold;">${data.dueDate}</span></p>
+            <p><strong>Current KPI Score:</strong> ${data.kpiScore}%</p>
+          </div>
+          
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="${data.platformLink}/admin/training" style="background-color: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">View Training Dashboard</a>
+          </div>
+          
+          <p>Please monitor the training progress and provide necessary support.</p>
+          <p>Best regards,<br>Training Team</p>
+        </div>
+      </div>
+    `
+  }),
+
+  // Warning notification template for stakeholders
+  warningNotification: (data) => ({
+    subject: `Performance Warning Notification: ${data.userName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #d32f2f; margin-bottom: 20px;">Performance Warning Notification</h2>
+          <p>Dear ${data.recipientName},</p>
+          <p>This is to inform you that a performance warning has been issued to the following Field Executive:</p>
+          
+          <div style="background-color: #ffebee; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #d32f2f;">
+            <p><strong>Field Executive:</strong> ${data.userName} (${data.employeeId})</p>
+            <p><strong>KPI Score:</strong> <span style="color: #d32f2f; font-weight: bold;">${data.kpiScore}%</span></p>
+            <p><strong>Rating:</strong> <span style="color: #d32f2f; font-weight: bold;">${data.rating}</span></p>
+            <p><strong>Evaluation Period:</strong> ${data.period}</p>
+          </div>
+          
+          <p><strong>Areas requiring improvement:</strong></p>
+          <ul style="background-color: #fff3e0; padding: 15px; border-radius: 5px;">
+            ${data.improvementAreas.map(area => `<li>${area}</li>`).join('')}
+          </ul>
+          
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="${data.platformLink}/admin/performance" style="background-color: #d32f2f; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">View Performance Dashboard</a>
+          </div>
+          
+          <p>Please provide necessary support and monitoring to help improve performance.</p>
+          <p>Best regards,<br>HR Team</p>
+        </div>
+      </div>
+    `
+  }),
+
+  // Reward notification template for stakeholders
+  rewardNotification: (data) => ({
+    subject: `Award Notification: ${data.userName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #2c3e50; margin-bottom: 20px;">Award Notification</h2>
+          <p>Dear ${data.recipientName},</p>
+          <p>We are pleased to inform you that the following Field Executive has been recognized:</p>
+          
+          <div style="background-color: #e8f5e8; padding: 15px; border-radius: 5px; margin: 15px 0;">
+            <p><strong>Field Executive:</strong> ${data.userName} (${data.employeeId})</p>
+            <p><strong>Award Type:</strong> ${data.awardType}</p>
+            <p><strong>Award Title:</strong> ${data.awardTitle}</p>
+            <p><strong>Award Date:</strong> ${data.awardDate}</p>
+            ${data.amount ? `<p><strong>Amount:</strong> ₹${data.amount}</p>` : ''}
+            <p><strong>Description:</strong> ${data.description}</p>
+          </div>
+          
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="${data.platformLink}/admin/awards" style="background-color: #4caf50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">View Awards Dashboard</a>
+          </div>
+          
+          <p>Congratulations to the awardee and thank you for your continued support.</p>
+          <p>Best regards,<br>HR Team</p>
+        </div>
+      </div>
+    `
   })
 };
 
@@ -810,7 +905,533 @@ const emailService = {
   // Get template type distribution
   getTemplateTypeDistribution: async (filters = {}) => {
     return await EmailLog.getTemplateTypeDistribution(filters);
+  },
+
+  // NEW: Enhanced Training Email Functions (ADDED WITHOUT TOUCHING EXISTING)
+  
+  // Send training assignment emails to all stakeholders
+  sendTrainingAssignmentEmails: async (trainingData) => {
+    try {
+      const { userId, userName, employeeId, trainingTypes, reason, priority, dueDate, kpiScore } = trainingData;
+      
+      // Prepare email data
+      const emailData = {
+        userName,
+        employeeId,
+        trainingTypes,
+        reason,
+        priority,
+        dueDate,
+        kpiScore,
+        trainingLink: `${process.env.CLIENT_ORIGIN || 'http://localhost:3000'}/user/dashboard`,
+        platformLink: `${process.env.CLIENT_ORIGIN || 'http://localhost:3000'}`
+      };
+
+      // Get user details for email addresses
+      const User = require('../models/User');
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Get stakeholders (FE, Coordinator, Manager, HOD)
+      const stakeholders = await getTrainingStakeholders(userId);
+      
+      const results = [];
+      
+      // Send email to Field Executive
+      if (user.email) {
+        const feResult = await sendEmail(
+          user.email,
+          'trainingAssignment',
+          emailData,
+          {
+            userId,
+            templateType: 'trainingAssignment',
+            recipientType: 'field_executive',
+            priority,
+            trainingTypes: trainingTypes.join(', ')
+          }
+        );
+        results.push({ type: 'field_executive', email: user.email, result: feResult });
+      }
+
+      // Send emails to stakeholders
+      for (const stakeholder of stakeholders) {
+        if (stakeholder.email) {
+          const stakeholderResult = await sendEmail(
+            stakeholder.email,
+            'trainingNotification',
+            {
+              ...emailData,
+              stakeholderType: stakeholder.role,
+              recipientName: stakeholder.name
+            },
+            {
+              userId,
+              templateType: 'trainingNotification',
+              recipientType: stakeholder.role,
+              priority,
+              trainingTypes: trainingTypes.join(', ')
+            }
+          );
+          results.push({ 
+            type: stakeholder.role, 
+            email: stakeholder.email, 
+            result: stakeholderResult 
+          });
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Training assignment emails sent successfully',
+        results
+      };
+
+    } catch (error) {
+      console.error('Error sending training assignment emails:', error);
+      return {
+        success: false,
+        message: 'Failed to send training assignment emails',
+        error: error.message
+      };
+    }
+  },
+
+  // Send audit notification emails to compliance team and HOD
+  sendAuditNotificationEmails: async (auditData) => {
+    try {
+      const { userId, userName, employeeId, auditTypes, kpiScore, priority, reason } = auditData;
+      
+      // Prepare email data
+      const emailData = {
+        userName,
+        employeeId,
+        auditTypes,
+        kpiScore,
+        priority,
+        reason,
+        auditCount: auditTypes.length,
+        auditLink: `${process.env.CLIENT_ORIGIN || 'http://localhost:3000'}/admin/audits`
+      };
+
+      // Get compliance team and HOD emails
+      const complianceEmails = await getComplianceTeamEmails();
+      const hodEmails = await getHODEmails();
+      
+      const allRecipients = [...complianceEmails, ...hodEmails];
+      const results = [];
+      
+      // Send emails to all recipients
+      for (const recipient of allRecipients) {
+        if (recipient.email) {
+          const result = await sendEmail(
+            recipient.email,
+            'auditNotification',
+            {
+              ...emailData,
+              recipientName: recipient.name,
+              recipientRole: recipient.role
+            },
+            {
+              userId,
+              templateType: 'auditNotification',
+              recipientType: recipient.role,
+              priority,
+              auditTypes: auditTypes.join(', ')
+            }
+          );
+          results.push({ 
+            type: recipient.role, 
+            email: recipient.email, 
+            result 
+          });
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Audit notification emails sent successfully',
+        results
+      };
+
+    } catch (error) {
+      console.error('Error sending audit notification emails:', error);
+      return {
+        success: false,
+        message: 'Failed to send audit notification emails',
+        error: error.message
+      };
+    }
+  },
+
+  // Send warning letter emails to all stakeholders
+  sendWarningLetterEmails: async (warningData) => {
+    try {
+      const { userId, userName, employeeId, kpiScore, rating, period, improvementAreas } = warningData;
+      
+      // Prepare email data
+      const emailData = {
+        userName,
+        employeeId,
+        kpiScore,
+        rating,
+        period,
+        improvementAreas,
+        platformLink: `${process.env.CLIENT_ORIGIN || 'http://localhost:3000'}`
+      };
+
+      // Get user details
+      const User = require('../models/User');
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Get stakeholders (FE, Coordinator, Manager, Compliance, HOD)
+      const stakeholders = await getWarningStakeholders(userId);
+      
+      const results = [];
+      
+      // Send warning letter to Field Executive
+      if (user.email) {
+        const feResult = await sendEmail(
+          user.email,
+          'warning',
+          emailData,
+          {
+            userId,
+            templateType: 'warning',
+            recipientType: 'field_executive',
+            priority: 'high',
+            kpiScore
+          }
+        );
+        results.push({ type: 'field_executive', email: user.email, result: feResult });
+      }
+
+      // Send notification emails to stakeholders
+      for (const stakeholder of stakeholders) {
+        if (stakeholder.email) {
+          const stakeholderResult = await sendEmail(
+            stakeholder.email,
+            'warningNotification',
+            {
+              ...emailData,
+              stakeholderType: stakeholder.role,
+              recipientName: stakeholder.name
+            },
+            {
+              userId,
+              templateType: 'warningNotification',
+              recipientType: stakeholder.role,
+              priority: 'high',
+              kpiScore
+            }
+          );
+          results.push({ 
+            type: stakeholder.role, 
+            email: stakeholder.email, 
+            result: stakeholderResult 
+          });
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Warning letter emails sent successfully',
+        results
+      };
+
+    } catch (error) {
+      console.error('Error sending warning letter emails:', error);
+      return {
+        success: false,
+        message: 'Failed to send warning letter emails',
+        error: error.message
+      };
+    }
+  },
+
+  // Send reward/recognition emails to all stakeholders
+  sendRewardEmails: async (rewardData) => {
+    try {
+      const { userId, userName, employeeId, awardType, awardTitle, awardDate, description, amount } = rewardData;
+      
+      // Prepare email data
+      const emailData = {
+        userName,
+        employeeId,
+        awardType,
+        awardTitle,
+        awardDate,
+        description,
+        amount,
+        platformLink: `${process.env.CLIENT_ORIGIN || 'http://localhost:3000'}`
+      };
+
+      // Get user details
+      const User = require('../models/User');
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Get stakeholders (FE, Coordinator, Manager, Compliance, HOD)
+      const stakeholders = await getRewardStakeholders(userId);
+      
+      const results = [];
+      
+      // Send reward email to Field Executive
+      if (user.email) {
+        const feResult = await sendEmail(
+          user.email,
+          'reward',
+          emailData,
+          {
+            userId,
+            templateType: 'reward',
+            recipientType: 'field_executive',
+            priority: 'medium',
+            awardType
+          }
+        );
+        results.push({ type: 'field_executive', email: user.email, result: feResult });
+      }
+
+      // Send notification emails to stakeholders
+      for (const stakeholder of stakeholders) {
+        if (stakeholder.email) {
+          const stakeholderResult = await sendEmail(
+            stakeholder.email,
+            'rewardNotification',
+            {
+              ...emailData,
+              stakeholderType: stakeholder.role,
+              recipientName: stakeholder.name
+            },
+            {
+              userId,
+              templateType: 'rewardNotification',
+              recipientType: stakeholder.role,
+              priority: 'medium',
+              awardType
+            }
+          );
+          results.push({ 
+            type: stakeholder.role, 
+            email: stakeholder.email, 
+            result: stakeholderResult 
+          });
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Reward emails sent successfully',
+        results
+      };
+
+    } catch (error) {
+      console.error('Error sending reward emails:', error);
+      return {
+        success: false,
+        message: 'Failed to send reward emails',
+        error: error.message
+      };
+    }
   }
 };
+
+// NEW: Helper Functions for Enhanced Email Service (ADDED WITHOUT TOUCHING EXISTING)
+
+// Get training stakeholders (Coordinator, Manager, HOD)
+async function getTrainingStakeholders(userId) {
+  try {
+    const User = require('../models/User');
+    const user = await User.findById(userId);
+    if (!user) return [];
+
+    const stakeholders = [];
+    
+    // Get coordinator
+    if (user.coordinatorId) {
+      const coordinator = await User.findById(user.coordinatorId);
+      if (coordinator && coordinator.email) {
+        stakeholders.push({
+          name: coordinator.name,
+          email: coordinator.email,
+          role: 'coordinator'
+        });
+      }
+    }
+
+    // Get manager
+    if (user.managerId) {
+      const manager = await User.findById(user.managerId);
+      if (manager && manager.email) {
+        stakeholders.push({
+          name: manager.name,
+          email: manager.email,
+          role: 'manager'
+        });
+      }
+    }
+
+    // Get HOD (Head of Department)
+    const hodUsers = await User.find({ userType: 'hod', isActive: true });
+    hodUsers.forEach(hod => {
+      if (hod.email) {
+        stakeholders.push({
+          name: hod.name,
+          email: hod.email,
+          role: 'hod'
+        });
+      }
+    });
+
+    return stakeholders;
+  } catch (error) {
+    console.error('Error getting training stakeholders:', error);
+    return [];
+  }
+}
+
+// Get compliance team emails
+async function getComplianceTeamEmails() {
+  try {
+    const User = require('../models/User');
+    const complianceUsers = await User.find({ 
+      userType: { $in: ['compliance', 'admin'] }, 
+      isActive: true 
+    });
+    
+    return complianceUsers.map(user => ({
+      name: user.name,
+      email: user.email,
+      role: user.userType
+    })).filter(user => user.email);
+  } catch (error) {
+    console.error('Error getting compliance team emails:', error);
+    return [];
+  }
+}
+
+// Get HOD emails
+async function getHODEmails() {
+  try {
+    const User = require('../models/User');
+    const hodUsers = await User.find({ 
+      userType: 'hod', 
+      isActive: true 
+    });
+    
+    return hodUsers.map(user => ({
+      name: user.name,
+      email: user.email,
+      role: 'hod'
+    })).filter(user => user.email);
+  } catch (error) {
+    console.error('Error getting HOD emails:', error);
+    return [];
+  }
+}
+
+// Get warning stakeholders (Coordinator, Manager, Compliance, HOD)
+async function getWarningStakeholders(userId) {
+  try {
+    const User = require('../models/User');
+    const user = await User.findById(userId);
+    if (!user) return [];
+
+    const stakeholders = [];
+    
+    // Get coordinator
+    if (user.coordinatorId) {
+      const coordinator = await User.findById(user.coordinatorId);
+      if (coordinator && coordinator.email) {
+        stakeholders.push({
+          name: coordinator.name,
+          email: coordinator.email,
+          role: 'coordinator'
+        });
+      }
+    }
+
+    // Get manager
+    if (user.managerId) {
+      const manager = await User.findById(user.managerId);
+      if (manager && manager.email) {
+        stakeholders.push({
+          name: manager.name,
+          email: manager.email,
+          role: 'manager'
+        });
+      }
+    }
+
+    // Get compliance team
+    const complianceEmails = await getComplianceTeamEmails();
+    stakeholders.push(...complianceEmails);
+
+    // Get HOD
+    const hodEmails = await getHODEmails();
+    stakeholders.push(...hodEmails);
+
+    return stakeholders;
+  } catch (error) {
+    console.error('Error getting warning stakeholders:', error);
+    return [];
+  }
+}
+
+// Get reward stakeholders (Coordinator, Manager, Compliance, HOD)
+async function getRewardStakeholders(userId) {
+  try {
+    const User = require('../models/User');
+    const user = await User.findById(userId);
+    if (!user) return [];
+
+    const stakeholders = [];
+    
+    // Get coordinator
+    if (user.coordinatorId) {
+      const coordinator = await User.findById(user.coordinatorId);
+      if (coordinator && coordinator.email) {
+        stakeholders.push({
+          name: coordinator.name,
+          email: coordinator.email,
+          role: 'coordinator'
+        });
+      }
+    }
+
+    // Get manager
+    if (user.managerId) {
+      const manager = await User.findById(user.managerId);
+      if (manager && manager.email) {
+        stakeholders.push({
+          name: manager.name,
+          email: manager.email,
+          role: 'manager'
+        });
+      }
+    }
+
+    // Get compliance team
+    const complianceEmails = await getComplianceTeamEmails();
+    stakeholders.push(...complianceEmails);
+
+    // Get HOD
+    const hodEmails = await getHODEmails();
+    stakeholders.push(...hodEmails);
+
+    return stakeholders;
+  } catch (error) {
+    console.error('Error getting reward stakeholders:', error);
+    return [];
+  }
+}
 
 module.exports = emailService;
