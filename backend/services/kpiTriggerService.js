@@ -65,10 +65,18 @@ class KPITriggerService {
   // Process individual KPI row
   async processKPIRow(row, period, submittedBy = null) {
     const fe = row.FE;
-    const kpiScore = this.calculateKPIScore(row);
+    
+    console.log(`\n📋 Processing KPI for: ${fe}`);
+    console.log(`   Employee ID: ${row['Employee ID'] || 'Not provided'}`);
+    console.log(`   Email: ${row['Email'] || 'Not provided'}`);
+    
+    // Calculate KPI score (now async - uses database config)
+    const kpiScore = await this.calculateKPIScore(row);
     const rating = this.getRating(kpiScore);
     
-    // Find or create user
+    console.log(`   KPI Score: ${kpiScore} | Rating: ${rating}`);
+    
+    // Find or create user (enhanced matching)
     const user = await this.findOrCreateUser(fe, row['Email'], row['Employee ID']);
     
     // Save KPI score
@@ -78,12 +86,16 @@ class KPITriggerService {
     const User = require('../models/User');
     const adminUser = submittedBy ? await User.findById(submittedBy) : null;
     
-    // Process triggers
+    // Process triggers (now fully dynamic)
     const triggers = await this.processTriggers(user, kpiRecord, row, adminUser);
+    
+    console.log(`   ✓ Triggers processed: ${triggers.length} actions`);
     
     return {
       fe: fe,
       userId: user._id,
+      employeeId: user.employeeId,
+      email: user.email,
       kpiScore: kpiScore,
       rating: rating,
       triggers: triggers,
@@ -91,8 +103,81 @@ class KPITriggerService {
     };
   }
 
-  // Calculate KPI score from Excel row data - ENHANCED with exact KPI logic
-  calculateKPIScore(row) {
+  // Calculate KPI score from Excel row data - DYNAMIC using KPIConfiguration from database
+  async calculateKPIScore(row) {
+    try {
+      // Fetch active KPI configurations from database
+      const KPIConfiguration = require('../models/KPIConfiguration');
+      const configs = await KPIConfiguration.find({ isActive: true }).sort({ metric: 1 });
+      
+      if (!configs || configs.length === 0) {
+        console.log('⚠ No KPI configurations found, using fallback calculation');
+        return this.calculateKPIScoreFallback(row);
+      }
+
+      // Parse Excel data
+      const metrics = {
+        'TAT': parseFloat(row['TAT %']) || 0,
+        'Major Negativity': parseFloat(row['Major Negative %']) || 0,
+        'Quality Concern': parseFloat(row['Quality Concern % Age']) || 0,
+        'Neighbor Check': parseFloat(row['Neighbor Check % Age']) || 0,
+        'Negativity': parseFloat(row['Negative %']) || 0,
+        'App Usage': parseFloat(row['Online % Age']) || 0,
+        'Insufficiency': parseFloat(row['Insuff %']) || 0
+      };
+
+      let totalScore = 0;
+
+      // Calculate score for each metric using database configuration
+      for (const config of configs) {
+        const metricValue = metrics[config.metric] || 0;
+        let metricScore = 0;
+
+        // Find matching threshold
+        for (const threshold of config.thresholds) {
+          let conditionMet = false;
+          
+          switch (threshold.operator) {
+            case '>=':
+              conditionMet = metricValue >= threshold.value;
+              break;
+            case '>':
+              conditionMet = metricValue > threshold.value;
+              break;
+            case '<=':
+              conditionMet = metricValue <= threshold.value;
+              break;
+            case '<':
+              conditionMet = metricValue < threshold.value;
+              break;
+            case '==':
+            case '=':
+              conditionMet = metricValue === threshold.value;
+              break;
+          }
+
+          if (conditionMet) {
+            metricScore = threshold.score;
+            break; // Use first matching threshold
+          }
+        }
+
+        totalScore += metricScore;
+        console.log(`  ${config.metric}: ${metricValue}% → Score: ${metricScore}`);
+      }
+
+      console.log(`📊 Total KPI Score (Dynamic): ${totalScore}`);
+      return Math.round(totalScore * 100) / 100;
+
+    } catch (error) {
+      console.error('Error calculating KPI with database config:', error);
+      console.log('Falling back to hardcoded calculation');
+      return this.calculateKPIScoreFallback(row);
+    }
+  }
+
+  // Fallback calculation if database config fails
+  calculateKPIScoreFallback(row) {
     const tatPercentage = parseFloat(row['TAT %']) || 0;
     const majorNegPercentage = parseFloat(row['Major Negative %']) || 0;
     const negPercentage = parseFloat(row['Negative %']) || 0;
@@ -101,7 +186,6 @@ class KPITriggerService {
     const neighborCheckPercentage = parseFloat(row['Neighbor Check % Age']) || 0;
     const onlinePercentage = parseFloat(row['Online % Age']) || 0;
 
-    // Calculate individual scores based on KPI criteria (weightage: 20%, 20%, 20%, 10%, 10%, 10%, 10%)
     let tatScore = 0;
     if (tatPercentage >= 95) tatScore = 20;
     else if (tatPercentage >= 90) tatScore = 10;
@@ -144,9 +228,7 @@ class KPITriggerService {
     else if (insuffPercentage <= 2) insuffScore = 2;
     else insuffScore = 0;
 
-    // Sum all scores
     const overallScore = tatScore + majorNegScore + qualityScore + neighborScore + negScore + onlineScore + insuffScore;
-
     return Math.round(overallScore * 100) / 100;
   }
 
@@ -164,36 +246,57 @@ class KPITriggerService {
   async findOrCreateUser(feName, email = null, employeeId = null) {
     let user = null;
     
-    // Priority 1: Find by Employee ID
-    if (employeeId) {
-      user = await User.findOne({ employeeId: employeeId });
-    }
+    // Clean inputs - trim spaces and handle case
+    const cleanEmployeeId = employeeId ? employeeId.toString().trim() : null;
+    const cleanEmail = email ? email.toString().trim().toLowerCase() : null;
+    const cleanName = feName ? feName.toString().trim() : null;
     
-    // Priority 2: Find by Email
-    if (!user && email) {
-      user = await User.findOne({ email: email });
-    }
-    
-    // Priority 3: Find by Name (regex)
-    if (!user && feName) {
+    // Priority 1: Find by Employee ID (case-insensitive, trimmed)
+    if (cleanEmployeeId) {
       user = await User.findOne({ 
-        name: { $regex: feName, $options: 'i' }
+        employeeId: { $regex: `^${cleanEmployeeId}$`, $options: 'i' } 
       });
+      if (user) {
+        console.log(`✓ Matched user by Employee ID: ${cleanEmployeeId} → ${user.name} (${user._id})`);
+      }
+    }
+    
+    // Priority 2: Find by Email (exact match, case-insensitive)
+    if (!user && cleanEmail) {
+      user = await User.findOne({ email: cleanEmail });
+      if (user) {
+        console.log(`✓ Matched user by Email: ${cleanEmail} → ${user.name} (${user._id})`);
+      }
+    }
+    
+    // Priority 3: Find by Name (flexible regex match)
+    if (!user && cleanName) {
+      user = await User.findOne({ 
+        name: { $regex: cleanName, $options: 'i' }
+      });
+      if (user) {
+        console.log(`✓ Matched user by Name: ${cleanName} → ${user.name} (${user._id})`);
+      }
     }
     
     // Create new user if still not found
     if (!user) {
-      const [firstName, lastName] = feName.split(' ');
+      console.log(`⚠ User not found in database: ${cleanName} | ${cleanEmployeeId} | ${cleanEmail}`);
+      console.log(`Creating placeholder user...`);
+      
+      const [firstName, lastName] = (cleanName || 'Unknown').split(' ');
       user = new User({
-        name: feName,
-        email: email || `${firstName?.toLowerCase() || 'user'}@company.com`,
-        employeeId: employeeId || `FE-${Date.now()}`,
+        name: cleanName || 'Unknown User',
+        email: cleanEmail || `${firstName?.toLowerCase() || 'user'}@company.com`,
+        employeeId: cleanEmployeeId || `FE-${Date.now()}`,
         password: 'defaultPassword123',
+        phone: '0000000000', // Add default phone to avoid validation issues
         userType: 'user',
         isActive: true,
         department: 'Field Operations'
       });
-      await user.save();
+      await user.save({ validateModifiedOnly: true });
+      console.log(`✓ Created new user: ${user.name} (${user._id}) | Employee ID: ${user.employeeId}`);
     }
 
     return user;
@@ -236,19 +339,19 @@ class KPITriggerService {
     return kpiScore;
   }
 
-  // Process all triggers for a user - ENHANCED with condition-based triggers
+  // Process all triggers for a user - ENHANCED with dynamic database configuration
   async processTriggers(user, kpiRecord, rawData, adminUser = null) {
     const triggers = [];
 
-    // 1. Score-based triggers
-    const scoreTriggers = this.getScoreBasedTriggers(kpiRecord.overallScore);
+    // 1. Score-based triggers (now async - fetches from database)
+    const scoreTriggers = await this.getScoreBasedTriggers(kpiRecord.overallScore);
     for (const trigger of scoreTriggers) {
       const result = await this.executeTrigger(user, kpiRecord, trigger, rawData, adminUser);
       triggers.push(result);
     }
 
     // 2. Condition-based triggers
-    const conditionTriggers = this.getConditionBasedTriggers(kpiRecord.overallScore, rawData);
+    const conditionTriggers = await this.getConditionBasedTriggers(kpiRecord.overallScore, rawData);
     for (const trigger of conditionTriggers) {
       const result = await this.executeTrigger(user, kpiRecord, trigger, rawData, adminUser);
       triggers.push(result);
@@ -260,8 +363,71 @@ class KPITriggerService {
     return triggers;
   }
 
-  // Get condition-based triggers
-  getConditionBasedTriggers(overallScore, rawData) {
+  // Get condition-based triggers - DYNAMIC from database
+  async getConditionBasedTriggers(overallScore, rawData) {
+    try {
+      const TriggerConfiguration = require('../models/TriggerConfiguration');
+      const configs = await TriggerConfiguration.find({ 
+        isActive: true,
+        triggerType: 'condition_based'
+      });
+
+      const triggers = [];
+      const majorNegPercentage = parseFloat(rawData['Major Negative %']) || 0;
+      const negPercentage = parseFloat(rawData['Negative %']) || 0;
+      const qualityPercentage = parseFloat(rawData['Quality Concern % Age']) || 0;
+      const onlinePercentage = parseFloat(rawData['Online % Age']) || 0;
+      const insuffPercentage = parseFloat(rawData['Insuff %']) || 0;
+
+      // Process each database trigger
+      for (const config of configs) {
+        let conditionMet = false;
+        
+        // Parse and evaluate complex conditions
+        const condition = config.condition;
+        
+        // Check various condition patterns
+        if (condition.includes('Major Negativity') && condition.includes('General Negativity')) {
+          conditionMet = majorNegPercentage > 0 && negPercentage < 25;
+        } else if (condition.includes('Quality Concern')) {
+          const thresholdMatch = condition.match(/>\s*(\d+\.?\d*)/);
+          const thresholdValue = thresholdMatch ? parseFloat(thresholdMatch[1]) : config.threshold;
+          conditionMet = qualityPercentage > thresholdValue;
+        } else if (condition.includes('Insufficiency')) {
+          const thresholdMatch = condition.match(/>\s*(\d+\.?\d*)/);
+          const thresholdValue = thresholdMatch ? parseFloat(thresholdMatch[1]) : config.threshold;
+          conditionMet = insuffPercentage > thresholdValue;
+        } else if (condition.includes('Online % Age') || condition.includes('App Usage')) {
+          const thresholdMatch = condition.match(/<\s*(\d+\.?\d*)/);
+          const thresholdValue = thresholdMatch ? parseFloat(thresholdMatch[1]) : config.threshold;
+          conditionMet = onlinePercentage < thresholdValue;
+        }
+        
+        if (conditionMet && config.actions && config.actions.length > 0) {
+          triggers.push({
+            training: config.actions.find(a => a.includes('Training')) || null,
+            audit: config.actions.find(a => a.includes('Audit')) || null,
+            warning: config.actions.includes('Warning Letter'),
+            conditionMet: condition,
+            emailRecipients: {
+              training: config.emailRecipients || [],
+              audit: config.emailRecipients || [],
+              warning: config.emailRecipients || []
+            }
+          });
+        }
+      }
+
+      return triggers;
+
+    } catch (error) {
+      console.error('Error getting condition-based triggers:', error);
+      return this.getConditionBasedTriggersFallback(overallScore, rawData);
+    }
+  }
+
+  // Fallback condition-based triggers
+  getConditionBasedTriggersFallback(overallScore, rawData) {
     const triggers = [];
     const majorNegPercentage = parseFloat(rawData['Major Negative %']) || 0;
     const negPercentage = parseFloat(rawData['Negative %']) || 0;
@@ -351,7 +517,69 @@ class KPITriggerService {
   }
 
   // Get score-based triggers
-  getScoreBasedTriggers(score) {
+  async getScoreBasedTriggers(score) {
+    try {
+      // Fetch active trigger configurations from database
+      const TriggerConfiguration = require('../models/TriggerConfiguration');
+      const configs = await TriggerConfiguration.find({ 
+        isActive: true,
+        triggerType: 'score_based'
+      }).sort({ threshold: -1 }); // Sort descending to match highest threshold first
+      
+      if (!configs || configs.length === 0) {
+        console.log('⚠ No trigger configurations found, using fallback triggers');
+        return this.getScoreBasedTriggersFallback(score);
+      }
+
+      const triggers = [];
+      
+      // Find matching triggers based on score
+      for (const config of configs) {
+        // Check if score meets the threshold condition
+        const conditionMet = this.evaluateTriggerCondition(score, config.condition, config.threshold);
+        
+        if (conditionMet && config.actions && config.actions.length > 0) {
+          triggers.push({
+            training: config.actions.includes('Basic Training Module') ? 'Basic Training Module' : null,
+            audit: config.actions.find(a => a.includes('Audit')) || null,
+            warning: config.actions.includes('Warning Letter'),
+            reward: config.actions.includes('Reward'),
+            conditionMet: `${config.condition} ${config.threshold}`,
+            emailRecipients: {
+              training: config.emailRecipients || [],
+              audit: config.emailRecipients || [],
+              warning: config.emailRecipients || []
+            }
+          });
+          break; // Use first matching trigger
+        }
+      }
+
+      return triggers.length > 0 ? triggers : this.getScoreBasedTriggersFallback(score);
+
+    } catch (error) {
+      console.error('Error getting triggers from database:', error);
+      return this.getScoreBasedTriggersFallback(score);
+    }
+  }
+
+  // Evaluate trigger condition
+  evaluateTriggerCondition(score, condition, threshold) {
+    // Parse condition string like "Overall KPI Score < 70"
+    if (condition.includes('<')) {
+      return score < threshold;
+    } else if (condition.includes('>')) {
+      return score > threshold;
+    } else if (condition.includes('<=')) {
+      return score <= threshold;
+    } else if (condition.includes('>=')) {
+      return score >= threshold;
+    }
+    return false;
+  }
+
+  // Fallback triggers if database fetch fails
+  getScoreBasedTriggersFallback(score) {
     const triggers = [];
 
     if (score >= 85) {

@@ -180,6 +180,87 @@ const userSchema = new mongoose.Schema({
   inactiveBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  // Exit Management (Enhanced)
+  exitDetails: {
+    exitDate: {
+      type: Date
+    },
+    exitReason: {
+      mainCategory: {
+        type: String,
+        enum: [
+          'Resignation',
+          'Termination', 
+          'End of Contract / Project',
+          'Retirement',
+          'Death',
+          'Other'
+        ]
+      },
+      subCategory: {
+        type: String,
+        required: false,
+        enum: {
+          values: [
+            // Resignation sub-categories
+            'Better employment opportunity',
+            'Higher salary expectation',
+            'Relocation',
+            'Career change',
+            'Personal/family reasons',
+            // Termination sub-categories
+            'Performance issues',
+            'Low KPI',
+            'Repeated warnings',
+            'Misconduct',
+            'Bribe',
+            'Unethical behaviour',
+            'Bad habits',
+            'Non compliance with rules',
+            'Fraudulent activity',
+            // Other sub-categories
+            'Health issues',
+            'Further studies',
+            'Migration',
+            'Own business',
+            'Natural death',
+            'Accidental death',
+            ''  // Allow empty string
+          ],
+          message: '{VALUE} is not a valid sub-category'
+        }
+      }
+    },
+    exitReasonDescription: {
+      type: String,
+      trim: true,
+      maxlength: [1000, 'Exit reason description cannot be more than 1000 characters']
+    },
+    proofDocument: {
+      fileName: String,
+      filePath: String,
+      fileSize: Number,
+      mimeType: String,
+      uploadedAt: Date
+    },
+    verifiedBy: {
+      type: String,
+      enum: ['HR', 'Compliance', 'Pending'],
+      default: 'Pending'
+    },
+    verifiedByUser: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    verifiedAt: {
+      type: Date
+    },
+    remarks: {
+      type: String,
+      trim: true,
+      maxlength: [500, 'Remarks cannot be more than 500 characters']
+    }
   }
 }, {
   timestamps: true,

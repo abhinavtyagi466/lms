@@ -2,17 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   Download, 
-  Filter, 
-  TrendingUp, 
-  TrendingDown,
   Award,
-  Clock,
   CheckCircle,
-  XCircle,
   BarChart3,
   FileText,
-  Users,
-  Calendar
+  Users
 } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -23,27 +17,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
-import { useAuth } from '../../contexts/AuthContext';
 
-// NEW: Score Reports Page (NEW PAGE WITHOUT TOUCHING EXISTING)
 export const ScoreReportsPage: React.FC = () => {
-  const { user, userType, setCurrentPage } = useAuth();
-  
   // State for users and their scores
   const [users, setUsers] = useState<any[]>([]);
   const [userScores, setUserScores] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const [loadingScores, setLoadingScores] = useState(false);
   
   // Filter and search state
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState('');
+  const [selectedUser, setSelectedUser] = useState('all');
   const [sortBy, setSortBy] = useState('averageScore');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [dateRange, setDateRange] = useState('all');
   
   // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
+  const [pageNumber, setPageNumber] = useState(1);
   const [itemsPerPage] = useState(10);
   
   // Export state
@@ -56,28 +45,89 @@ export const ScoreReportsPage: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      setLoading(true);
       const response = await apiService.users.getAllUsers();
       if (response && (response as any).success) {
-        setUsers((response as any).data || []);
+        setUsers((response as any).users || (response as any).data || []);
       }
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to fetch users');
-    } finally {
-      setLoading(false);
     }
   };
 
   const fetchUserScores = async () => {
     try {
       setLoadingScores(true);
-      const response = await apiService.quizAttempts.getAllUserScores();
-      if (response && (response as any).success) {
-        setUserScores((response as any).data || []);
+      
+      console.log('🔍 Starting to fetch user scores...');
+      
+      // Fetch all users first
+      const usersResponse = await apiService.users.getAllUsers();
+      console.log('👥 Users response:', usersResponse);
+      
+      if (!usersResponse || !(usersResponse as any).success) {
+        throw new Error('Failed to fetch users');
       }
+      
+      const allUsers = (usersResponse as any).users || (usersResponse as any).data || [];
+      console.log('👥 All users:', allUsers);
+      
+      const userScoresData = [];
+      
+      // For each user, fetch their quiz attempts and calculate scores
+      for (const user of allUsers) {
+        try {
+          console.log(`🔍 Fetching data for user: ${user.name} (${user._id})`);
+          
+          // Fetch user's quiz attempts
+          const quizAttemptsResponse = await apiService.quizAttempts.getUserQuizAttempts(user._id, { limit: 100 });
+          console.log(`📊 Quiz attempts for ${user.name}:`, quizAttemptsResponse);
+          
+          const quizAttempts = (quizAttemptsResponse as any).data || [];
+          console.log(`📊 Quiz attempts data for ${user.name}:`, quizAttempts);
+          
+          // Calculate user statistics
+          const totalModules = new Set(quizAttempts.map((attempt: any) => attempt.moduleId)).size;
+          const completedModules = new Set(quizAttempts.filter((attempt: any) => attempt.passed).map((attempt: any) => attempt.moduleId)).size;
+          const scores = quizAttempts.map((attempt: any) => attempt.score || 0);
+          const averageScore = scores.length > 0 ? scores.reduce((sum: number, score: number) => sum + score, 0) / scores.length : 0;
+          const lastActivity = quizAttempts.length > 0 ? Math.max(...quizAttempts.map((attempt: any) => new Date(attempt.createdAt).getTime())) : null;
+          
+          const userScoreData = {
+            userId: user._id,
+            userName: user.name,
+            userEmail: user.email,
+            employeeId: user.employeeId,
+            totalModules,
+            completedModules,
+            averageScore: Math.round(averageScore),
+            lastActivity: lastActivity ? new Date(lastActivity).toISOString() : null
+          };
+          
+          console.log(`✅ User score data for ${user.name}:`, userScoreData);
+          userScoresData.push(userScoreData);
+        } catch (userError) {
+          console.error(`❌ Error fetching data for user ${user.name}:`, userError);
+          // Add user with zero scores if we can't fetch their data
+          const userScoreData = {
+            userId: user._id,
+            userName: user.name,
+            userEmail: user.email,
+            employeeId: user.employeeId,
+            totalModules: 0,
+            completedModules: 0,
+            averageScore: 0,
+            lastActivity: null
+          };
+          console.log(`⚠️ Adding user with zero scores: ${user.name}`, userScoreData);
+          userScoresData.push(userScoreData);
+        }
+      }
+      
+      console.log('🎯 Final user scores data:', userScoresData);
+      setUserScores(userScoresData);
     } catch (error) {
-      console.error('Error fetching user scores:', error);
+      console.error('❌ Error fetching user scores:', error);
       toast.error('Failed to fetch user scores');
     } finally {
       setLoadingScores(false);
@@ -87,28 +137,31 @@ export const ScoreReportsPage: React.FC = () => {
   const handleExportCSV = async () => {
     try {
       setIsExporting(true);
-      const response = await apiService.reports.exportUserScores({
-        searchTerm,
-        selectedUser,
-        sortBy,
-        sortOrder,
-        dateRange
-      });
       
-      if (response && (response as any).success) {
-        // Create and download CSV
-        const csvData = (response as any).data;
-        const blob = new Blob([csvData], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `user-scores-report-${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast.success('Report exported successfully!');
-      }
+      // Use local filtered data for export
+      const dataToExport = filteredAndSortedScores;
+      
+      // Generate CSV content
+      const csvHeader = 'User Name,Email,Employee ID,Total Modules,Completed Modules,Average Score,Completion Rate,Last Activity,Status\n';
+      const csvRows = dataToExport.map(score => {
+        const completionRate = score.totalModules > 0 ? Math.round((score.completedModules / score.totalModules) * 100) : 0;
+        const status = score.averageScore >= 85 ? 'Outstanding' : score.averageScore >= 70 ? 'Excellent' : score.averageScore >= 50 ? 'Satisfactory' : 'Needs Improvement';
+        const lastActivity = score.lastActivity ? new Date(score.lastActivity).toLocaleDateString() : 'Never';
+        
+        return `"${score.userName || 'Unknown'}","${score.userEmail || ''}","${score.employeeId || ''}",${score.totalModules},${score.completedModules},${score.averageScore}%,${completionRate}%,"${lastActivity}","${status}"`;
+      }).join('\n');
+
+      const csvData = csvHeader + csvRows;
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `user-scores-report-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('CSV report exported successfully!');
     } catch (error) {
       console.error('Error exporting report:', error);
       toast.error('Failed to export report');
@@ -120,31 +173,44 @@ export const ScoreReportsPage: React.FC = () => {
   const handleExportPDF = async () => {
     try {
       setIsExporting(true);
-      const response = await apiService.reports.exportUserScoresPDF({
-        searchTerm,
-        selectedUser,
-        sortBy,
-        sortOrder,
-        dateRange
-      });
       
-      if (response && (response as any).success) {
-        // Create and download PDF
-        const pdfData = (response as any).data;
-        const blob = new Blob([pdfData], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `user-scores-report-${new Date().toISOString().split('T')[0]}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast.success('PDF report exported successfully!');
-      }
+      // Use local filtered data for export
+      const dataToExport = filteredAndSortedScores;
+      
+      // Generate PDF content (simplified - in real implementation, use a PDF library)
+      const pdfContent = `
+        User Score Report
+        Generated on: ${new Date().toLocaleDateString()}
+        
+        Total Users: ${dataToExport.length}
+        Average Score: ${dataToExport.length > 0 ? Math.round(dataToExport.reduce((sum, score) => sum + (score.averageScore || 0), 0) / dataToExport.length) : 0}%
+        
+        User Details:
+        ${dataToExport.map(score => `
+          Name: ${score.userName || 'Unknown'}
+          Email: ${score.userEmail || ''}
+          Employee ID: ${score.employeeId || ''}
+          Total Modules: ${score.totalModules}
+          Completed Modules: ${score.completedModules}
+          Average Score: ${score.averageScore}%
+          Last Activity: ${score.lastActivity ? new Date(score.lastActivity).toLocaleDateString() : 'Never'}
+          ---
+        `).join('')}
+      `;
+
+      const blob = new Blob([pdfContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `user-scores-report-${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Report exported successfully!');
     } catch (error) {
-      console.error('Error exporting PDF:', error);
-      toast.error('Failed to export PDF report');
+      console.error('Error exporting report:', error);
+      toast.error('Failed to export report');
     } finally {
       setIsExporting(false);
     }
@@ -158,17 +224,17 @@ export const ScoreReportsPage: React.FC = () => {
         score.userEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         score.employeeId?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesUser = !selectedUser || score.userId === selectedUser;
+      const matchesUser = selectedUser === 'all' || score.userId === selectedUser;
       
       return matchesSearch && matchesUser;
     })
     .sort((a, b) => {
-      let aValue = a[sortBy];
-      let bValue = b[sortBy];
+      let aValue = a[sortBy] || 0;
+      let bValue = b[sortBy] || 0;
       
-      if (sortBy === 'averageScore' || sortBy === 'totalModules' || sortBy === 'completedModules') {
-        aValue = Number(aValue) || 0;
-        bValue = Number(bValue) || 0;
+      if (sortBy === 'userName' || sortBy === 'userEmail') {
+        aValue = String(aValue).toLowerCase();
+        bValue = String(bValue).toLowerCase();
       }
       
       if (sortOrder === 'asc') {
@@ -180,7 +246,7 @@ export const ScoreReportsPage: React.FC = () => {
 
   // Pagination logic
   const totalPages = Math.ceil(filteredAndSortedScores.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
+  const startIndex = (pageNumber - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedScores = filteredAndSortedScores.slice(startIndex, endIndex);
 
@@ -188,7 +254,7 @@ export const ScoreReportsPage: React.FC = () => {
     if (score >= 85) return <Badge className="bg-green-100 text-green-800">Outstanding</Badge>;
     if (score >= 70) return <Badge className="bg-blue-100 text-blue-800">Excellent</Badge>;
     if (score >= 50) return <Badge className="bg-yellow-100 text-yellow-800">Satisfactory</Badge>;
-    if (score >= 40) return <Badge className="bg-orange-100 text-orange-800">Need Improvement</Badge>;
+    if (score >= 40) return <Badge className="bg-orange-100 text-orange-800">Needs Improvement</Badge>;
     return <Badge className="bg-red-100 text-red-800">Unsatisfactory</Badge>;
   };
 
@@ -248,9 +314,9 @@ export const ScoreReportsPage: React.FC = () => {
           <Card className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Learners</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Users</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {userScores.filter(score => score.totalModules > 0).length}
+                  {userScores.filter(s => s.totalModules > 0).length}
                 </p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-600" />
@@ -260,10 +326,10 @@ export const ScoreReportsPage: React.FC = () => {
           <Card className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Avg Score</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Average Score</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {userScores.length > 0 
-                    ? Math.round(userScores.reduce((sum, score) => sum + (score.averageScore || 0), 0) / userScores.length)
+                    ? Math.round(userScores.reduce((sum, s) => sum + (s.averageScore || 0), 0) / userScores.length) 
                     : 0}%
                 </p>
               </div>
@@ -274,11 +340,9 @@ export const ScoreReportsPage: React.FC = () => {
           <Card className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Completion Rate</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Top Performers</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {userScores.length > 0 
-                    ? Math.round(userScores.reduce((sum, score) => sum + getCompletionRate(score.completedModules, score.totalModules), 0) / userScores.length)
-                    : 0}%
+                  {userScores.filter(s => (s.averageScore || 0) >= 85).length}
                 </p>
               </div>
               <Award className="h-8 w-8 text-orange-600" />
@@ -292,55 +356,54 @@ export const ScoreReportsPage: React.FC = () => {
             <div>
               <Label htmlFor="search">Search</Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 <Input
                   id="search"
-                  placeholder="Search users..."
+                  placeholder="Name, Email, Employee ID..."
+                  className="pl-9"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
                 />
               </div>
             </div>
-            
+
             <div>
               <Label htmlFor="userFilter">Filter by User</Label>
               <Select value={selectedUser} onValueChange={setSelectedUser}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All users" />
+                <SelectTrigger id="userFilter">
+                  <SelectValue placeholder="All Users" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All users</SelectItem>
+                  <SelectItem value="all">All Users</SelectItem>
                   {users.map((user) => (
                     <SelectItem key={user._id} value={user._id}>
-                      {user.name} ({user.employeeId})
+                      {user.name} ({user.employeeId || 'No ID'})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
-              <Label htmlFor="sortBy">Sort by</Label>
+              <Label htmlFor="sortBy">Sort By</Label>
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger id="sortBy">
+                  <SelectValue placeholder="Sort by..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="averageScore">Average Score</SelectItem>
-                  <SelectItem value="totalModules">Total Modules</SelectItem>
-                  <SelectItem value="completedModules">Completed Modules</SelectItem>
                   <SelectItem value="userName">User Name</SelectItem>
                   <SelectItem value="lastActivity">Last Activity</SelectItem>
+                  <SelectItem value="completedModules">Completed Modules</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
-              <Label htmlFor="sortOrder">Order</Label>
-              <Select value={sortOrder} onValueChange={(value: 'asc' | 'desc') => setSortOrder(value)}>
-                <SelectTrigger>
-                  <SelectValue />
+              <Label htmlFor="sortOrder">Sort Order</Label>
+              <Select value={sortOrder} onValueChange={(val) => setSortOrder(val as 'asc' | 'desc')}>
+                <SelectTrigger id="sortOrder">
+                  <SelectValue placeholder="Sort order..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="desc">Descending</SelectItem>
@@ -348,20 +411,21 @@ export const ScoreReportsPage: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            
-            <div>
-              <Label htmlFor="dateRange">Date Range</Label>
-              <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Time</SelectItem>
-                  <SelectItem value="7days">Last 7 days</SelectItem>
-                  <SelectItem value="30days">Last 30 days</SelectItem>
-                  <SelectItem value="90days">Last 90 days</SelectItem>
-                </SelectContent>
-              </Select>
+
+            <div className="flex items-end">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedUser('all');
+                  setSortBy('averageScore');
+                  setSortOrder('desc');
+                  setDateRange('all');
+                }}
+              >
+                Reset Filters
+              </Button>
             </div>
           </div>
         </Card>
@@ -370,34 +434,39 @@ export const ScoreReportsPage: React.FC = () => {
         <Card className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              User Performance Report
+              User Performance Overview
             </h2>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Showing {startIndex + 1}-{Math.min(endIndex, filteredAndSortedScores.length)} of {filteredAndSortedScores.length} users
-            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Showing {paginatedScores.length} of {filteredAndSortedScores.length} results
+            </p>
           </div>
 
           {loadingScores ? (
-            <div className="flex justify-center py-8">
-              <LoadingSpinner />
+            <div className="flex justify-center items-center py-12">
+              <LoadingSpinner text="Loading user scores..." />
+            </div>
+          ) : filteredAndSortedScores.length === 0 ? (
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              <p className="text-lg font-medium">No user scores found</p>
+              <p className="text-sm mt-2">Try adjusting your filters or search criteria</p>
             </div>
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-800">
+                    <tr>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">User</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Employee ID</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Average Score</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Modules</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Avg Score</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Completion</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Last Activity</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {paginatedScores.map((score, index) => (
+                    {paginatedScores.map((score) => (
                       <tr key={score.userId} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800">
                         <td className="py-4 px-4">
                           <div>
@@ -415,38 +484,41 @@ export const ScoreReportsPage: React.FC = () => {
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-gray-900 dark:text-white">
-                              {score.averageScore || 0}%
+                              {score.completedModules || 0}
                             </span>
-                            {getScoreBadge(score.averageScore || 0)}
+                            <span className="text-gray-500 dark:text-gray-400">/</span>
+                            <span className="text-gray-500 dark:text-gray-400">
+                              {score.totalModules || 0}
+                            </span>
                           </div>
-                        </td>
-                        <td className="py-4 px-4 text-gray-900 dark:text-white">
-                          {score.completedModules || 0} / {score.totalModules || 0}
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-2">
-                            <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                              <div 
-                                className="bg-blue-600 h-2 rounded-full" 
-                                style={{ 
-                                  width: `${getCompletionRate(score.completedModules || 0, score.totalModules || 0)}%` 
-                                }}
-                              ></div>
-                            </div>
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                              {getCompletionRate(score.completedModules || 0, score.totalModules || 0)}%
+                            <span className="font-bold text-gray-900 dark:text-white">
+                              {Math.round(score.averageScore || 0)}%
                             </span>
                           </div>
                         </td>
-                        <td className="py-4 px-4 text-gray-900 dark:text-white">
-                          {score.lastActivity ? new Date(score.lastActivity).toLocaleDateString() : 'Never'}
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                              <div 
+                                className="bg-blue-600 h-2 rounded-full" 
+                                style={{ width: `${getCompletionRate(score.completedModules, score.totalModules)}%` }}
+                              />
+                            </div>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                              {getCompletionRate(score.completedModules, score.totalModules)}%
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-sm text-gray-500 dark:text-gray-400">
+                          {score.lastActivity 
+                            ? new Date(score.lastActivity).toLocaleDateString() 
+                            : 'Never'}
                         </td>
                         <td className="py-4 px-4">
-                          {score.totalModules > 0 ? (
-                            <Badge className="bg-green-100 text-green-800">Active</Badge>
-                          ) : (
-                            <Badge className="bg-gray-100 text-gray-800">Inactive</Badge>
-                          )}
+                          {getScoreBadge(score.averageScore || 0)}
                         </td>
                       </tr>
                     ))}
@@ -458,22 +530,22 @@ export const ScoreReportsPage: React.FC = () => {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-6">
                   <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Page {currentPage} of {totalPages}
+                    Page {pageNumber} of {totalPages}
                   </div>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
+                      onClick={() => setPageNumber(prev => Math.max(prev - 1, 1))}
+                      disabled={pageNumber === 1}
                     >
                       Previous
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
+                      onClick={() => setPageNumber(prev => Math.min(prev + 1, totalPages))}
+                      disabled={pageNumber === totalPages}
                     >
                       Next
                     </Button>
@@ -487,3 +559,4 @@ export const ScoreReportsPage: React.FC = () => {
     </div>
   );
 };
+

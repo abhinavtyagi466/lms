@@ -1560,6 +1560,15 @@ export const UserDashboard: React.FC = () => {
                   <BarChart3 className="w-4 h-4 mr-2" />
                   KPI Scores
                 </Button>
+                {/* TEMPORARILY HIDDEN: Email Center */}
+                {/* <Button 
+                  onClick={() => setCurrentPage('user-emails')}
+                  variant="outline"
+                  className="w-full justify-start border-orange-200 text-orange-700 hover:bg-orange-50"
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Email Center
+                </Button> */}
               </CardContent>
             </Card>
 

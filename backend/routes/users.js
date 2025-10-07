@@ -1,5 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const User = require('../models/User');
 const KPIScore = require('../models/KPIScore');
 const Notification = require('../models/Notification');
@@ -9,6 +12,52 @@ const { authenticateToken, requireAdmin, requireOwnershipOrAdmin } = require('..
 const { validateCreateUser, validateUpdateUser, validateObjectId, validateUserId, validatePagination } = require('../middleware/validation');
 
 const router = express.Router();
+
+// File upload storage for exit documents
+const exitDocsDir = path.join(__dirname, '..', 'uploads', 'exit-documents');
+if (!fs.existsSync(exitDocsDir)) {
+  fs.mkdirSync(exitDocsDir, { recursive: true });
+}
+
+const exitDocStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, exitDocsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const uniqueName = `exit-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    cb(null, uniqueName);
+  }
+});
+
+const exitDocUpload = multer({
+  storage: exitDocStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF, DOC, DOCX, and image files are allowed'));
+    }
+  }
+});
+
+// Error handling middleware for multer
+const handleMulterError = (error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    console.error('Multer error:', error);
+    return res.status(400).json({
+      error: 'File Upload Error',
+      message: error.message
+    });
+  } else if (error) {
+    console.error('File upload error:', error);
+    return res.status(400).json({
+      error: 'File Upload Error',
+      message: error.message
+    });
+  }
+  next();
+};
 
 // @route   GET /api/users/:id/profile
 // @desc    Get user profile by ID
@@ -262,7 +311,7 @@ router.post('/:id/warning', authenticateToken, requireAdmin, validateObjectId, a
 
     // Update user status to warning
     user.status = 'Warning';
-    await user.save();
+    await user.save({ validateModifiedOnly: true });
 
     // Create notification record
     const notification = new Notification({
@@ -567,7 +616,7 @@ router.put('/:id', authenticateToken, validateObjectId, validateUpdateUser, requ
       }
     });
 
-    await user.save();
+    await user.save({ validateModifiedOnly: true });
 
     // Remove password from response
     const userResponse = user.toJSON();
@@ -615,7 +664,7 @@ router.delete('/:id', authenticateToken, requireAdmin, validateObjectId, async (
     // Soft delete by setting isActive to false
     user.isActive = false;
     user.status = 'Inactive';
-    await user.save();
+    await user.save({ validateModifiedOnly: true });
 
     // Create lifecycle event
     const LifecycleEvent = require('../models/LifecycleEvent');
@@ -660,7 +709,7 @@ router.post('/:id/activate', authenticateToken, requireAdmin, validateObjectId, 
 
     user.isActive = true;
     user.status = 'Active';
-    await user.save();
+    await user.save({ validateModifiedOnly: true });
 
     // Create lifecycle event
     const LifecycleEvent = require('../models/LifecycleEvent');
@@ -754,7 +803,7 @@ router.put('/:id/activate', authenticateToken, requireAdmin, validateObjectId, a
 
     user.isActive = true;
     user.status = 'Active';
-    await user.save();
+    await user.save({ validateModifiedOnly: true });
 
     res.json({
       success: true,
@@ -802,7 +851,7 @@ router.put('/:id/deactivate', authenticateToken, requireAdmin, validateObjectId,
 
     user.isActive = false;
     user.status = 'Inactive';
-    await user.save();
+    await user.save({ validateModifiedOnly: true });
 
     res.json({
       success: true,
@@ -925,27 +974,35 @@ router.get('/:userId/certificates', authenticateToken, validateUserId, requireOw
 });
 
 // @route   PUT /api/users/:id/set-inactive
-// @desc    Set user as inactive with reason and remark
+// @desc    Set user as inactive with comprehensive exit management
 // @access  Private (Admin only)
-router.put('/:id/set-inactive', authenticateToken, requireAdmin, validateObjectId, async (req, res) => {
+router.put('/:id/set-inactive', authenticateToken, requireAdmin, validateObjectId, exitDocUpload.single('proofDocument'), handleMulterError, async (req, res) => {
   try {
     const userId = req.params.id;
-    const { inactiveReason, inactiveRemark } = req.body;
+    const { 
+      exitDate, 
+      mainCategory, 
+      subCategory, 
+      exitReasonDescription, 
+      verifiedBy, 
+      remarks,
+      // Keep backward compatibility
+      inactiveReason,
+      inactiveRemark
+    } = req.body;
 
     // Validate required fields
-    if (!inactiveReason) {
+    if (!exitDate && !inactiveReason) {
       return res.status(400).json({
         error: 'Validation Error',
-        message: 'Inactive reason is required'
+        message: 'Exit date or inactive reason is required'
       });
     }
 
-    // Validate reason is from allowed enum values
-    const allowedReasons = ['Performance Issues', 'Policy Violation', 'Attendance Problems', 'Behavioral Issues', 'Resignation', 'Termination', 'Other'];
-    if (!allowedReasons.includes(inactiveReason)) {
+    if (!mainCategory && !inactiveReason) {
       return res.status(400).json({
         error: 'Validation Error',
-        message: 'Invalid inactive reason'
+        message: 'Exit reason main category is required'
       });
     }
 
@@ -961,20 +1018,52 @@ router.put('/:id/set-inactive', authenticateToken, requireAdmin, validateObjectI
     // Update user status and inactive details
     user.status = 'Inactive';
     user.isActive = false;
-    user.inactiveReason = inactiveReason;
-    user.inactiveRemark = inactiveRemark?.trim() || '';
-    user.inactiveDate = new Date();
+    
+    // Set exit details
+    user.exitDetails = {
+      exitDate: exitDate ? new Date(exitDate) : new Date(),
+      exitReason: {
+        mainCategory: mainCategory || inactiveReason || 'Other',
+        subCategory: subCategory || ''
+      },
+      exitReasonDescription: exitReasonDescription || inactiveRemark || '',
+      verifiedBy: verifiedBy || 'Pending',
+      verifiedByUser: verifiedBy !== 'Pending' ? req.user._id : null,
+      verifiedAt: verifiedBy !== 'Pending' ? new Date() : null,
+      remarks: remarks || ''
+    };
+
+    // Handle file upload
+    if (req.file) {
+      user.exitDetails.proofDocument = {
+        fileName: req.file.originalname,
+        filePath: req.file.path,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype,
+        uploadedAt: new Date()
+      };
+    }
+
+    // Keep backward compatibility with old fields
+    user.inactiveReason = mainCategory || inactiveReason || 'Other';
+    user.inactiveRemark = exitReasonDescription || inactiveRemark || '';
+    user.inactiveDate = exitDate ? new Date(exitDate) : new Date();
     user.inactiveBy = req.user._id;
 
-    await user.save();
+    // Save without validating unchanged fields (fixes phone validation for old users)
+    await user.save({ validateModifiedOnly: true });
 
     // Create audit record
     const auditRecord = new AuditRecord({
       userId: userId,
       action: 'user_deactivated',
       details: {
-        reason: inactiveReason,
-        remark: inactiveRemark,
+        exitDate: user.exitDetails.exitDate,
+        mainCategory: user.exitDetails.exitReason.mainCategory,
+        subCategory: user.exitDetails.exitReason.subCategory,
+        description: user.exitDetails.exitReasonDescription,
+        verifiedBy: user.exitDetails.verifiedBy,
+        hasProofDocument: !!req.file,
         deactivatedBy: req.user._id,
         deactivatedByName: req.user.name
       },
@@ -984,21 +1073,38 @@ router.put('/:id/set-inactive', authenticateToken, requireAdmin, validateObjectI
 
     await auditRecord.save();
 
+    // Create lifecycle event
+    const LifecycleEvent = require('../models/LifecycleEvent');
+    await LifecycleEvent.createAutoEvent({
+      userId: user._id,
+      type: 'left',
+      title: 'Employee Exit',
+      description: `Exit reason: ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}`,
+      category: 'negative',
+      createdBy: req.user._id
+    });
+
     // Remove password from response
     const userResponse = user.toJSON();
     delete userResponse.password;
 
     res.json({
       success: true,
-      message: 'User set as inactive successfully',
+      message: 'User set as inactive successfully with exit details',
       user: userResponse
     });
 
   } catch (error) {
     console.error('Set user inactive error:', error);
+    // Clean up uploaded file if error occurs
+    if (req.file) {
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.error('Error deleting file:', err);
+      });
+    }
     res.status(500).json({
       error: 'Server Error',
-      message: 'Error setting user as inactive'
+      message: 'Error setting user as inactive: ' + error.message
     });
   }
 });
@@ -1027,7 +1133,8 @@ router.put('/:id/reactivate', authenticateToken, requireAdmin, validateObjectId,
     user.inactiveDate = null;
     user.inactiveBy = null;
 
-    await user.save();
+    // Save without validating unchanged fields (fixes phone validation for old users)
+    await user.save({ validateModifiedOnly: true });
 
     // Create audit record
     const auditRecord = new AuditRecord({
@@ -1042,6 +1149,17 @@ router.put('/:id/reactivate', authenticateToken, requireAdmin, validateObjectId,
     });
 
     await auditRecord.save();
+
+    // Create lifecycle event
+    const LifecycleEvent = require('../models/LifecycleEvent');
+    await LifecycleEvent.createAutoEvent({
+      userId: user._id,
+      type: 'other',
+      title: 'Account Reactivated',
+      description: `Account reactivated by admin: ${req.user.name}`,
+      category: 'positive',
+      createdBy: req.user._id
+    });
 
     // Remove password from response
     const userResponse = user.toJSON();
@@ -1058,6 +1176,342 @@ router.put('/:id/reactivate', authenticateToken, requireAdmin, validateObjectId,
     res.status(500).json({
       error: 'Server Error',
       message: 'Error reactivating user'
+    });
+  }
+});
+
+// @route   GET /api/users/exit-records/export
+// @desc    Export exit records to CSV
+// @access  Private (Admin only)
+router.get('/exit-records/export', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { 
+      mainCategory, 
+      verifiedBy, 
+      startDate, 
+      endDate 
+    } = req.query;
+
+    // Build query
+    let query = { isActive: false, status: 'Inactive', 'exitDetails.exitDate': { $exists: true } };
+
+    // Apply filters
+    if (mainCategory) {
+      query['exitDetails.exitReason.mainCategory'] = mainCategory;
+    }
+
+    if (verifiedBy) {
+      query['exitDetails.verifiedBy'] = verifiedBy;
+    }
+
+    if (startDate || endDate) {
+      query['exitDetails.exitDate'] = {};
+      if (startDate) {
+        query['exitDetails.exitDate'].$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query['exitDetails.exitDate'].$lte = new Date(endDate);
+      }
+    }
+
+    // Get all users with exit records
+    const users = await User.find(query)
+      .select('name email employeeId phone designation department dateOfJoining location city state exitDetails')
+      .populate('inactiveBy', 'name email')
+      .populate('exitDetails.verifiedByUser', 'name email')
+      .sort({ 'exitDetails.exitDate': -1 });
+
+    // Generate CSV
+    const csvHeader = 'Employee ID,Name,Email,Phone,Designation,Department,Location,City,State,Date of Joining,Exit Date,Exit Reason (Main),Exit Reason (Sub),Exit Description,Verified By,Verified By User,Has Proof Document,Remarks\n';
+    
+    const csvRows = users.map(user => {
+      const exitDetails = user.exitDetails || {};
+      const exitReason = exitDetails.exitReason || {};
+      const proofDoc = exitDetails.proofDocument || {};
+      
+      return [
+        user.employeeId || '',
+        `"${user.name || ''}"`,
+        user.email || '',
+        user.phone || '',
+        `"${user.designation || ''}"`,
+        `"${user.department || ''}"`,
+        `"${user.location || ''}"`,
+        `"${user.city || ''}"`,
+        `"${user.state || ''}"`,
+        user.dateOfJoining ? new Date(user.dateOfJoining).toLocaleDateString() : '',
+        exitDetails.exitDate ? new Date(exitDetails.exitDate).toLocaleDateString() : '',
+        `"${exitReason.mainCategory || ''}"`,
+        `"${exitReason.subCategory || ''}"`,
+        `"${(exitDetails.exitReasonDescription || '').replace(/"/g, '""')}"`,
+        exitDetails.verifiedBy || '',
+        exitDetails.verifiedByUser ? `"${exitDetails.verifiedByUser.name || ''}"` : '',
+        proofDoc.fileName ? 'Yes' : 'No',
+        `"${(exitDetails.remarks || '').replace(/"/g, '""')}"`
+      ].join(',');
+    }).join('\n');
+
+    const csv = csvHeader + csvRows;
+
+    // Set response headers for CSV download
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=exit-records-${Date.now()}.csv`);
+    res.send(csv);
+
+  } catch (error) {
+    console.error('Export exit records error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error exporting exit records'
+    });
+  }
+});
+
+// @route   GET /api/users/exit-records
+// @desc    Get all exit records with filters
+// @access  Private (Admin only)
+router.get('/exit-records', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { 
+      mainCategory, 
+      verifiedBy, 
+      search, 
+      startDate, 
+      endDate,
+      page = 1, 
+      limit = 50 
+    } = req.query;
+
+    // Build query
+    let query = { isActive: false, status: 'Inactive', 'exitDetails.exitDate': { $exists: true } };
+
+    // Apply filters
+    if (mainCategory) {
+      query['exitDetails.exitReason.mainCategory'] = mainCategory;
+    }
+
+    if (verifiedBy) {
+      query['exitDetails.verifiedBy'] = verifiedBy;
+    }
+
+    if (startDate || endDate) {
+      query['exitDetails.exitDate'] = {};
+      if (startDate) {
+        query['exitDetails.exitDate'].$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query['exitDetails.exitDate'].$lte = new Date(endDate);
+      }
+    }
+
+    // Apply search
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { employeeId: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Get users with exit records
+    const users = await User.find(query)
+      .select('name email employeeId phone designation department exitDetails inactiveDate inactiveBy')
+      .populate('inactiveBy', 'name email')
+      .populate('exitDetails.verifiedByUser', 'name email')
+      .sort({ 'exitDetails.exitDate': -1 })
+      .skip(skip)
+      .limit(limitNumber);
+
+    // Get total count
+    const total = await User.countDocuments(query);
+
+    res.json({
+      success: true,
+      exitRecords: users,
+      pagination: {
+        page: pageNumber,
+        limit: limitNumber,
+        total,
+        totalPages: Math.ceil(total / limitNumber)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get exit records error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching exit records'
+    });
+  }
+});
+
+// @route   GET /api/users/:id/exit-details
+// @desc    Get specific user exit details with document
+// @access  Private (Admin only)
+router.get('/:id/exit-details', authenticateToken, requireAdmin, validateObjectId, async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    const user = await User.findById(userId)
+      .select('name email employeeId phone designation department exitDetails inactiveDate inactiveBy status isActive')
+      .populate('inactiveBy', 'name email')
+      .populate('exitDetails.verifiedByUser', 'name email');
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'User not found'
+      });
+    }
+
+    if (!user.exitDetails || !user.exitDetails.exitDate) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'No exit details found for this user'
+      });
+    }
+
+    res.json({
+      success: true,
+      exitDetails: user
+    });
+
+  } catch (error) {
+    console.error('Get exit details error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching exit details'
+    });
+  }
+});
+
+// @route   GET /api/users/:id/exit-document
+// @desc    Download exit proof document
+// @access  Private (Admin only)
+router.get('/:id/exit-document', authenticateToken, requireAdmin, validateObjectId, async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    const user = await User.findById(userId).select('exitDetails');
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'User not found'
+      });
+    }
+
+    if (!user.exitDetails || !user.exitDetails.proofDocument || !user.exitDetails.proofDocument.filePath) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'No exit document found for this user'
+      });
+    }
+
+    const filePath = user.exitDetails.proofDocument.filePath;
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Document file not found on server'
+      });
+    }
+
+    // Send file
+    res.download(filePath, user.exitDetails.proofDocument.fileName, (err) => {
+      if (err) {
+        console.error('Error downloading file:', err);
+        if (!res.headersSent) {
+          res.status(500).json({
+            error: 'Server Error',
+            message: 'Error downloading document'
+          });
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Download exit document error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error downloading exit document'
+    });
+  }
+});
+
+// @route   PUT /api/users/:id/exit-details/verify
+// @desc    Update verification status of exit details
+// @access  Private (Admin only)
+router.put('/:id/exit-details/verify', authenticateToken, requireAdmin, validateObjectId, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { verifiedBy, remarks } = req.body;
+
+    if (!verifiedBy || !['HR', 'Compliance'].includes(verifiedBy)) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Valid verification type (HR or Compliance) is required'
+      });
+    }
+
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'User not found'
+      });
+    }
+
+    if (!user.exitDetails || !user.exitDetails.exitDate) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'No exit details found for this user'
+      });
+    }
+
+    // Update verification details
+    user.exitDetails.verifiedBy = verifiedBy;
+    user.exitDetails.verifiedByUser = req.user._id;
+    user.exitDetails.verifiedAt = new Date();
+    if (remarks) {
+      user.exitDetails.remarks = remarks;
+    }
+
+    await user.save({ validateModifiedOnly: true });
+
+    // Create audit record
+    const auditRecord = new AuditRecord({
+      userId: userId,
+      action: 'exit_details_verified',
+      details: {
+        verifiedBy: verifiedBy,
+        verifiedByUser: req.user._id,
+        verifiedByUserName: req.user.name,
+        remarks: remarks
+      },
+      performedBy: req.user._id,
+      performedByName: req.user.name
+    });
+
+    await auditRecord.save();
+
+    res.json({
+      success: true,
+      message: 'Exit details verified successfully',
+      exitDetails: user.exitDetails
+    });
+
+  } catch (error) {
+    console.error('Verify exit details error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error verifying exit details'
     });
   }
 });

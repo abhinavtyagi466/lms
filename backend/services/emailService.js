@@ -480,6 +480,23 @@ const emailTemplates = {
         </div>
       </div>
     `
+  }),
+
+  // Custom template for email templates
+  custom: (data) => ({
+    subject: data.subject || 'Email from E-Learning Platform',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #2c3e50; margin-bottom: 20px;">${data.subject || 'Email Notification'}</h2>
+          <p>Dear ${data.userName},</p>
+          <div style="background-color: #ffffff; padding: 20px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #1976d2;">
+            ${data.customContent || data.content || 'This is a test email from the E-Learning Platform.'}
+          </div>
+          <p>Best regards,<br>E-Learning Platform Team</p>
+        </div>
+      </div>
+    `
   })
 };
 

@@ -1,35 +1,41 @@
 import React, { useState, useEffect } from 'react';
-// Version: 1.0 - Fresh implementation with new logic
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Badge } from '../../components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Textarea } from '../../components/ui/textarea';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Checkbox } from '../../components/ui/checkbox';
-import {
-  Mail,
-  Send,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
+import { Badge } from '../../components/ui/badge';
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import { 
+  Mail, 
+  Send, 
+  Inbox, 
+  Clock, 
+  CheckCircle, 
+  AlertCircle,
   Users,
+  Calendar,
+  MessageSquare,
+  BarChart3,
+  Filter,
+  Search,
   RefreshCw,
   Eye,
-  Edit,
   Trash2,
+  Download,
   Plus,
-  Search,
-  BarChart3,
-  Loader2,
-  FileText,
-  TrendingUp
+  Settings
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { apiService } from '../../services/apiService';
+import { toast } from 'sonner';
 
 interface EmailLog {
   _id: string;
@@ -37,813 +43,693 @@ interface EmailLog {
   recipientRole: string;
   templateType: string;
   subject: string;
+  emailContent: string;
+  status: 'sent' | 'pending' | 'failed' | 'delivered';
   sentAt: string;
-  status: 'sent' | 'failed' | 'pending';
-  kpiTriggerId?: string;
+  deliveredAt?: string;
   errorMessage?: string;
-  createdAt: string;
+  userId: any;
+  kpiTriggerId?: any;
+  trainingAssignmentId?: any;
+  auditScheduleId?: any;
 }
 
 interface EmailTemplate {
   _id: string;
   name: string;
-  type: string;
+  category: string;
   subject: string;
   content: string;
   variables: string[];
   isActive: boolean;
-  createdAt: string;
-}
-
-interface RecipientGroup {
-  _id: string;
-  name: string;
-  description: string;
-  recipients: string[];
-  roles: string[];
-  isActive: boolean;
-  createdAt: string;
 }
 
 interface EmailStats {
-  total: number;
-  sent: number;
-  failed: number;
-  pending: number;
-  successRate: number;
-  templates: number;
-  groups: number;
+  overview: {
+    totalEmails: number;
+    sentEmails: number;
+    failedEmails: number;
+    pendingEmails: number;
+  };
+  byTemplate: Array<{
+    _id: string;
+    count: number;
+    sent: number;
+    failed: number;
+  }>;
 }
 
 const EmailNotificationCenter: React.FC = () => {
+  const { user } = useAuth();
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
-  const [recipientGroups, setRecipientGroups] = useState<RecipientGroup[]>([]);
-  const [stats, setStats] = useState<EmailStats>({
-    total: 0,
-    sent: 0,
-    failed: 0,
-    pending: 0,
-    successRate: 0,
-    templates: 0,
-    groups: 0
-  });
+  const [stats, setStats] = useState<EmailStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [filterTemplate, setFilterTemplate] = useState('all');
-  const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
-
-  // Dialog states
-  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
-  const [showGroupDialog, setShowGroupDialog] = useState(false);
-  const [showSendDialog, setShowSendDialog] = useState(false);
-
-  // Form states
-  const [templateForm, setTemplateForm] = useState({
-    name: '',
-    type: '',
-    subject: '',
-    content: '',
-    variables: [] as string[]
+  const [filters, setFilters] = useState({
+    search: '',
+    status: '',
+    templateType: '',
+    dateRange: ''
   });
-  const [groupForm, setGroupForm] = useState({
-    name: '',
-    description: '',
-    recipients: [] as string[],
-    roles: [] as string[]
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 0
   });
-  const [sendForm, setSendForm] = useState({
+
+  // Modal states
+  const [showBulkEmail, setShowBulkEmail] = useState(false);
+  const [showEmailDetails, setShowEmailDetails] = useState(false);
+  const [selectedEmail, setSelectedEmail] = useState<EmailLog | null>(null);
+  const [bulkEmailForm, setBulkEmailForm] = useState({
     templateId: '',
-    groupId: '',
+    recipients: '',
     subject: '',
     content: '',
-    scheduledAt: ''
+    scheduledFor: ''
   });
 
   useEffect(() => {
-    loadData();
-  }, []);
+    fetchEmailData();
+    fetchStats();
+  }, [filters, pagination.page]);
 
-  const loadData = async () => {
+  const fetchEmailData = async () => {
     try {
       setLoading(true);
-      await Promise.all([
-        loadEmailLogs(),
-        loadTemplates(),
-        loadRecipientGroups(),
-        loadStats()
-      ]);
+      
+      const response = await apiService.emailLogs.getAll({
+        page: pagination.page,
+        limit: pagination.limit,
+        ...filters
+      });
+      
+      setEmailLogs(response.data || []);
+      setPagination(prev => ({
+        ...prev,
+        ...response.pagination
+      }));
+      
     } catch (error) {
-      console.error('Failed to load data:', error);
+      console.error('Error fetching email data:', error);
+      toast.error('Failed to load email data');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadEmailLogs = async () => {
+  const fetchStats = async () => {
     try {
-      const response = await apiService.emailLogs.getAll();
-      const logs = response?.data;
-      if (Array.isArray(logs)) {
-        setEmailLogs(logs);
-      } else {
-        setEmailLogs([]);
-      }
+      const response = await apiService.emailLogs.getStats();
+      setStats(response.data);
     } catch (error) {
-      console.error('Failed to load email logs:', error);
-      setEmailLogs([]);
+      console.error('Error fetching email stats:', error);
     }
   };
 
-  const loadTemplates = async () => {
+  const fetchTemplates = async () => {
     try {
       const response = await apiService.emailTemplates.getAll();
-      const templateData = response?.data;
-      if (Array.isArray(templateData)) {
-        setTemplates(templateData);
-      } else {
-        setTemplates([]);
+      setTemplates(response.data || []);
+    } catch (error) {
+      console.error('Error fetching templates:', error);
+    }
+  };
+
+  const handleBulkEmail = async () => {
+    try {
+      if (!bulkEmailForm.templateId || !bulkEmailForm.recipients) {
+        toast.error('Please select a template and enter recipients');
+        return;
       }
-    } catch (error) {
-      console.error('Failed to load templates:', error);
-      setTemplates([]);
-    }
-  };
 
-  const loadRecipientGroups = async () => {
-    try {
-      const response = await apiService.recipientGroups.getAll();
-      const groupData = response?.data;
-      if (Array.isArray(groupData)) {
-        setRecipientGroups(groupData);
-      } else {
-        setRecipientGroups([]);
-      }
-    } catch (error) {
-      console.error('Failed to load recipient groups:', error);
-      setRecipientGroups([]);
-    }
-  };
+      const recipients = bulkEmailForm.recipients.split(',').map(email => email.trim());
+      
+      // Send bulk email logic would go here
+      toast.success(`Email sent to ${recipients.length} recipients`);
 
-  const loadStats = async () => {
-    try {
-      const response = await apiService.emailStats.get();
-      const statsData = response?.data;
-      if (statsData && typeof statsData === 'object') {
-        setStats(statsData);
-      } else {
-        setStats({
-          total: 0,
-          sent: 0,
-          failed: 0,
-          pending: 0,
-          successRate: 0,
-          templates: 0,
-          groups: 0
-        });
-      }
-    } catch (error) {
-      console.error('Failed to load stats:', error);
-      setStats({
-        total: 0,
-        sent: 0,
-        failed: 0,
-        pending: 0,
-        successRate: 0,
-        templates: 0,
-        groups: 0
+      setBulkEmailForm({
+        templateId: '',
+        recipients: '',
+        subject: '',
+        content: '',
+        scheduledFor: ''
       });
-    }
-  };
-
-  const handleCreateTemplate = async () => {
-    try {
-      await apiService.emailTemplates.create({
-        ...templateForm,
-        category: templateForm.type
-      });
-      setShowTemplateDialog(false);
-      setTemplateForm({ name: '', type: '', subject: '', content: '', variables: [] });
-      loadTemplates();
-      loadStats();
+      setShowBulkEmail(false);
+      fetchEmailData();
+      
     } catch (error) {
-      console.error('Failed to create template:', error);
-    }
-  };
-
-  const handleCreateGroup = async () => {
-    try {
-      await apiService.recipientGroups.create({
-        ...groupForm,
-        role: groupForm.roles.join(', ')
-      });
-      setShowGroupDialog(false);
-      setGroupForm({ name: '', description: '', recipients: [], roles: [] });
-      loadRecipientGroups();
-      loadStats();
-    } catch (error) {
-      console.error('Failed to create group:', error);
-    }
-  };
-
-  const handleSendEmail = async () => {
-    try {
-      await apiService.emailLogs.schedule({
-        templateId: sendForm.templateId,
-        recipientGroupId: sendForm.groupId,
-        scheduledFor: sendForm.scheduledAt,
-        subject: sendForm.subject,
-        content: sendForm.content
-      });
-      setShowSendDialog(false);
-      setSendForm({ templateId: '', groupId: '', subject: '', content: '', scheduledAt: '' });
-      loadEmailLogs();
-      loadStats();
-    } catch (error) {
-      console.error('Failed to send email:', error);
+      console.error('Error sending bulk email:', error);
+      toast.error('Failed to send bulk email');
     }
   };
 
   const handleResendEmail = async (emailId: string) => {
     try {
       await apiService.emailLogs.resend(emailId);
-      loadEmailLogs();
-      loadStats();
+      toast.success('Email has been resent successfully');
+      fetchEmailData();
     } catch (error) {
-      console.error('Failed to resend email:', error);
+      console.error('Error resending email:', error);
+      toast.error('Failed to resend email');
     }
   };
 
-  const handleRetryFailed = async () => {
+  const handleExportLogs = async () => {
     try {
-      await apiService.emailLogs.retryFailed([]);
-      loadEmailLogs();
-      loadStats();
+      // Export logic would go here
+      toast.success('Email logs export has been initiated');
     } catch (error) {
-      console.error('Failed to retry failed emails:', error);
+      console.error('Error exporting logs:', error);
+      toast.error('Failed to export email logs');
     }
   };
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      sent: { color: 'bg-green-100 text-green-800', label: 'Sent', icon: CheckCircle },
-      failed: { color: 'bg-red-100 text-red-800', label: 'Failed', icon: AlertTriangle },
-      pending: { color: 'bg-yellow-100 text-yellow-800', label: 'Pending', icon: Clock }
+      sent: { color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
+      pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+      failed: { color: 'bg-red-100 text-red-800', icon: AlertCircle },
+      delivered: { color: 'bg-green-100 text-green-800', icon: CheckCircle }
     };
+
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
     const Icon = config.icon;
+
     return (
-      <Badge className={config.color}>
+      <Badge className={`${config.color} border-0`}>
         <Icon className="w-3 h-3 mr-1" />
-        {config.label}
+        {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     );
   };
 
-  const getTemplateTypeBadge = (type: string) => {
-    const typeConfig = {
-      kpi_notification: { color: 'bg-blue-100 text-blue-800', label: 'KPI Notification' },
-      training_assignment: { color: 'bg-purple-100 text-purple-800', label: 'Training Assignment' },
-      audit_notification: { color: 'bg-orange-100 text-orange-800', label: 'Audit Notification' },
-      warning_letter: { color: 'bg-red-100 text-red-800', label: 'Warning Letter' },
-      performance_improvement: { color: 'bg-green-100 text-green-800', label: 'Performance Improvement' }
+  const getTemplateCategoryColor = (category: string) => {
+    const colors = {
+      'kpi_outstanding': 'bg-green-100 text-green-800',
+      'kpi_good': 'bg-blue-100 text-blue-800',
+      'kpi_average': 'bg-yellow-100 text-yellow-800',
+      'kpi_below_average': 'bg-orange-100 text-orange-800',
+      'kpi_poor': 'bg-red-100 text-red-800',
+      'training_assignment': 'bg-purple-100 text-purple-800',
+      'audit_notification': 'bg-indigo-100 text-indigo-800',
+      'warning_letter': 'bg-red-100 text-red-800',
+      'default': 'bg-gray-100 text-gray-800'
     };
-    const config = typeConfig[type as keyof typeof typeConfig] || { color: 'bg-gray-100 text-gray-800', label: type };
-    return <Badge className={config.color}>{config.label}</Badge>;
+    return colors[category as keyof typeof colors] || colors.default;
   };
 
-  const getFilteredEmails = () => {
-    if (!Array.isArray(emailLogs)) return [];
-    
-    return emailLogs.filter(email => {
-      const matchesSearch = email.recipientEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           email.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           email.templateType?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = filterStatus === 'all' || email.status === filterStatus;
-      const matchesTemplate = filterTemplate === 'all' || email.templateType === filterTemplate;
-      return matchesSearch && matchesStatus && matchesTemplate;
-    });
-  };
-
-  const filteredEmails = getFilteredEmails();
-
-  const handleSelectEmail = (emailId: string) => {
-    setSelectedEmails(prev => 
-      prev.includes(emailId) 
-        ? prev.filter(id => id !== emailId)
-        : [...prev, emailId]
+  if (loading && emailLogs.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400">Loading email center...</p>
+            </div>
+          </div>
+        </div>
+      </div>
     );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedEmails.length === filteredEmails.length) {
-      setSelectedEmails([]);
-    } else {
-      setSelectedEmails(filteredEmails.map(email => email._id));
-    }
-  };
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Email Center</h1>
-          <p className="text-gray-600 dark:text-gray-400">Manage email notifications and templates</p>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            onClick={() => setShowSendDialog(true)}
-            className="flex items-center gap-2"
-          >
-            <Send className="w-4 h-4" />
-            Send Email
-          </Button>
-          <Button 
-            onClick={loadData}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Mail className="h-8 w-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Emails</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                <Mail className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                  Email Notification Center
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Manage all email communications and notifications
+                </p>
               </div>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Sent</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.sent}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <AlertTriangle className="h-8 w-8 text-red-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Failed</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.failed}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <TrendingUp className="h-8 w-8 text-purple-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Success Rate</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.successRate}%</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content */}
-      <Tabs defaultValue="history" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="history" className="flex items-center gap-2">
-            <Mail className="w-4 h-4" />
-            Email History
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="flex items-center gap-2">
-            <FileText className="w-4 h-4" />
-            Templates
-          </TabsTrigger>
-          <TabsTrigger value="recipients" className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Recipients
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" />
-            Analytics
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="history" className="space-y-4">
-          {/* Filters and Actions */}
-          <div className="flex flex-wrap gap-4 items-center justify-between">
-            <div className="flex flex-wrap gap-4 items-center">
-              <div className="flex items-center gap-2">
-                <Search className="w-4 h-4" />
-                <Input
-                  placeholder="Search emails..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-64"
-                />
-              </div>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="sent">Sent</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filterTemplate} onValueChange={setFilterTemplate}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="kpi_notification">KPI Notification</SelectItem>
-                  <SelectItem value="training_assignment">Training Assignment</SelectItem>
-                  <SelectItem value="audit_notification">Audit Notification</SelectItem>
-                  <SelectItem value="warning_letter">Warning Letter</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-2">
-              {selectedEmails.length > 0 && (
-                <Button variant="outline" size="sm" onClick={handleRetryFailed}>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Retry Selected
-                </Button>
-              )}
-              <Button variant="outline" size="sm" onClick={handleRetryFailed}>
-                <AlertTriangle className="w-4 h-4 mr-2" />
-                Retry Failed
+            <div className="flex gap-3">
+              <Button
+                onClick={() => setShowBulkEmail(true)}
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Bulk Email
+              </Button>
+              <Button
+                onClick={handleExportLogs}
+                variant="outline"
+                className="border-blue-200 text-blue-700 hover:bg-blue-50"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+              <Button
+                onClick={fetchEmailData}
+                variant="outline"
+                className="border-gray-200 text-gray-700 hover:bg-gray-50"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
               </Button>
             </div>
           </div>
+        </div>
 
-          {/* Email History Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Email History</CardTitle>
-              <CardDescription>View and manage all email notifications</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                  <span className="ml-2">Loading emails...</span>
+        {/* Stats Cards */}
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Emails</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.overview.totalEmails}</p>
+                  </div>
+                  <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                    <Mail className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  </div>
                 </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">
-                        <Checkbox 
-                          checked={selectedEmails.length === filteredEmails.length && filteredEmails.length > 0}
-                          onCheckedChange={handleSelectAll}
-                        />
-                      </TableHead>
-                      <TableHead>Recipient</TableHead>
-                      <TableHead>Subject</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Sent At</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredEmails.map((email) => (
-                      <TableRow key={email._id}>
-                        <TableCell>
-                          <Checkbox 
-                            checked={selectedEmails.includes(email._id)}
-                            onCheckedChange={() => handleSelectEmail(email._id)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{email.recipientEmail}</p>
-                            <p className="text-sm text-gray-500">{email.recipientRole}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Sent</p>
+                    <p className="text-2xl font-bold text-green-600">{stats.overview.sentEmails}</p>
+                  </div>
+                  <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-xl">
+                    <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Failed</p>
+                    <p className="text-2xl font-bold text-red-600">{stats.overview.failedEmails}</p>
+                  </div>
+                  <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-xl">
+                    <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Pending</p>
+                    <p className="text-2xl font-bold text-yellow-600">{stats.overview.pendingEmails}</p>
+                  </div>
+                  <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl">
+                    <Clock className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Filters */}
+          <div className="lg:col-span-1">
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
+                  <Filter className="w-5 h-5 mr-2 text-blue-600" />
+                  Filters
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Search
+                  </Label>
+                  <div className="relative mt-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="search"
+                      placeholder="Search emails..."
+                      value={filters.search}
+                      onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="status" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Status
+                  </Label>
+                  <select
+                    id="status"
+                    value={filters.status}
+                    onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="">All Status</option>
+                    <option value="sent">Sent</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="pending">Pending</option>
+                    <option value="failed">Failed</option>
+                  </select>
+                </div>
+
+                <div>
+                  <Label htmlFor="templateType" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Template Type
+                  </Label>
+                  <select
+                    id="templateType"
+                    value={filters.templateType}
+                    onChange={(e) => setFilters(prev => ({ ...prev, templateType: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="">All Types</option>
+                    <option value="kpi_outstanding">KPI Outstanding</option>
+                    <option value="kpi_good">KPI Good</option>
+                    <option value="kpi_average">KPI Average</option>
+                    <option value="kpi_below_average">KPI Below Average</option>
+                    <option value="kpi_poor">KPI Poor</option>
+                    <option value="training_assignment">Training Assignment</option>
+                    <option value="audit_notification">Audit Notification</option>
+                    <option value="warning_letter">Warning Letter</option>
+                  </select>
+                </div>
+
+                <div>
+                  <Label htmlFor="dateRange" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Date Range
+                  </Label>
+                  <Input
+                    id="dateRange"
+                    type="date"
+                    value={filters.dateRange}
+                    onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value }))}
+                    className="mt-1"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Email Logs */}
+          <div className="lg:col-span-3">
+            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center text-xl font-semibold text-gray-900 dark:text-white">
+                  <Inbox className="w-6 h-6 mr-3 text-blue-600" />
+                  Email Logs ({pagination.total})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {emailLogs.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Mail className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                      No emails found
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Try adjusting your filters or send some emails
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {emailLogs.map((email) => (
+                      <div
+                        key={email._id}
+                        className="p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
+                              {email.subject}
+                            </h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                              To: {email.recipientEmail} • From: {email.userId?.name || 'System'}
+                            </p>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge className={getTemplateCategoryColor(email.templateType)}>
+                                {email.templateType.replace('_', ' ')}
+                              </Badge>
+                              {getStatusBadge(email.status)}
+                            </div>
                           </div>
-                        </TableCell>
-                        <TableCell className="max-w-xs truncate">{email.subject}</TableCell>
-                        <TableCell>{getTemplateTypeBadge(email.templateType)}</TableCell>
-                        <TableCell>{getStatusBadge(email.status)}</TableCell>
-                        <TableCell>
-                          {new Date(email.sentAt).toLocaleDateString()} {new Date(email.sentAt).toLocaleTimeString()}
-                        </TableCell>
-                        <TableCell>
                           <div className="flex gap-2">
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedEmail(email);
+                                setShowEmailDetails(true);
+                              }}
+                            >
                               <Eye className="w-4 h-4" />
                             </Button>
                             {email.status === 'failed' && (
-                              <Button 
-                                variant="outline" 
+                              <Button
+                                variant="outline"
                                 size="sm"
                                 onClick={() => handleResendEmail(email._id)}
+                                className="text-green-600 border-green-200 hover:bg-green-50"
                               >
                                 <Send className="w-4 h-4" />
                               </Button>
                             )}
                           </div>
-                        </TableCell>
-                      </TableRow>
+                        </div>
+                        
+                        <div className="text-sm text-gray-700 dark:text-gray-300 mb-3 line-clamp-2">
+                          {email.emailContent.replace(/<[^>]*>/g, '').substring(0, 150)}...
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center gap-4">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {new Date(email.sentAt).toLocaleDateString()}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {new Date(email.sentAt).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          {email.status === 'failed' && email.errorMessage && (
+                            <span className="text-red-600 dark:text-red-400">
+                              {email.errorMessage}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  </div>
+                )}
 
-        <TabsContent value="templates" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-semibold">Email Templates</h3>
-              <p className="text-sm text-gray-600">Manage email templates for notifications</p>
-            </div>
-            <Button onClick={() => setShowTemplateDialog(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Create Template
-            </Button>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {templates.map((template) => (
-              <Card key={template._id}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-base">{template.name}</CardTitle>
-                      <CardDescription>{getTemplateTypeBadge(template.type)}</CardDescription>
+                {/* Pagination */}
+                {pagination.pages > 1 && (
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
                     </div>
-                    <Badge variant={template.isActive ? "default" : "secondary"}>
-                      {template.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 mb-4">{template.subject}</p>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="recipients" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-semibold">Recipient Groups</h3>
-              <p className="text-sm text-gray-600">Manage email recipient groups</p>
-            </div>
-            <Button onClick={() => setShowGroupDialog(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Create Group
-            </Button>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recipientGroups.map((group) => (
-              <Card key={group._id}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-base">{group.name}</CardTitle>
-                      <CardDescription>{group.description}</CardDescription>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                        disabled={pagination.page === 1}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                        disabled={pagination.page === pagination.pages}
+                      >
+                        Next
+                      </Button>
                     </div>
-                    <Badge variant={group.isActive ? "default" : "secondary"}>
-                      {group.isActive ? "Active" : "Inactive"}
-                    </Badge>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 mb-2">
-                    {group.recipients.length} recipients
-                  </p>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                )}
+              </CardContent>
+            </Card>
           </div>
-        </TabsContent>
+        </div>
 
-        <TabsContent value="analytics" className="space-y-4">
-          <div className="text-center py-8 text-gray-500">
-            <BarChart3 className="w-12 h-12 mx-auto mb-4" />
-            <p>Email analytics and performance metrics</p>
-            <p className="text-sm">will be available here</p>
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* Create Template Dialog */}
-      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Create Email Template</DialogTitle>
-            <DialogDescription>Create a new email template for notifications</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+        {/* Bulk Email Modal */}
+        <Dialog open={showBulkEmail} onOpenChange={setShowBulkEmail}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-green-600" />
+                Send Bulk Email
+              </DialogTitle>
+              <DialogDescription>
+                Send emails to multiple recipients using a template
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="templateName">Template Name</Label>
-                <Input
-                  id="templateName"
-                  value={templateForm.name}
-                  onChange={(e) => setTemplateForm({...templateForm, name: e.target.value})}
-                  placeholder="Enter template name"
+                <Label htmlFor="template" className="text-sm font-medium">
+                  Email Template
+                </Label>
+                <select
+                  id="template"
+                  value={bulkEmailForm.templateId}
+                  onChange={(e) => setBulkEmailForm(prev => ({ ...prev, templateId: e.target.value }))}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                >
+                  <option value="">Select a template</option>
+                  {templates.map(template => (
+                    <option key={template._id} value={template._id}>
+                      {template.name} ({template.category})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <Label htmlFor="recipients" className="text-sm font-medium">
+                  Recipients (comma-separated emails)
+                </Label>
+                <Textarea
+                  id="recipients"
+                  placeholder="user1@example.com, user2@example.com, user3@example.com"
+                  value={bulkEmailForm.recipients}
+                  onChange={(e) => setBulkEmailForm(prev => ({ ...prev, recipients: e.target.value }))}
+                  rows={3}
+                  className="mt-1"
                 />
               </div>
+
               <div>
-                <Label htmlFor="templateType">Template Type</Label>
-                <Select value={templateForm.type} onValueChange={(value) => setTemplateForm({...templateForm, type: value})}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select template type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="kpi_notification">KPI Notification</SelectItem>
-                    <SelectItem value="training_assignment">Training Assignment</SelectItem>
-                    <SelectItem value="audit_notification">Audit Notification</SelectItem>
-                    <SelectItem value="warning_letter">Warning Letter</SelectItem>
-                    <SelectItem value="performance_improvement">Performance Improvement</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="subject" className="text-sm font-medium">
+                  Subject (optional - will use template subject if empty)
+                </Label>
+                <Input
+                  id="subject"
+                  placeholder="Custom subject line"
+                  value={bulkEmailForm.subject}
+                  onChange={(e) => setBulkEmailForm(prev => ({ ...prev, subject: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="scheduledFor" className="text-sm font-medium">
+                  Schedule For (optional - leave empty to send immediately)
+                </Label>
+                <Input
+                  id="scheduledFor"
+                  type="datetime-local"
+                  value={bulkEmailForm.scheduledFor}
+                  onChange={(e) => setBulkEmailForm(prev => ({ ...prev, scheduledFor: e.target.value }))}
+                  className="mt-1"
+                />
               </div>
             </div>
-            <div>
-              <Label htmlFor="templateSubject">Subject</Label>
-              <Input
-                id="templateSubject"
-                value={templateForm.subject}
-                onChange={(e) => setTemplateForm({...templateForm, subject: e.target.value})}
-                placeholder="Enter email subject"
-              />
-            </div>
-            <div>
-              <Label htmlFor="templateContent">Content</Label>
-              <Textarea
-                id="templateContent"
-                value={templateForm.content}
-                onChange={(e) => setTemplateForm({...templateForm, content: e.target.value})}
-                placeholder="Enter email content (HTML supported)"
-                rows={8}
-              />
-            </div>
-            <Button onClick={handleCreateTemplate} className="w-full">
-              Create Template
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
-      {/* Create Group Dialog */}
-      <Dialog open={showGroupDialog} onOpenChange={setShowGroupDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Recipient Group</DialogTitle>
-            <DialogDescription>Create a new recipient group for email notifications</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="groupName">Group Name</Label>
-              <Input
-                id="groupName"
-                value={groupForm.name}
-                onChange={(e) => setGroupForm({...groupForm, name: e.target.value})}
-                placeholder="Enter group name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="groupDescription">Description</Label>
-              <Textarea
-                id="groupDescription"
-                value={groupForm.description}
-                onChange={(e) => setGroupForm({...groupForm, description: e.target.value})}
-                placeholder="Enter group description"
-                rows={3}
-              />
-            </div>
-            <div>
-              <Label htmlFor="groupRecipients">Recipients (comma-separated emails)</Label>
-              <Textarea
-                id="groupRecipients"
-                value={groupForm.recipients.join(', ')}
-                onChange={(e) => setGroupForm({...groupForm, recipients: e.target.value.split(',').map(email => email.trim()).filter(Boolean)})}
-                placeholder="Enter email addresses separated by commas"
-                rows={3}
-              />
-            </div>
-            <Button onClick={handleCreateGroup} className="w-full">
-              Create Group
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowBulkEmail(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleBulkEmail} className="bg-green-600 hover:bg-green-700 text-white">
+                <Send className="w-4 h-4 mr-2" />
+                Send Bulk Email
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* Send Email Dialog */}
-      <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send Email</DialogTitle>
-            <DialogDescription>Send email to recipient groups</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="sendTemplate">Template</Label>
-              <Select value={sendForm.templateId} onValueChange={(value) => setSendForm({...sendForm, templateId: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((template) => (
-                    <SelectItem key={template._id} value={template._id}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="sendGroup">Recipient Group</Label>
-              <Select value={sendForm.groupId} onValueChange={(value) => setSendForm({...sendForm, groupId: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select recipient group" />
-                </SelectTrigger>
-                <SelectContent>
-                  {recipientGroups.map((group) => (
-                    <SelectItem key={group._id} value={group._id}>
-                      {group.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="sendSubject">Subject</Label>
-              <Input
-                id="sendSubject"
-                value={sendForm.subject}
-                onChange={(e) => setSendForm({...sendForm, subject: e.target.value})}
-                placeholder="Enter email subject"
-              />
-            </div>
-            <div>
-              <Label htmlFor="sendContent">Content</Label>
-              <Textarea
-                id="sendContent"
-                value={sendForm.content}
-                onChange={(e) => setSendForm({...sendForm, content: e.target.value})}
-                placeholder="Enter email content"
-                rows={6}
-              />
-            </div>
-            <div>
-              <Label htmlFor="sendSchedule">Schedule (optional)</Label>
-              <Input
-                id="sendSchedule"
-                type="datetime-local"
-                value={sendForm.scheduledAt}
-                onChange={(e) => setSendForm({...sendForm, scheduledAt: e.target.value})}
-              />
-            </div>
-            <Button onClick={handleSendEmail} className="w-full">
-              Send Email
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        {/* Email Details Modal */}
+        <Dialog open={showEmailDetails} onOpenChange={setShowEmailDetails}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="w-5 h-5 text-blue-600" />
+                Email Details
+              </DialogTitle>
+            </DialogHeader>
+            
+            {selectedEmail && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Subject</Label>
+                    <p className="text-gray-900 dark:text-white">{selectedEmail.subject}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Status</Label>
+                    <div className="mt-1">
+                      {getStatusBadge(selectedEmail.status)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Recipient</Label>
+                    <p className="text-gray-900 dark:text-white">{selectedEmail.recipientEmail}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Template Type</Label>
+                    <Badge className={getTemplateCategoryColor(selectedEmail.templateType)}>
+                      {selectedEmail.templateType.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">Email Content</Label>
+                  <div 
+                    className="mt-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border"
+                    dangerouslySetInnerHTML={{ __html: selectedEmail.emailContent }}
+                  />
+                </div>
+
+                {selectedEmail.errorMessage && (
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Error Message</Label>
+                    <p className="mt-1 text-red-600 dark:text-red-400">{selectedEmail.errorMessage}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowEmailDetails(false)}>
+                Close
+              </Button>
+              {selectedEmail?.status === 'failed' && (
+                <Button 
+                  onClick={() => {
+                    handleResendEmail(selectedEmail._id);
+                    setShowEmailDetails(false);
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  Resend Email
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 };

@@ -622,13 +622,12 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
         </div>
         <div className="flex gap-2">
           <Button 
-            variant="outline"
             onClick={async () => {
               console.log('Manual refresh triggered...');
               await fetchQuizzes();
               await fetchModules();
             }}
-            className="text-sm"
+            className="text-sm bg-blue-600 hover:bg-blue-700 text-white"
           >
             Refresh Data
           </Button>
@@ -798,10 +797,10 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                       {/* Quiz Status and Info */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Badge variant={moduleQuiz.isActive ? 'default' : 'secondary'}>
+                          <Badge variant={moduleQuiz.isActive ? 'default' : 'secondary'} className={moduleQuiz.isActive ? 'bg-green-600 text-white' : 'bg-gray-500 text-white'}>
                             {moduleQuiz.isActive ? 'Active' : 'Inactive'}
                           </Badge>
-                          <span className="text-sm text-gray-600">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
                             {moduleQuiz.questions.length} questions
                           </span>
                           <span className="text-sm text-gray-500">
@@ -833,7 +832,7 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                             variant="outline"
                             onClick={() => handleToggleQuizStatus(module._id, !moduleQuiz.isActive)}
                             className={`text-xs h-6 px-2 ${
-                              moduleQuiz.isActive ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'
+                              moduleQuiz.isActive ? 'text-orange-600 hover:text-orange-700 border-orange-300 hover:bg-orange-50' : 'text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50'
                             }`}
                           >
                             {moduleQuiz.isActive ? 'Deactivate' : 'Activate'}
@@ -1096,7 +1095,7 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                   
                   <Button 
                     onClick={addQuestion} 
-                    className="w-full"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                     disabled={!currentQuestion.question.trim() || currentQuestion.options.filter(opt => opt.trim()).length < 2}
                   >
                     Add Question
@@ -1171,7 +1170,7 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
             <div className="flex gap-3 mt-6">
               <Button
                 onClick={handleCreateQuiz}
-                className="flex-1"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                 disabled={createQuizData.questions.length === 0 || !createQuizData.moduleId || isCreatingQuiz}
               >
                 {isCreatingQuiz ? (

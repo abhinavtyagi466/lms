@@ -23,10 +23,13 @@ import { Toaster } from './components/ui/sonner';
 const UserLogin = lazy(() => import('./pages/user/UserLogin').then(module => ({ default: module.UserLogin })));
 const UserRegister = lazy(() => import('./pages/user/UserRegister').then(module => ({ default: module.UserRegister })));
 const UserDashboard = lazy(() => import('./pages/user/UserDashboard').then(module => ({ default: module.UserDashboard })));
+const UserProfilePage = lazy(() => import('./pages/user/UserProfilePage').then(module => ({ default: module.UserProfilePage })));
 const TrainingModule = lazy(() => import('./pages/user/TrainingModule').then(module => ({ default: module.TrainingModule })));
 const ModulesPage = lazy(() => import('./pages/user/ModulesPage').then(module => ({ default: module.ModulesPage })));
 const NotificationsPage = lazy(() => import('./pages/user/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 const QuizPage = lazy(() => import('./pages/user/QuizPage').then(module => ({ default: module.QuizPage })));
+// TEMPORARILY HIDDEN: Email Center for User
+// const UserEmailCenter = lazy(() => import('./pages/user/UserEmailCenter').then(module => ({ default: module.default })));
 
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin').then(module => ({ default: module.AdminLogin })));
 const AdminDashboardEnhanced = lazy(() => import('./pages/admin/AdminDashboardEnhanced').then(module => ({ default: module.AdminDashboardEnhanced })));
@@ -42,15 +45,19 @@ const UserDetailsPage = lazy(() => import('./pages/admin/UserDetailsPage').then(
 const KPIScoresPage = lazy(() => import('./pages/admin/KPIScoresPage').then(module => ({ default: module.KPIScoresPage })));
 const UserKPIScoresPage = lazy(() => import('./pages/user/KPIScoresPage').then(module => ({ default: module.KPIScoresPage })));
 const EmailTemplatesPage = lazy(() => import('./pages/admin/EmailTemplatesPage').then(module => ({ default: module.EmailTemplatesPage })));
-const EmailTestingPage = lazy(() => import('./pages/admin/EmailTestingPage').then(module => ({ default: module.EmailTestingPage })));
+// TEMPORARILY HIDDEN: Email Center and Recipient Groups
+// const EmailNotificationCenter = lazy(() => import('./pages/admin/EmailNotificationCenter').then(module => ({ default: module.default })));
+// const RecipientGroupsPage = lazy(() => import('./pages/admin/RecipientGroupsPage').then(module => ({ default: module.default })));
 const KPIConfigurationPage = lazy(() => import('./pages/admin/KPIConfigurationPage').then(module => ({ default: module.KPIConfigurationPage })));
+const ScoreReportsPage = lazy(() => import('./pages/admin/ScoreReportsPage').then(module => ({ default: module.ScoreReportsPage })));
+const ExitRecordsPage = lazy(() => import('./pages/admin/ExitRecordsPage').then(module => ({ default: module.ExitRecordsPage })));
 // Temporarily commented out unused components
-// const EmailNotificationCenter = lazy(() => import('./pages/admin/EmailNotificationCenter'));
 // const AuditManager = lazy(() => import('./pages/admin/AuditSchedulerDashboardV2'));
 
 // Navigation items
 const userSidebarItems = [
   { key: 'user-dashboard', label: 'Dashboard', icon: Home },
+  { key: 'user-profile', label: 'My Profile', icon: Users },
   { key: 'modules', label: 'Modules', icon: BookOpen },
   // { key: 'quizzes', label: 'Quizzes', icon: FileQuestion },
   { key: 'notifications', label: 'Notifications', icon: Bell },
@@ -60,14 +67,17 @@ const userSidebarItems = [
 const adminSidebarItems = [
   { key: 'admin-dashboard', label: 'Dashboard', icon: Home },
   { key: 'user-management', label: 'User Management', icon: Users },
+  { key: 'exit-records', label: 'Exit Records', icon: FileText },
   { key: 'module-management', label: 'Module Management', icon: BookOpen },
+  { key: 'score-reports', label: 'Score Reports', icon: BarChart3 },
   { key: 'kpi-triggers', label: 'KPI Triggers', icon: BarChart3 },
   { key: 'kpi-configuration', label: 'KPI Configuration', icon: BarChart3 },
   { key: 'email-templates', label: 'Emails', icon: Mail },
-  { key: 'email-testing', label: 'Email Testing', icon: Mail },
+  // TEMPORARILY HIDDEN: Email Center and Recipient Groups
+  // { key: 'email-center', label: 'Email Center', icon: Mail },
+  // { key: 'recipient-groups', label: 'Recipient Groups', icon: Users },
   // { key: 'audit-scheduler', label: 'Audit Scheduler', icon: Calendar }, // TEMPORARILY HIDDEN
-  // { key: 'email-center', label: 'Email Center', icon: Mail }, // TEMPORARILY HIDDEN
-  { key: 'warnings-audit', label: 'Audit / Warnings', icon: FileText },
+  { key: 'warnings-audit', label: 'Audit Management', icon: FileText },
   { key: 'awards', label: 'Awards / Recognition', icon: Award },
   // { key: 'lifecycle', label: 'Lifecycle Dashboard', icon: Clock },
   // { key: 'mail-preview', label: 'Mail Preview', icon: Mail },
@@ -196,23 +206,29 @@ const AppContent: React.FC = () => {
         case 'user-login': return <UserLogin />;
         case 'user-register': return <UserRegister />;
         case 'user-dashboard': return <UserDashboard />;
+        case 'user-profile': return <UserProfilePage />;
         case 'modules': return <ModulesPage />;
         case 'training-module': return <TrainingModule />;
         case 'quiz': return <QuizPage />;
         case 'quizzes': return <QuizPage />;
         case 'notifications': return <NotificationsPage />;
         case 'kpi-scores': return <UserKPIScoresPage />;
+        // TEMPORARILY HIDDEN: User Email Center
+        // case 'user-emails': return <UserEmailCenter />;
                case 'admin-login': return <AdminLogin />;
                case 'admin-dashboard': return <AdminDashboardEnhanced />;
                case 'user-management': return <UserManagement />;
+               case 'exit-records': return <ExitRecordsPage />;
                case 'user-lifecycle': return <UserLifecycle />;
                case 'module-management': return <ModuleManagement />;
+               case 'score-reports': return <ScoreReportsPage />;
                case 'kpi-triggers': return <KPITriggerDashboard />;
                case 'kpi-configuration': return <KPIConfigurationPage />;
         case 'email-templates': return <EmailTemplatesPage />;
-        case 'email-testing': return <EmailTestingPage />;
+        // TEMPORARILY HIDDEN: Email Center and Recipient Groups
+        // case 'email-center': return <EmailNotificationCenter />;
+        // case 'recipient-groups': return <RecipientGroupsPage />;
         // case 'audit-scheduler': return <AuditManager />; // TEMPORARILY HIDDEN
-        // case 'email-center': return <EmailNotificationCenter />; // TEMPORARILY HIDDEN
         case 'warnings-audit': return <WarningAuditRecord />;
         case 'awards': return <AwardsRecognition />;
         case 'lifecycle': return <LifecycleDashboard />;
@@ -222,15 +238,15 @@ const AppContent: React.FC = () => {
     };
 
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300">
+      <div className="h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300">
 
         {user ? (
-          <div className="flex">
+          <div className="flex h-full">
             <Sidebar 
               items={userType === 'user' ? userSidebarItems : adminSidebarItems}
               onItemClick={handleNavigation}
             />
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 h-full overflow-y-auto scroll-smooth">
               <Suspense fallback={<LoadingSpinner size="lg" fullScreen={false} text="Loading page..." />}>
                 {renderPage()}
               </Suspense>

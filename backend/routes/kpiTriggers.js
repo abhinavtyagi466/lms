@@ -229,17 +229,19 @@ router.post('/preview', authenticateToken, requireAdmin, (req, res) => {
           ? await User.findOne({ $or: matchQuery }).select('_id name email employeeId department')
           : null;
 
-        // Calculate KPI
-        const kpiScore = kpiTriggerService.calculateKPIScore(row);
+        // Calculate KPI (now async)
+        const kpiScore = await kpiTriggerService.calculateKPIScore(row);
         const rating = kpiTriggerService.getRating(kpiScore);
         
-        // Get all triggers (score-based + condition-based)
-        const scoreTriggers = kpiTriggerService.getScoreBasedTriggers(kpiScore);
-        const conditionTriggers = kpiTriggerService.getConditionBasedTriggers(kpiScore, row);
+        // Get all triggers (score-based + condition-based, now async)
+        const scoreTriggers = await kpiTriggerService.getScoreBasedTriggers(kpiScore);
+        const conditionTriggers = await kpiTriggerService.getConditionBasedTriggers(kpiScore, row);
         const allTriggers = [...scoreTriggers, ...conditionTriggers];
         
         previewResults.push({
           fe: feName,
+          employeeId: matchedUser?.employeeId || feEmployeeId || 'Not found',
+          email: matchedUser?.email || feEmail || 'Not found',
           matched: !!matchedUser,
           user: matchedUser ? {
             id: matchedUser._id,

@@ -275,6 +275,8 @@ const quizAttemptRoutes = require('./routes/quizAttempts');
 const userActivityRoutes = require('./routes/userActivity');
 const kpiTriggerRoutes = require('./routes/kpiTriggers');
 const emailTemplateRoutes = require('./routes/emailTemplates');
+const emailLogRoutes = require('./routes/emailLogs');
+const recipientGroupRoutes = require('./routes/recipientGroups');
 const autoKPIScheduler = require('./services/autoKPIScheduler');
 
 // Apply caching to read-only endpoints
@@ -303,6 +305,8 @@ app.use('/api/quiz-attempts', quizAttemptRoutes);
 app.use('/api/user-activity', userActivityRoutes);
 app.use('/api/kpi-triggers', kpiTriggerRoutes);
 app.use('/api/email-templates', emailTemplateRoutes);
+app.use('/api/email-logs', emailLogRoutes);
+app.use('/api/recipient-groups', recipientGroupRoutes);
 app.use('/api/kpi-configuration', require('./routes/kpiConfiguration'));
 
 // Health check endpoint

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Plus, FileText, Download } from 'lucide-react';
+import { Plus, FileText, Download } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -50,7 +50,7 @@ export const WarningAuditRecord: React.FC = () => {
       fd.append('description', form.description);
       fd.append('pdfFile', form.pdfFile);
       await apiService.audits.sendNotice(fd);
-      toast.success('Notice sent');
+      toast.success('Audit notice sent successfully');
       setForm({ userId: '', title: '', description: '', pdfFile: null });
       await fetchData();
     } catch (e: any) {
@@ -65,14 +65,14 @@ export const WarningAuditRecord: React.FC = () => {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Audit & Warning Records</h1>
-          <p className="text-gray-600">Manage disciplinary actions and audit records</p>
+          <h1 className="text-2xl font-semibold">Audit Management</h1>
+          <p className="text-gray-600">Manage audit notices and compliance records</p>
         </div>
         <div className="text-sm text-gray-500">{loading ? 'Loading...' : ''}</div>
       </div>
 
       <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">Send Notice</h2>
+        <h2 className="text-lg font-semibold mb-4">Send Audit Notice</h2>
         <form className="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={onSubmit}>
           <div className="col-span-1">
             <label className="text-sm text-gray-600">User</label>
@@ -116,9 +116,9 @@ export const WarningAuditRecord: React.FC = () => {
             />
           </div>
           <div className="col-span-1 flex items-end justify-end">
-            <Button disabled={!canSubmit || submitting} className="bg-red-600 hover:bg-red-700">
+            <Button disabled={!canSubmit || submitting} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" />
-              {submitting ? 'Sending...' : 'Send Notice'}
+              {submitting ? 'Sending...' : 'Send Audit Notice'}
             </Button>
           </div>
         </form>

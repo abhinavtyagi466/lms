@@ -373,7 +373,7 @@ export const KPITriggerDashboard: React.FC = () => {
                 onClick={handlePreview}
                 disabled={!selectedFile || previewLoading}
                 variant="outline"
-                className="w-full"
+                className="w-full text-gray-900 dark:text-gray-100 border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500"
               >
                 {previewLoading ? (
                   <>
@@ -391,7 +391,7 @@ export const KPITriggerDashboard: React.FC = () => {
               <Button
                 onClick={handleUpload}
                 disabled={!selectedFile || !period || uploading}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white dark:text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {uploading ? (
                   <>

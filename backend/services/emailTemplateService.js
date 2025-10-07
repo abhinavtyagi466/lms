@@ -75,13 +75,27 @@ class EmailTemplateService {
       const results = [];
       for (const recipient of recipients) {
         try {
-          // For now, just log to console (will add actual mailer later)
-          console.log(`\n${'='.repeat(80)}`);
-          console.log(`📧 EMAIL TO: ${recipient.email} (${recipient.role})`);
-          console.log(`📋 SUBJECT: ${rendered.subject}`);
-          console.log(`${'-'.repeat(80)}`);
-          console.log(rendered.content);
-          console.log(`${'='.repeat(80)}\n`);
+          // Send actual email using SMTP
+          const emailService = require('./emailService');
+          const emailResult = await emailService.sendEmail(
+            [recipient.email], 
+            'custom', 
+            {
+              subject: rendered.subject,
+              content: rendered.content,
+              userName: variables.userName || 'User',
+              customContent: rendered.content
+            },
+            {
+              recipientEmail: recipient.email,
+              recipientRole: recipient.role,
+              templateType: templateType,
+              userId: userId,
+              kpiTriggerId: kpiTriggerId,
+              trainingAssignmentId: trainingAssignmentId,
+              auditScheduleId: auditScheduleId
+            }
+          );
 
           // Log email activity
           const emailLog = await EmailLog.create({
@@ -90,13 +104,13 @@ class EmailTemplateService {
             templateType: templateType,
             subject: rendered.subject,
             emailContent: rendered.content,
-            status: 'sent', // Change to 'pending' when actual mailer is added
+            status: 'sent',
             userId: userId,
             kpiTriggerId: kpiTriggerId,
             trainingAssignmentId: trainingAssignmentId,
             auditScheduleId: auditScheduleId,
             sentAt: new Date(),
-            deliveredAt: new Date() // Change to null when actual mailer is added
+            deliveredAt: new Date()
           });
 
           results.push({

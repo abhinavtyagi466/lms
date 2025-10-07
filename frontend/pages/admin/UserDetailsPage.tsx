@@ -646,30 +646,107 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                   </div>
                 </Card>
 
-                {/* Inactive Information */}
+                {/* Exit Management Information */}
                 {!user.isActive && (
                   <Card className="p-4 border-red-200 bg-red-50">
                     <div className="flex items-center gap-2 mb-4">
                       <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
                         <AlertTriangle className="w-4 h-4 text-red-600" />
                       </div>
-                      <h3 className="text-lg font-semibold text-red-800">Inactive Account Details</h3>
+                      <h3 className="text-lg font-semibold text-red-800">Exit Information</h3>
                     </div>
                     <div className="space-y-3">
-                      <div>
-                        <span className="text-sm text-gray-600">Reason:</span>
-                        <div className="font-medium text-red-800">{user.inactiveReason || 'N/A'}</div>
-                      </div>
-                      <div>
-                        <span className="text-sm text-gray-600">Remark:</span>
-                        <div className="font-medium text-red-800">{user.inactiveRemark || 'N/A'}</div>
-                      </div>
-                      <div>
-                        <span className="text-sm text-gray-600">Inactive Date:</span>
-                        <div className="font-medium text-red-800">
-                          {user.inactiveDate ? formatDate(user.inactiveDate) : 'N/A'}
+                      {user.exitDetails?.exitDate && (
+                        <div>
+                          <span className="text-sm text-gray-600">Exit Date:</span>
+                          <div className="font-medium text-red-800">
+                            {formatDate(user.exitDetails.exitDate)}
+                          </div>
                         </div>
-                      </div>
+                      )}
+                      {user.exitDetails?.exitReason && (
+                        <div>
+                          <span className="text-sm text-gray-600">Exit Reason:</span>
+                          <div className="font-medium text-red-800">
+                            {user.exitDetails.exitReason.mainCategory}
+                            {user.exitDetails.exitReason.subCategory && 
+                              ` - ${user.exitDetails.exitReason.subCategory}`
+                            }
+                          </div>
+                        </div>
+                      )}
+                      {user.exitDetails?.exitReasonDescription && (
+                        <div>
+                          <span className="text-sm text-gray-600">Description:</span>
+                          <div className="font-medium text-red-800">
+                            {user.exitDetails.exitReasonDescription}
+                          </div>
+                        </div>
+                      )}
+                      {user.exitDetails?.proofDocument && (
+                        <div>
+                          <span className="text-sm text-gray-600">Proof Document:</span>
+                          <div className="mt-1">
+                            <button
+                              onClick={() => {
+                                apiService.users.downloadExitDocument(userId);
+                                toast.success('Downloading exit document...');
+                              }}
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-red-300 rounded-md text-sm text-red-700 hover:bg-red-50 transition-colors"
+                            >
+                              <FileQuestion className="w-4 h-4" />
+                              {user.exitDetails.proofDocument.fileName || 'Download Document'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {user.exitDetails?.verifiedBy && (
+                        <div>
+                          <span className="text-sm text-gray-600">Verification Status:</span>
+                          <div className="mt-1">
+                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                              user.exitDetails.verifiedBy === 'HR' ? 'bg-green-100 text-green-800' :
+                              user.exitDetails.verifiedBy === 'Compliance' ? 'bg-blue-100 text-blue-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {user.exitDetails.verifiedBy}
+                            </span>
+                            {user.exitDetails.verifiedByUser && (
+                              <span className="ml-2 text-xs text-gray-600">
+                                by {user.exitDetails.verifiedByUser.name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {user.exitDetails?.remarks && (
+                        <div>
+                          <span className="text-sm text-gray-600">Remarks:</span>
+                          <div className="font-medium text-red-800">
+                            {user.exitDetails.remarks}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Fallback to old fields if exit details don't exist */}
+                      {!user.exitDetails && (
+                        <>
+                          <div>
+                            <span className="text-sm text-gray-600">Reason:</span>
+                            <div className="font-medium text-red-800">{user.inactiveReason || 'N/A'}</div>
+                          </div>
+                          <div>
+                            <span className="text-sm text-gray-600">Remark:</span>
+                            <div className="font-medium text-red-800">{user.inactiveRemark || 'N/A'}</div>
+                          </div>
+                          <div>
+                            <span className="text-sm text-gray-600">Inactive Date:</span>
+                            <div className="font-medium text-red-800">
+                              {user.inactiveDate ? formatDate(user.inactiveDate) : 'N/A'}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </Card>
                 )}

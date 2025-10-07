@@ -188,11 +188,12 @@ router.post('/:id/preview', authenticateToken, requireAdmin, async (req, res) =>
   }
 });
 
-// Send test email
-router.post('/:id/test', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const { testEmail, sampleData } = req.body;
 
+// Send test email
+router.post('/:id/send-test', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { testEmail } = req.body;
+    
     if (!testEmail) {
       return res.status(400).json({
         success: false,
@@ -208,24 +209,37 @@ router.post('/:id/test', authenticateToken, requireAdmin, async (req, res) => {
       });
     }
 
+    // Send test email using the template
     const result = await EmailTemplateService.sendEmail({
-      templateType: template.type,
-      variables: sampleData || {
+      templateType: template.category,
+      variables: {
         userName: 'Test User',
         employeeId: 'TEST001',
         email: testEmail,
         kpiScore: '75.50',
         rating: 'Excellent',
-        period: 'Oct-2025',
+        period: 'Test Period',
         tatPercentage: '92.50',
         majorNegPercentage: '2.30',
         qualityPercentage: '0.45',
         neighborCheckPercentage: '88.00',
         generalNegPercentage: '18.00',
         onlinePercentage: '85.00',
-        insuffPercentage: '1.20'
+        insuffPercentage: '1.20',
+        trainingType: 'Test Training',
+        trainingReason: 'Test purpose',
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        trainingDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        priority: 'High',
+        auditType: 'Test Audit',
+        auditScope: 'Test scope',
+        scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        preAuditDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        auditDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        performanceConcerns: 'Test concerns',
+        improvementAreas: 'Test improvements'
       },
-      recipients: [{ email: testEmail, role: 'Test' }],
+      recipients: [{ email: testEmail, role: 'test' }],
       userId: req.user._id,
       sentBy: req.user._id,
       createNotification: false
@@ -241,6 +255,48 @@ router.post('/:id/test', authenticateToken, requireAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to send test email',
+      error: error.message
+    });
+  }
+});
+
+// Send custom email from user
+router.post('/send-custom', authenticateToken, async (req, res) => {
+  try {
+    const { to, subject, content, fromUserId, fromUserEmail } = req.body;
+    
+    if (!to || !subject || !content) {
+      return res.status(400).json({
+        success: false,
+        message: 'To, subject, and content are required'
+      });
+    }
+
+    // Send email using the custom template
+    const result = await EmailTemplateService.sendEmail({
+      templateType: 'custom',
+      variables: {
+        userName: 'User',
+        subject: subject,
+        content: content,
+        customContent: content
+      },
+      recipients: [{ email: to, role: 'user' }],
+      userId: fromUserId,
+      sentBy: req.user._id,
+      createNotification: false
+    });
+
+    res.json({
+      success: true,
+      message: 'Email sent successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('Error sending custom email:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send email',
       error: error.message
     });
   }
