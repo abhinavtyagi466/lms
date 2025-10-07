@@ -68,6 +68,8 @@ export const InactiveUserModal: React.FC<InactiveUserModalProps> = ({
   const [remarks, setRemarks] = useState('');
   const [proofDocument, setProofDocument] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +85,9 @@ export const InactiveUserModal: React.FC<InactiveUserModalProps> = ({
     }
 
     setLoading(true);
+    setIsUploading(true);
+    setUploadProgress(0);
+    
     try {
       // Create FormData for file upload
       const formData = new FormData();
@@ -100,10 +105,30 @@ export const InactiveUserModal: React.FC<InactiveUserModalProps> = ({
         formData.append('remarks', remarks);
       }
       if (proofDocument) {
+        // Simulate upload progress for better UX
+        setUploadProgress(30);
         formData.append('proofDocument', proofDocument);
       }
 
+      // Simulate progress increment
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
       await apiService.users.setUserInactiveWithExitDetails(user._id, formData);
+      
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      
+      // Show completion for a moment
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       toast.success('User has been set as inactive with exit details successfully');
       onSuccess();
       handleClose();
@@ -112,6 +137,8 @@ export const InactiveUserModal: React.FC<InactiveUserModalProps> = ({
       toast.error(error.response?.data?.message || error.message || 'Failed to set user as inactive');
     } finally {
       setLoading(false);
+      setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -123,6 +150,8 @@ export const InactiveUserModal: React.FC<InactiveUserModalProps> = ({
     setVerifiedBy('Pending');
     setRemarks('');
     setProofDocument(null);
+    setUploadProgress(0);
+    setIsUploading(false);
     onClose();
   };
 
@@ -347,6 +376,33 @@ export const InactiveUserModal: React.FC<InactiveUserModalProps> = ({
               </div>
             </div>
 
+            {/* Upload Progress Bar */}
+            {isUploading && proofDocument && (
+              <div className="space-y-2 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium text-blue-700 dark:text-blue-400">
+                    {uploadProgress < 100 ? 'Uploading document...' : 'Upload complete!'}
+                  </span>
+                  <span className="text-blue-600 dark:text-blue-300 font-semibold">
+                    {uploadProgress}%
+                  </span>
+                </div>
+                <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2.5 overflow-hidden">
+                  <div 
+                    className="bg-blue-600 dark:bg-blue-500 h-2.5 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${uploadProgress}%` }}
+                  >
+                    <div className="h-full w-full bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+                  <FileText className="h-3 w-3" />
+                  <span className="truncate">{proofDocument.name}</span>
+                  <span className="text-blue-500">({(proofDocument.size / 1024).toFixed(1)} KB)</span>
+                </div>
+              </div>
+            )}
+
             {/* Buttons */}
             <div className="flex gap-3 pt-4 border-t border-gray-200">
               <Button
@@ -373,7 +429,7 @@ export const InactiveUserModal: React.FC<InactiveUserModalProps> = ({
                 {loading ? (
                   <div className="flex items-center justify-center gap-2">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Setting Inactive...
+                    {isUploading ? 'Uploading & Processing...' : 'Setting Inactive...'}
                   </div>
                 ) : (
                   'Set as Inactive'

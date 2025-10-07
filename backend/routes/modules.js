@@ -7,6 +7,17 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Helper function to clear module-related cache
+const clearModuleCache = () => {
+  const cache = global.appCache;
+  if (cache) {
+    const keys = cache.keys();
+    const moduleKeys = keys.filter(key => key.includes('/api/modules'));
+    moduleKeys.forEach(key => cache.del(key));
+    console.log(`🗑️  Cleared ${moduleKeys.length} module cache entries`);
+  }
+};
+
 // @route   GET /api/modules
 // @desc    Get all modules (All authenticated users)
 // @access  Private (All authenticated users)
@@ -263,6 +274,9 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 
     await module.save();
 
+    // Clear module cache
+    clearModuleCache();
+
     res.status(201).json({
       success: true,
       message: 'Module created successfully',
@@ -330,6 +344,10 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     }
 
     await Module.findByIdAndDelete(req.params.id);
+
+    // Clear module cache immediately
+    clearModuleCache();
+    console.log('✅ Module deleted and cache cleared');
 
     res.json({
       success: true,
@@ -410,6 +428,10 @@ router.post('/personalised', authenticateToken, requireAdmin, async (req, res) =
 
       await personalisedQuiz.save();
     }
+
+    // Clear module cache
+    clearModuleCache();
+    console.log('✅ Personalised module created and cache cleared');
 
     res.json({
       success: true,
@@ -496,6 +518,10 @@ router.delete('/personalised/:moduleId', authenticateToken, requireAdmin, async 
       moduleId: moduleId,
       isPersonalised: true
     });
+
+    // Clear module cache
+    clearModuleCache();
+    console.log('✅ Personalised module deleted and cache cleared');
 
     res.json({
       success: true,

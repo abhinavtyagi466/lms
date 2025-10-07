@@ -30,13 +30,24 @@ const exitDocStorage = multer.diskStorage({
 
 const exitDocUpload = multer({
   storage: exitDocStorage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { 
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 1 // Only one file at a time
+  },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    const allowedTypes = [
+      'application/pdf', 
+      'image/jpeg', 
+      'image/jpg', 
+      'image/png', 
+      'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only PDF, DOC, DOCX, and image files are allowed'));
+      cb(new Error('Only PDF, DOC, DOCX, JPG, and PNG files are allowed. Please upload a valid document.'));
     }
   }
 });
@@ -991,8 +1002,15 @@ router.put('/:id/set-inactive', authenticateToken, requireAdmin, validateObjectI
       inactiveRemark
     } = req.body;
 
+    console.log('Set inactive request received for user:', userId);
+    console.log('File uploaded:', req.file ? 'Yes - ' + req.file.originalname : 'No');
+
     // Validate required fields
     if (!exitDate && !inactiveReason) {
+      // Clean up uploaded file if validation fails
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
       return res.status(400).json({
         error: 'Validation Error',
         message: 'Exit date or inactive reason is required'
@@ -1000,6 +1018,10 @@ router.put('/:id/set-inactive', authenticateToken, requireAdmin, validateObjectI
     }
 
     if (!mainCategory && !inactiveReason) {
+      // Clean up uploaded file if validation fails
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
       return res.status(400).json({
         error: 'Validation Error',
         message: 'Exit reason main category is required'
@@ -1009,6 +1031,10 @@ router.put('/:id/set-inactive', authenticateToken, requireAdmin, validateObjectI
     // Find user
     const user = await User.findById(userId);
     if (!user) {
+      // Clean up uploaded file if user not found
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
       return res.status(404).json({
         error: 'Not Found',
         message: 'User not found'
@@ -1052,55 +1078,68 @@ router.put('/:id/set-inactive', authenticateToken, requireAdmin, validateObjectI
 
     // Save without validating unchanged fields (fixes phone validation for old users)
     await user.save({ validateModifiedOnly: true });
+    console.log('✅ User saved successfully as inactive');
 
-    // Create audit record
-    const auditRecord = new AuditRecord({
-      userId: userId,
-      action: 'user_deactivated',
-      details: {
-        exitDate: user.exitDetails.exitDate,
-        mainCategory: user.exitDetails.exitReason.mainCategory,
-        subCategory: user.exitDetails.exitReason.subCategory,
-        description: user.exitDetails.exitReasonDescription,
-        verifiedBy: user.exitDetails.verifiedBy,
-        hasProofDocument: !!req.file,
-        deactivatedBy: req.user._id,
-        deactivatedByName: req.user.name
-      },
-      performedBy: req.user._id,
-      performedByName: req.user.name
-    });
+    // Create audit record (don't block response on this)
+    try {
+      const auditRecord = new AuditRecord({
+        userId: userId,
+        type: 'other',
+        title: 'User Deactivated - Exit Management',
+        reason: `Exit Reason: ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}`,
+        description: `User deactivated by ${req.user.name}. Exit Date: ${user.exitDetails.exitDate.toLocaleDateString()}. ${user.exitDetails.exitReasonDescription ? 'Details: ' + user.exitDetails.exitReasonDescription : ''} ${req.file ? 'Proof document uploaded.' : ''}`,
+        severity: 'medium',
+        status: 'completed',
+        createdBy: req.user._id,
+        tags: ['exit', 'deactivation', user.exitDetails.exitReason.mainCategory.toLowerCase().replace(/\s+/g, '-')]
+      });
 
-    await auditRecord.save();
+      await auditRecord.save();
+      console.log('✅ Audit record created successfully');
+    } catch (auditError) {
+      console.error('⚠️  Error creating audit record (non-critical):', auditError.message);
+      // Don't fail the whole operation if audit record fails
+    }
 
-    // Create lifecycle event
-    const LifecycleEvent = require('../models/LifecycleEvent');
-    await LifecycleEvent.createAutoEvent({
-      userId: user._id,
-      type: 'left',
-      title: 'Employee Exit',
-      description: `Exit reason: ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}`,
-      category: 'negative',
-      createdBy: req.user._id
-    });
+    // Create lifecycle event (don't block response on this)
+    try {
+      const LifecycleEvent = require('../models/LifecycleEvent');
+      await LifecycleEvent.createAutoEvent({
+        userId: user._id,
+        type: 'left',
+        title: 'Employee Exit',
+        description: `Exit reason: ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}`,
+        category: 'negative',
+        createdBy: req.user._id
+      });
+      console.log('✅ Lifecycle event created successfully');
+    } catch (lifecycleError) {
+      console.error('⚠️  Error creating lifecycle event (non-critical):', lifecycleError.message);
+      // Don't fail the whole operation if lifecycle event fails
+    }
 
     // Remove password from response
     const userResponse = user.toJSON();
     delete userResponse.password;
 
+    console.log('✅ User deactivated successfully, sending response');
     res.json({
       success: true,
       message: 'User set as inactive successfully with exit details',
-      user: userResponse
+      user: userResponse,
+      fileUploaded: !!req.file
     });
 
   } catch (error) {
-    console.error('Set user inactive error:', error);
+    console.error('❌ Set user inactive error:', error);
     // Clean up uploaded file if error occurs
-    if (req.file) {
-      fs.unlink(req.file.path, (err) => {
-        if (err) console.error('Error deleting file:', err);
-      });
+    if (req.file && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+        console.log('🗑️  Cleaned up uploaded file after error');
+      } catch (cleanupError) {
+        console.error('⚠️  Error cleaning up file:', cleanupError);
+      }
     }
     res.status(500).json({
       error: 'Server Error',
@@ -1139,13 +1178,14 @@ router.put('/:id/reactivate', authenticateToken, requireAdmin, validateObjectId,
     // Create audit record
     const auditRecord = new AuditRecord({
       userId: userId,
-      action: 'user_reactivated',
-      details: {
-        reactivatedBy: req.user._id,
-        reactivatedByName: req.user.name
-      },
-      performedBy: req.user._id,
-      performedByName: req.user.name
+      type: 'other',
+      title: 'User Reactivated',
+      reason: `Account reactivated by admin: ${req.user.name}`,
+      description: `User account has been reactivated and set to active status.`,
+      severity: 'low',
+      status: 'completed',
+      createdBy: req.user._id,
+      tags: ['reactivation', 'activation']
     });
 
     await auditRecord.save();

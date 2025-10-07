@@ -36,6 +36,9 @@ const cache = new NodeCache({
   useClones: false // Better performance
 });
 
+// Export cache for use in routes
+global.appCache = cache;
+
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, process.env.LOCAL_UPLOAD_DIR || './uploads');
 if (!fs.existsSync(uploadsDir)) {
