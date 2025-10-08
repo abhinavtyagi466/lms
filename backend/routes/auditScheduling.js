@@ -785,4 +785,172 @@ router.get('/upcoming', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// @route   GET /api/audits/by-kpi-rating
+// @desc    Get users grouped by KPI ratings with their audit requirements
+// @access  Private (Admin only)
+router.get('/by-kpi-rating', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    // Get latest KPI scores for all users
+    const latestScores = await KPIScore.aggregate([
+      { $match: { isActive: true } },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: '$userId',
+          latestScore: { $first: '$$ROOT' }
+        }
+      },
+      {
+        $replaceRoot: { newRoot: '$latestScore' }
+      }
+    ]);
+
+    // Populate user details
+    const populatedScores = await KPIScore.populate(latestScores, [
+      { path: 'userId', select: 'name email employeeId department userType isActive' },
+      { path: 'submittedBy', select: 'name email' }
+    ]);
+
+    // Group by ratings
+    const groupedByRating = {
+      outstanding: [], // 85-100
+      excellent: [],   // 70-84
+      satisfactory: [], // 50-69
+      needImprovement: [], // 40-49
+      unsatisfactory: [] // Below 40
+    };
+
+    // Get audit schedules for each user
+    for (const score of populatedScores) {
+      if (!score.userId || !score.userId.isActive) continue;
+
+      // Get pending audits for this user
+      const pendingAudits = await AuditSchedule.find({
+        userId: score.userId._id,
+        status: { $in: ['scheduled', 'in_progress'] },
+        isActive: true
+      })
+        .populate('assignedTo', 'name email')
+        .populate('assignedBy', 'name email')
+        .sort({ scheduledDate: 1 });
+
+      // Get training assignments for this user
+      let pendingTraining = [];
+      try {
+        const TrainingAssignment = require('../models/TrainingAssignment');
+        pendingTraining = await TrainingAssignment.find({
+          userId: score.userId._id,
+          status: { $in: ['assigned', 'in_progress'] },
+          isActive: true
+        })
+          .sort({ assignedAt: -1 })
+          .limit(5);
+      } catch (trainingError) {
+        console.warn('Could not fetch training assignments:', trainingError.message);
+        // Continue without training data
+      }
+
+      const userData = {
+        userId: score.userId._id,
+        name: score.userId.name,
+        email: score.userId.email,
+        employeeId: score.userId.employeeId,
+        department: score.userId.department,
+        kpiScore: score.overallScore,
+        rating: score.rating,
+        period: score.period,
+        kpiScoreId: score._id,
+        triggeredActions: score.triggeredActions || [],
+        metrics: {
+          tat: score.tat?.percentage || 0,
+          majorNegativity: score.majorNegativity?.percentage || 0,
+          quality: score.quality?.percentage || 0,
+          neighborCheck: score.neighborCheck?.percentage || 0,
+          negativity: score.negativity?.percentage || 0,
+          appUsage: score.appUsage?.percentage || 0,
+          insufficiency: score.insufficiency?.percentage || 0
+        },
+        pendingAudits: pendingAudits.map(audit => ({
+          _id: audit._id,
+          auditType: audit.auditType,
+          scheduledDate: audit.scheduledDate,
+          status: audit.status,
+          priority: audit.priority,
+          reason: audit.reason,
+          assignedTo: audit.assignedTo,
+          assignedBy: audit.assignedBy
+        })),
+        pendingTraining: pendingTraining.map(training => ({
+          _id: training._id,
+          trainingType: training.trainingType,
+          status: training.status,
+          dueDate: training.dueDate,
+          reason: training.reason
+        })),
+        auditRequirement: getAuditRequirement(score.overallScore),
+        trainingRequirement: getTrainingRequirement(score.overallScore),
+        warningRequired: score.overallScore < 40,
+        rewardEligible: score.overallScore >= 85,
+        lastUpdated: score.createdAt
+      };
+
+      // Group by rating
+      if (score.rating === 'Outstanding') {
+        groupedByRating.outstanding.push(userData);
+      } else if (score.rating === 'Excellent') {
+        groupedByRating.excellent.push(userData);
+      } else if (score.rating === 'Satisfactory') {
+        groupedByRating.satisfactory.push(userData);
+      } else if (score.rating === 'Need Improvement') {
+        groupedByRating.needImprovement.push(userData);
+      } else if (score.rating === 'Unsatisfactory') {
+        groupedByRating.unsatisfactory.push(userData);
+      }
+    }
+
+    // Get statistics
+    const stats = {
+      total: populatedScores.length,
+      outstanding: groupedByRating.outstanding.length,
+      excellent: groupedByRating.excellent.length,
+      satisfactory: groupedByRating.satisfactory.length,
+      needImprovement: groupedByRating.needImprovement.length,
+      unsatisfactory: groupedByRating.unsatisfactory.length,
+      averageScore: populatedScores.reduce((sum, s) => sum + s.overallScore, 0) / (populatedScores.length || 1)
+    };
+
+    res.json({
+      success: true,
+      data: {
+        groupedByRating,
+        statistics: stats,
+        lastUpdated: new Date()
+      }
+    });
+
+  } catch (error) {
+    console.error('Get KPI-based audit grouping error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching KPI-based audit data',
+      details: error.message
+    });
+  }
+});
+
+// Helper function to determine audit requirement based on KPI score
+function getAuditRequirement(score) {
+  if (score >= 85) return 'None – eligible for reward';
+  if (score >= 70) return 'Audit Call';
+  if (score >= 50) return 'Audit Call + Cross-check last 3 months data';
+  if (score >= 40) return 'Audit Call + Cross-check last 3 months data + Dummy Audit Case';
+  return 'Audit Call + Cross-check last 3 months data + Dummy Audit Case + Issue automatic warning letter';
+}
+
+// Helper function to determine training requirement based on KPI score
+function getTrainingRequirement(score) {
+  if (score >= 50) return 'None';
+  return 'Assign Basic Training Module (Joining-level training)';
+}
+
 module.exports = router;

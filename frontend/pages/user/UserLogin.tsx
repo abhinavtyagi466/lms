@@ -82,9 +82,21 @@ export const UserLogin: React.FC = () => {
       await login(email, password, 'user');
       toast.success('Welcome back! Login successful.');
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || error?.message || 'Login failed. Please check your credentials and try again.';
-      setError(errorMessage);
-      toast.error('Login failed. Please check your credentials.');
+      console.error('User login error:', error);
+      
+      // Handle specific access denied errors
+      if (error?.response?.data?.error === 'Access Denied') {
+        const userType = error?.response?.data?.userType;
+        const attemptedAccess = error?.response?.data?.attemptedAccess;
+        const errorMessage = error?.response?.data?.message || `Access denied. ${userType} accounts cannot access the user dashboard.`;
+        
+        setError(errorMessage);
+        toast.error(`Access Denied: ${userType} accounts cannot access user dashboard`);
+      } else {
+        const errorMessage = error?.response?.data?.message || error?.message || 'Login failed. Please check your credentials and try again.';
+        setError(errorMessage);
+        toast.error('Login failed. Please check your credentials.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -157,6 +169,15 @@ export const UserLogin: React.FC = () => {
               }`}>
                 Enter your credentials to access your learning dashboard
               </p>
+              <div className={`mt-3 p-3 rounded-lg ${
+                isDarkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'
+              }`}>
+                <p className={`text-xs ${
+                  isDarkMode ? 'text-blue-300' : 'text-blue-700'
+                }`}>
+                  <strong>Who can access:</strong> Field Executives (Users) only
+                </p>
+              </div>
             </div>
             
             <form className="space-y-5" onSubmit={handleSubmit}>

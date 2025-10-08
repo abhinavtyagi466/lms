@@ -153,6 +153,11 @@ export const LoginPopup: React.FC<LoginPopupProps> = ({
                 {error && (
                   <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 animate-in slide-in-from-top-2 duration-300">
                     <p className="text-red-600 dark:text-red-400 text-sm font-medium">{error}</p>
+                    {error.includes('Access Denied') && (
+                      <p className="text-red-500 dark:text-red-400 text-xs mt-1">
+                        Please use the correct login page for your account type.
+                      </p>
+                    )}
                   </div>
                 )}
 

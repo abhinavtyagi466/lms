@@ -43,21 +43,29 @@ router.post('/login', validateLogin, async (req, res) => {
       });
     }
 
-    // Check user type - allow admin panel access for manager, hod, hr, admin
+    // Enhanced user type validation with enum-based access control
     const adminPanelTypes = ['manager', 'hod', 'hr', 'admin'];
     const userPanelTypes = ['user'];
     
+    console.log(`Login attempt: ${email} (${user.userType}) trying to access ${userType} dashboard`);
+    
     if (userType === 'admin' && !adminPanelTypes.includes(user.userType)) {
+      console.log(`Access denied: ${user.userType} cannot access admin dashboard`);
       return res.status(401).json({
-        error: 'Authentication Failed',
-        message: 'Invalid user type for admin portal'
+        error: 'Access Denied',
+        message: `Access denied. ${user.userType.charAt(0).toUpperCase() + user.userType.slice(1)} accounts cannot access the admin dashboard.`,
+        userType: user.userType,
+        attemptedAccess: 'admin'
       });
     }
     
     if (userType === 'user' && !userPanelTypes.includes(user.userType)) {
+      console.log(`Access denied: ${user.userType} cannot access user dashboard`);
       return res.status(401).json({
-        error: 'Authentication Failed',
-        message: 'Invalid user type for user portal'
+        error: 'Access Denied',
+        message: `Access denied. ${user.userType.charAt(0).toUpperCase() + user.userType.slice(1)} accounts cannot access the user dashboard.`,
+        userType: user.userType,
+        attemptedAccess: 'user'
       });
     }
 

@@ -30,8 +30,14 @@ const upload = multer({
 // @desc    Upload Excel file and process KPI triggers
 // @access  Private (Admin only)
 router.post('/upload-excel', authenticateToken, requireAdmin, upload.single('excelFile'), async (req, res) => {
+  console.log('=== UPLOAD EXCEL REQUEST RECEIVED ===');
+  console.log('User:', req.user?._id);
+  console.log('File received:', req.file ? req.file.originalname : 'NO FILE');
+  console.log('Body:', req.body);
+  
   try {
     if (!req.file) {
+      console.error('No file uploaded');
       return res.status(400).json({
         success: false,
         message: 'No Excel file uploaded'
@@ -39,23 +45,33 @@ router.post('/upload-excel', authenticateToken, requireAdmin, upload.single('exc
     }
 
     const { period } = req.body;
+    console.log('Period:', period);
+    
     if (!period) {
+      console.error('Period missing');
       return res.status(400).json({
         success: false,
         message: 'Period is required (e.g., Apr-25)'
       });
     }
 
+    console.log('Reading Excel file...');
+    
     // Read Excel file from buffer
     const workbook = xlsx.read(req.file.buffer);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     
+    console.log('Sheet name:', sheetName);
+    
     // Convert to JSON
     const jsonData = xlsx.utils.sheet_to_json(worksheet);
     
+    console.log('Rows found:', jsonData.length);
+    
     // Validate Excel structure
     if (jsonData.length === 0) {
+      console.error('Excel file is empty');
       return res.status(400).json({
         success: false,
         message: 'Excel file is empty or invalid format'
@@ -65,19 +81,33 @@ router.post('/upload-excel', authenticateToken, requireAdmin, upload.single('exc
     // Check required columns
     const requiredColumns = ['FE', 'Total Case Done', 'TAT %', 'Major Negative %', 'Negative %'];
     const firstRow = jsonData[0];
+    const columnNames = Object.keys(firstRow);
+    
+    console.log('Excel columns:', columnNames);
+    
     const missingColumns = requiredColumns.filter(col => !(col in firstRow));
     
     if (missingColumns.length > 0) {
+      console.error('Missing columns:', missingColumns);
       return res.status(400).json({
         success: false,
-        message: `Missing required columns: ${missingColumns.join(', ')}`
+        message: `Missing required columns: ${missingColumns.join(', ')}`,
+        foundColumns: columnNames
       });
     }
+
+    console.log('Processing KPI data...');
+    console.log('Calling kpiTriggerService.processKPIFromExcel...');
 
     // Process KPI data and triggers
     const results = await kpiTriggerService.processKPIFromExcel(jsonData, period, req.user._id);
 
-    res.json({
+    console.log('Processing complete!');
+    console.log('Total results:', results.length);
+    console.log('Successful:', results.filter(r => r.success).length);
+    console.log('Failed:', results.filter(r => !r.success).length);
+
+    const responseData = {
       success: true,
       message: 'KPI data processed successfully',
       data: {
@@ -87,15 +117,25 @@ router.post('/upload-excel', authenticateToken, requireAdmin, upload.single('exc
         failedRecords: results.filter(r => !r.success).length,
         results: results
       }
-    });
+    };
+    
+    console.log('Sending response:', JSON.stringify(responseData, null, 2));
+
+    res.json(responseData);
 
   } catch (error) {
-    console.error('Excel upload error:', error);
+    console.error('=== EXCEL UPLOAD ERROR ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Full error:', error);
 
     res.status(500).json({
       success: false,
       message: 'Error processing Excel file',
-      error: error.message
+      error: error.message,
+      errorType: error.name,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

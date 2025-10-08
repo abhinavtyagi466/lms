@@ -51,6 +51,7 @@ const EmailTemplatesPage = lazy(() => import('./pages/admin/EmailTemplatesPage')
 const KPIConfigurationPage = lazy(() => import('./pages/admin/KPIConfigurationPage').then(module => ({ default: module.KPIConfigurationPage })));
 const ScoreReportsPage = lazy(() => import('./pages/admin/ScoreReportsPage').then(module => ({ default: module.ScoreReportsPage })));
 const ExitRecordsPage = lazy(() => import('./pages/admin/ExitRecordsPage').then(module => ({ default: module.ExitRecordsPage })));
+const KPIAuditDashboard = lazy(() => import('./pages/admin/KPIAuditDashboard').then(module => ({ default: module.default })));
 // Temporarily commented out unused components
 // const AuditManager = lazy(() => import('./pages/admin/AuditSchedulerDashboardV2'));
 
@@ -71,13 +72,14 @@ const adminSidebarItems = [
   { key: 'module-management', label: 'Module Management', icon: BookOpen },
   { key: 'score-reports', label: 'Score Reports', icon: BarChart3 },
   { key: 'kpi-triggers', label: 'KPI Triggers', icon: BarChart3 },
+  { key: 'kpi-audit-dashboard', label: 'KPI Audit Dashboard', icon: BarChart3 },
   { key: 'kpi-configuration', label: 'KPI Configuration', icon: BarChart3 },
   { key: 'email-templates', label: 'Emails', icon: Mail },
   // TEMPORARILY HIDDEN: Email Center and Recipient Groups
   // { key: 'email-center', label: 'Email Center', icon: Mail },
   // { key: 'recipient-groups', label: 'Recipient Groups', icon: Users },
   // { key: 'audit-scheduler', label: 'Audit Scheduler', icon: Calendar }, // TEMPORARILY HIDDEN
-  { key: 'warnings-audit', label: 'Audit Management', icon: FileText },
+  // { key: 'warnings-audit', label: 'Audit Management', icon: FileText }, // MOVED TO KPI AUDIT DASHBOARD
   { key: 'awards', label: 'Awards / Recognition', icon: Award },
   // { key: 'lifecycle', label: 'Lifecycle Dashboard', icon: Clock },
   // { key: 'mail-preview', label: 'Mail Preview', icon: Mail },
@@ -223,6 +225,7 @@ const AppContent: React.FC = () => {
                case 'module-management': return <ModuleManagement />;
                case 'score-reports': return <ScoreReportsPage />;
                case 'kpi-triggers': return <KPITriggerDashboard />;
+               case 'kpi-audit-dashboard': return <KPIAuditDashboard />;
                case 'kpi-configuration': return <KPIConfigurationPage />;
         case 'email-templates': return <EmailTemplatesPage />;
         // TEMPORARILY HIDDEN: Email Center and Recipient Groups

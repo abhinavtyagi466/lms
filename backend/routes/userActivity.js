@@ -20,7 +20,7 @@ router.get('/summary/:userId', authenticateToken, validateUserId, async (req, re
     const { days = 30 } = req.query;
     
     // Check if user is accessing their own data or is admin
-    if (req.user.id !== userId && req.user.role !== 'admin') {
+    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own activity data'
@@ -121,7 +121,7 @@ router.get('/sessions/:userId', authenticateToken, validateUserId, async (req, r
     const { days = 7 } = req.query;
     
     // Check if user is accessing their own data or is admin
-    if (req.user.id !== userId && req.user.role !== 'admin') {
+    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own session data'
@@ -171,7 +171,7 @@ router.get('/suspicious/:userId', authenticateToken, validateUserId, async (req,
     const { days = 30 } = req.query;
     
     // Check if user is accessing their own data or is admin
-    if (req.user.id !== userId && req.user.role !== 'admin') {
+    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own activity data'
@@ -216,7 +216,7 @@ router.get('/recent/:userId', authenticateToken, validateUserId, validatePaginat
     const { limit = 20, page = 1 } = req.query;
     
     // Check if user is accessing their own data or is admin
-    if (req.user.id !== userId && req.user.role !== 'admin') {
+    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own activity data'

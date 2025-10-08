@@ -28,8 +28,20 @@ export const AdminLogin: React.FC = () => {
     setIsLoading(true);
     try {
       await login(email, password, 'admin');
-    } catch (error) {
-      toast.error('Login failed. Please try again.');
+    } catch (error: any) {
+      console.error('Admin login error:', error);
+      
+      // Handle specific access denied errors
+      if (error?.response?.data?.error === 'Access Denied') {
+        const userType = error?.response?.data?.userType;
+        const attemptedAccess = error?.response?.data?.attemptedAccess;
+        const errorMessage = error?.response?.data?.message || `Access denied. ${userType} accounts cannot access the admin dashboard.`;
+        
+        toast.error(`Access Denied: ${userType} accounts cannot access admin dashboard`);
+      } else {
+        const errorMessage = error?.response?.data?.message || error?.message || 'Login failed. Please try again.';
+        toast.error(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -102,6 +114,15 @@ export const AdminLogin: React.FC = () => {
               }`}>
                 Enter your credentials to access the admin panel
               </p>
+              <div className={`mt-3 p-3 rounded-lg ${
+                isDarkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-200'
+              }`}>
+                <p className={`text-xs ${
+                  isDarkMode ? 'text-red-300' : 'text-red-700'
+                }`}>
+                  <strong>Who can access:</strong> Managers, HODs, HRs, and Admins only
+                </p>
+              </div>
             </div>
             
             <form className="space-y-5" onSubmit={handleSubmit} noValidate>

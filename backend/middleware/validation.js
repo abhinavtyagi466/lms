@@ -5,6 +5,12 @@ const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   
   if (!errors.isEmpty()) {
+    console.error('=== VALIDATION ERROR ===');
+    console.error('Request Body:', req.body);
+    console.error('Errors:', errors.array());
+    console.error('Validation failed for fields:', errors.array().map(e => e.path).join(', '));
+    console.error('========================');
+    
     return res.status(400).json({
       error: 'Validation Error',
       message: 'Please check your input data',
@@ -69,6 +75,7 @@ const validateCreateUser = [
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long'),
   body('phone')
+    .optional({ checkFalsy: true })
     .matches(/^[\+]?[0-9][\d]{0,15}$/)
     .withMessage('Please provide a valid phone number'),
   body('userType')
@@ -78,80 +85,80 @@ const validateCreateUser = [
   
   // Personal Information
   body('dateOfBirth')
-    .optional()
+    .optional({ checkFalsy: true })
     .isISO8601()
     .withMessage('Please provide a valid date of birth'),
   body('fathersName')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Father\'s name must be between 2 and 100 characters'),
   
   // Employment Information
   body('dateOfJoining')
-    .optional()
+    .optional({ checkFalsy: true })
     .isISO8601()
     .withMessage('Please provide a valid date of joining'),
   body('designation')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Designation must be between 2 and 100 characters'),
   body('department')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Department must be between 2 and 100 characters'),
   body('reportingManager')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Reporting manager name must be between 2 and 100 characters'),
   body('highestEducation')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Highest education must be between 2 and 100 characters'),
   
   // Address Information
   body('currentAddress')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isLength({ min: 10, max: 500 })
     .withMessage('Current address must be between 10 and 500 characters'),
   body('nativeAddress')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isLength({ max: 500 })
     .withMessage('Native address cannot exceed 500 characters'),
   body('location')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isLength({ max: 100 })
     .withMessage('Location cannot exceed 100 characters'),
   body('city')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('City must be between 2 and 50 characters'),
   body('state')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('State must be between 2 and 50 characters'),
   body('region')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isLength({ max: 100 })
     .withMessage('Region cannot exceed 100 characters'),
   
   // Identification Documents
   body('aadhaarNo')
-    .optional()
+    .optional({ checkFalsy: true })
     .matches(/^[0-9]{12}$/)
     .withMessage('Aadhaar number must be exactly 12 digits'),
   body('panNo')
-    .optional()
+    .optional({ checkFalsy: true })
     .matches(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/)
     .withMessage('PAN number must be in format: ABCDE1234F'),
   handleValidationErrors

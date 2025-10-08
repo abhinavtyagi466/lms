@@ -74,6 +74,14 @@ apiClient.interceptors.response.use(
       throw new Error('Service unavailable. Please try again later.');
     }
     
+    // Handle 400 validation errors with details
+    if (error.response?.status === 400 && error.response?.data?.details) {
+      console.error('Validation errors:', error.response.data.details);
+      const errorObj: any = new Error(error.response.data.message || 'Validation failed');
+      errorObj.response = error.response.data;
+      return Promise.reject(errorObj);
+    }
+    
     const errorMessage = error.response?.data?.message || error.message || 'An error occurred';
     return Promise.reject(new Error(errorMessage));
   }
@@ -1348,6 +1356,11 @@ export const apiService = {
       
       const response = await apiClient.get(`/audit-scheduling/upcoming?${params.toString()}`);
       return response;
+    },
+
+    getByKPIRating: async () => {
+      const response = await apiClient.get('/audit-scheduling/by-kpi-rating');
+      return response;
     }
   },
 
@@ -1528,7 +1541,7 @@ export const apiService = {
     }
   },
 
-  emailStats: {
+ emailStats: {
     get: async (filters?: {
       startDate?: string;
       endDate?: string;

@@ -8,7 +8,9 @@ import {
   Users,
   TrendingUp,
   Eye,
-  RefreshCw
+  RefreshCw,
+  ExternalLink,
+  BarChart3
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -50,7 +52,7 @@ interface PendingTrigger {
 }
 
 export const KPITriggerDashboard: React.FC = () => {
-  const { user, userType } = useAuth();
+  const { user, userType, setCurrentPage } = useAuth();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [period, setPeriod] = useState('');
@@ -65,6 +67,12 @@ export const KPITriggerDashboard: React.FC = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Navigate to KPI Audit Dashboard
+  const viewInAuditDashboard = () => {
+    setCurrentPage('kpi-audit-dashboard');
+    toast.success('Redirecting to KPI Audit Dashboard...');
+  };
 
   // Handle file selection
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,34 +195,65 @@ export const KPITriggerDashboard: React.FC = () => {
     try {
       setUploading(true);
       
+      console.log('=== UPLOAD DEBUG ===');
+      console.log('File:', selectedFile.name, selectedFile.size, 'bytes');
+      console.log('Period:', period);
+      console.log('API URL:', '/api/kpi-triggers/upload-excel');
+      
       const formData = new FormData();
       formData.append('excelFile', selectedFile);
       formData.append('period', period);
 
+      const token = localStorage.getItem('authToken');
+      console.log('Token exists:', !!token);
+
       const response = await fetch('/api/kpi-triggers/upload-excel', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          'Authorization': `Bearer ${token}`
         },
         body: formData
       });
 
-      const result = await response.json();
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      console.log('Response content-type:', contentType);
+
+      let result;
+      if (contentType && contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        toast.error('Server returned invalid response. Check console for details.');
+        return;
+      }
+
+      console.log('Result:', result);
 
       if (result.success) {
         setUploadResults(result.data.results);
         setShowResults(true);
-        setShowPreview(false); // Hide preview when actual upload is done
-        toast.success(`Processed ${result.data.successfulRecords} records successfully`);
+        setShowPreview(false);
+        toast.success(`✅ Processed ${result.data.successfulRecords} records successfully!`);
         
         // Refresh pending triggers
         await fetchPendingTriggers();
       } else {
-        toast.error(result.message || 'Upload failed');
+        console.error('Upload failed:', result);
+        toast.error(result.message || result.error || 'Upload failed. Check console for details.');
       }
     } catch (error: any) {
-      console.error('Upload error:', error);
-      toast.error('Failed to upload file');
+      console.error('=== UPLOAD ERROR ===');
+      console.error('Error type:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      console.error('Full error:', error);
+      
+      toast.error(`Upload failed: ${error.message}. Check console for details.`);
     } finally {
       setUploading(false);
     }
@@ -276,7 +315,7 @@ export const KPITriggerDashboard: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             KPI Trigger Dashboard
           </h1>
@@ -284,6 +323,46 @@ export const KPITriggerDashboard: React.FC = () => {
             Upload Excel files to automatically process KPI scores and trigger training/audit assignments
           </p>
         </div>
+
+        {/* Workflow Info */}
+        <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                <FileSpreadsheet className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                  How it works
+                  <Badge variant="outline" className="text-xs">3 Steps</Badge>
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">Upload Excel</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-xs">Select KPI data file</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">Preview Triggers</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-xs">Check what will happen</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">Process & View</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-xs">See live data in Audit Dashboard</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Upload Section */}
         <Card className="mb-8">
@@ -391,7 +470,7 @@ export const KPITriggerDashboard: React.FC = () => {
               <Button
                 onClick={handleUpload}
                 disabled={!selectedFile || !period || uploading}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white dark:text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-black dark:text-black font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {uploading ? (
                   <>
@@ -474,15 +553,28 @@ export const KPITriggerDashboard: React.FC = () => {
 
         {/* Preview Results */}
         {showPreview && previewResults.length > 0 && (
-          <Card className="mb-8">
+          <Card className="mb-8 border-2 border-blue-200 dark:border-blue-800">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="w-5 h-5" />
-                Trigger Preview
-              </CardTitle>
-              <CardDescription>
-                Preview of triggers that will be created (no actual actions taken yet)
-              </CardDescription>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Eye className="w-5 h-5" />
+                    Trigger Preview - {previewResults.length} Users
+                  </CardTitle>
+                  <CardDescription>
+                    Preview of triggers that will be created (no actual actions taken yet)
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={viewInAuditDashboard}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  View in Audit Dashboard
+                  <ExternalLink className="w-3 h-3" />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -641,15 +733,27 @@ export const KPITriggerDashboard: React.FC = () => {
 
         {/* Upload Results */}
         {showResults && uploadResults.length > 0 && (
-          <Card>
+          <Card className="border-2 border-green-200 dark:border-green-800">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                Processing Results
-              </CardTitle>
-              <CardDescription>
-                Results from the latest KPI data upload
-              </CardDescription>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    Processing Complete - {uploadResults.filter(r => r.success).length}/{uploadResults.length} Successful
+                  </CardTitle>
+                  <CardDescription>
+                    Results from the latest KPI data upload. Data is now live in the system.
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={viewInAuditDashboard}
+                  className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white flex items-center gap-2"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  View Live Data in Audit Dashboard
+                  <ExternalLink className="w-3 h-3" />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">

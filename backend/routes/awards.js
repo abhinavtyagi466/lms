@@ -295,11 +295,19 @@ router.post('/certificate', authenticateToken, requireAdmin, async (req, res) =>
 
 // @route   GET /api/awards/user/:userId
 // @desc    Get all awards for a specific user
-// @access  Private (Admin only)
-router.get('/user/:userId', authenticateToken, requireAdmin, async (req, res) => {
+// @access  Private (User can access own data, Admin can access any)
+router.get('/user/:userId', authenticateToken, async (req, res) => {
   try {
     const userId = req.params.userId;
     const { limit = 10, page = 1 } = req.query;
+
+    // Check if user is accessing their own data or is admin
+    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+      return res.status(403).json({
+        error: 'Access Denied',
+        message: 'You can only access your own awards data'
+      });
+    }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 

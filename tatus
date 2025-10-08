@@ -1,0 +1,10 @@
+[33mcac1dc7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m latest cache updates and cache bug fixed
+[33mc0911f4[m Fixed all UI issues, hidden email center and create template, fixed FormData uploads
+[33ma0e5c0d[m feat: Complete Phase 1-5 Implementation
+[33m9289720[m fix: Remove KPI Manual Entry page and fix personalised module user dropdown
+[33md432304[m feat: Complete Personalised Module System - Admin assignment, user interface, sequential unlock logic, quiz tracking with flags
+[33m749adb7[m 🎨 Professional UI/UX Enhancement Complete
+[33mf79bf2a[m feat: Sequential module unlock - user must complete previous module (video + quiz) to unlock next
+[33m525396e[m Production fixes: Login validation, trust proxy, KPI features
+[33m298cdb3[m Fix: latest updates with kpi and all
+[33m4343176[m feat: Complete admin dashboard enhancement with user lifecycle tracking
