@@ -14,6 +14,85 @@ const { validateUserId } = require('../middleware/validation');
 
 const router = express.Router();
 
+// Shared pipeline for user scores aggregation
+const getUserScoresPipeline = (searchTerm, selectedUser, sortBy, sortOrder) => {
+  const pipeline = [
+    // Start with all users
+    { $match: {} },
+    {
+      $lookup: {
+        from: 'quizattempts',
+        localField: '_id',
+        foreignField: 'userId',
+        as: 'quizAttempts'
+      }
+    },
+    {
+      $lookup: {
+        from: 'modules',
+        localField: 'quizAttempts.moduleId',
+        foreignField: '_id',
+        as: 'modules'
+      }
+    },
+    {
+      $project: {
+        userId: '$_id',
+        userName: '$name',
+        userEmail: '$email',
+        employeeId: '$employeeId',
+        totalModules: { $size: { $setUnion: ['$modules._id', []] } },
+        completedModules: {
+          $size: {
+            $filter: {
+              input: '$quizAttempts',
+              cond: { $eq: ['$$this.status', 'completed'] }
+            }
+          }
+        },
+        averageScore: {
+          $cond: {
+            if: { $gt: [{ $size: '$quizAttempts' }, 0] },
+            then: { $avg: '$quizAttempts.score' },
+            else: 0
+          }
+        },
+        lastActivity: {
+          $cond: {
+            if: { $gt: [{ $size: '$quizAttempts' }, 0] },
+            then: { $max: '$quizAttempts.createdAt' },
+            else: null
+          }
+        }
+      }
+    }
+  ];
+
+  // Apply filters
+  if (selectedUser) {
+    pipeline.push({ $match: { userId: selectedUser } });
+  }
+
+  if (searchTerm) {
+    pipeline.push({
+      $match: {
+        $or: [
+          { userName: { $regex: searchTerm, $options: 'i' } },
+          { userEmail: { $regex: searchTerm, $options: 'i' } },
+          { employeeId: { $regex: searchTerm, $options: 'i' } }
+        ]
+      }
+    });
+  }
+
+  // Apply sorting
+  const sortField = sortBy || 'averageScore';
+  const sortDirection = sortOrder === 'asc' ? 1 : -1;
+  pipeline.push({ $sort: { [sortField]: sortDirection } });
+
+  return pipeline;
+};
+
 // @route   GET /api/reports/user/:userId
 // @desc    Get reports for a specific user
 // @access  Private (user can access own reports, admin can access any)
@@ -451,86 +530,8 @@ router.get('/user-scores', authenticateToken, requireAdmin, async (req, res) => 
   try {
     const { searchTerm, selectedUser, sortBy, sortOrder, dateRange } = req.query;
 
-    // Build aggregation pipeline
-    const pipeline = [
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'userId',
-          foreignField: '_id',
-          as: 'user'
-        }
-      },
-      { $unwind: '$user' },
-      {
-        $lookup: {
-          from: 'modules',
-          localField: 'moduleId',
-          foreignField: '_id',
-          as: 'module'
-        }
-      },
-      { $unwind: '$module' },
-      {
-        $group: {
-          _id: '$userId',
-          userName: { $first: '$user.name' },
-          userEmail: { $first: '$user.email' },
-          employeeId: { $first: '$user.employeeId' },
-          totalModules: { $addToSet: '$moduleId' },
-          completedModules: {
-            $addToSet: {
-              $cond: [{ $eq: ['$status', 'completed'] }, '$moduleId', null]
-            }
-          },
-          scores: { $push: '$score' },
-          lastActivity: { $max: '$createdAt' }
-        }
-      },
-      {
-        $project: {
-          userId: '$_id',
-          userName: 1,
-          userEmail: 1,
-          employeeId: 1,
-          totalModules: { $size: '$totalModules' },
-          completedModules: {
-            $size: {
-              $filter: {
-                input: '$completedModules',
-                cond: { $ne: ['$$this', null] }
-              }
-            }
-          },
-          averageScore: { $avg: '$scores' },
-          lastActivity: 1
-        }
-      }
-    ];
-
-    // Apply filters
-    if (selectedUser) {
-      pipeline.push({ $match: { userId: selectedUser } });
-    }
-
-    if (searchTerm) {
-      pipeline.push({
-        $match: {
-          $or: [
-            { userName: { $regex: searchTerm, $options: 'i' } },
-            { userEmail: { $regex: searchTerm, $options: 'i' } },
-            { employeeId: { $regex: searchTerm, $options: 'i' } }
-          ]
-        }
-      });
-    }
-
-    // Apply sorting
-    const sortField = sortBy || 'averageScore';
-    const sortDirection = sortOrder === 'asc' ? 1 : -1;
-    pipeline.push({ $sort: { [sortField]: sortDirection } });
-
-    const userScores = await QuizAttempt.aggregate(pipeline);
+    const pipeline = getUserScoresPipeline(searchTerm, selectedUser, sortBy, sortOrder);
+    const userScores = await User.aggregate(pipeline);
 
     res.json({
       success: true,
@@ -553,86 +554,8 @@ router.post('/export-user-scores', authenticateToken, requireAdmin, async (req, 
   try {
     const { searchTerm, selectedUser, sortBy, sortOrder, dateRange } = req.body;
 
-    // Get user scores data
-    const pipeline = [
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'userId',
-          foreignField: '_id',
-          as: 'user'
-        }
-      },
-      { $unwind: '$user' },
-      {
-        $lookup: {
-          from: 'modules',
-          localField: 'moduleId',
-          foreignField: '_id',
-          as: 'module'
-        }
-      },
-      { $unwind: '$module' },
-      {
-        $group: {
-          _id: '$userId',
-          userName: { $first: '$user.name' },
-          userEmail: { $first: '$user.email' },
-          employeeId: { $first: '$user.employeeId' },
-          totalModules: { $addToSet: '$moduleId' },
-          completedModules: {
-            $addToSet: {
-              $cond: [{ $eq: ['$status', 'completed'] }, '$moduleId', null]
-            }
-          },
-          scores: { $push: '$score' },
-          lastActivity: { $max: '$createdAt' }
-        }
-      },
-      {
-        $project: {
-          userId: '$_id',
-          userName: 1,
-          userEmail: 1,
-          employeeId: 1,
-          totalModules: { $size: '$totalModules' },
-          completedModules: {
-            $size: {
-              $filter: {
-                input: '$completedModules',
-                cond: { $ne: ['$$this', null] }
-              }
-            }
-          },
-          averageScore: { $avg: '$scores' },
-          lastActivity: 1
-        }
-      }
-    ];
-
-    // Apply filters
-    if (selectedUser) {
-      pipeline.push({ $match: { userId: selectedUser } });
-    }
-
-    if (searchTerm) {
-      pipeline.push({
-        $match: {
-          $or: [
-            { userName: { $regex: searchTerm, $options: 'i' } },
-            { userEmail: { $regex: searchTerm, $options: 'i' } },
-            { employeeId: { $regex: searchTerm, $options: 'i' } }
-          ]
-        }
-      });
-    }
-
-    // Apply sorting
-    const sortField = sortBy || 'averageScore';
-    const sortDirection = sortOrder === 'asc' ? 1 : -1;
-    pipeline.push({ $sort: { [sortField]: sortDirection } });
-
-    const userScores = await QuizAttempt.aggregate(pipeline);
+    const pipeline = getUserScoresPipeline(searchTerm, selectedUser, sortBy, sortOrder);
+    const userScores = await User.aggregate(pipeline);
 
     // Generate CSV
     const csvHeader = 'User Name,Email,Employee ID,Total Modules,Completed Modules,Average Score,Completion Rate,Last Activity,Status\n';
@@ -667,86 +590,8 @@ router.post('/export-user-scores-pdf', authenticateToken, requireAdmin, async (r
   try {
     const { searchTerm, selectedUser, sortBy, sortOrder, dateRange } = req.body;
 
-    // Get user scores data (same as CSV export)
-    const pipeline = [
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'userId',
-          foreignField: '_id',
-          as: 'user'
-        }
-      },
-      { $unwind: '$user' },
-      {
-        $lookup: {
-          from: 'modules',
-          localField: 'moduleId',
-          foreignField: '_id',
-          as: 'module'
-        }
-      },
-      { $unwind: '$module' },
-      {
-        $group: {
-          _id: '$userId',
-          userName: { $first: '$user.name' },
-          userEmail: { $first: '$user.email' },
-          employeeId: { $first: '$user.employeeId' },
-          totalModules: { $addToSet: '$moduleId' },
-          completedModules: {
-            $addToSet: {
-              $cond: [{ $eq: ['$status', 'completed'] }, '$moduleId', null]
-            }
-          },
-          scores: { $push: '$score' },
-          lastActivity: { $max: '$createdAt' }
-        }
-      },
-      {
-        $project: {
-          userId: '$_id',
-          userName: 1,
-          userEmail: 1,
-          employeeId: 1,
-          totalModules: { $size: '$totalModules' },
-          completedModules: {
-            $size: {
-              $filter: {
-                input: '$completedModules',
-                cond: { $ne: ['$$this', null] }
-              }
-            }
-          },
-          averageScore: { $avg: '$scores' },
-          lastActivity: 1
-        }
-      }
-    ];
-
-    // Apply filters
-    if (selectedUser) {
-      pipeline.push({ $match: { userId: selectedUser } });
-    }
-
-    if (searchTerm) {
-      pipeline.push({
-        $match: {
-          $or: [
-            { userName: { $regex: searchTerm, $options: 'i' } },
-            { userEmail: { $regex: searchTerm, $options: 'i' } },
-            { employeeId: { $regex: searchTerm, $options: 'i' } }
-          ]
-        }
-      });
-    }
-
-    // Apply sorting
-    const sortField = sortBy || 'averageScore';
-    const sortDirection = sortOrder === 'asc' ? 1 : -1;
-    pipeline.push({ $sort: { [sortField]: sortDirection } });
-
-    const userScores = await QuizAttempt.aggregate(pipeline);
+    const pipeline = getUserScoresPipeline(searchTerm, selectedUser, sortBy, sortOrder);
+    const userScores = await User.aggregate(pipeline);
 
     // Generate PDF content (simplified - in real implementation, use a PDF library)
     const pdfContent = `

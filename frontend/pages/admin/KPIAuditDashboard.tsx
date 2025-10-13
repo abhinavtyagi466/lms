@@ -19,11 +19,8 @@ import {
   AlertCircle,
   BarChart3,
   Users,
-  Filter,
   Eye,
   Mail,
-  FileText,
-  Upload,
   FilePlus
 } from 'lucide-react';
 import { apiService } from '../../services/apiService';
@@ -98,10 +95,29 @@ const KPIAuditDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selectedTab, setSelectedTab] = useState('overview');
+  const [selectedUser, setSelectedUser] = useState<UserKPIData | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   // Navigate to Audit Management
   const openAuditManagement = () => {
     setCurrentPage('warnings-audit');
+  };
+
+  // View user details
+  const viewUserDetails = (user: UserKPIData) => {
+    setSelectedUser(user);
+    setShowDetailsModal(true);
+  };
+
+  // Send email to user
+  const sendEmailToUser = async (user: UserKPIData) => {
+    try {
+      // TODO: Implement actual email sending logic
+      // Email sending functionality will be implemented here
+      console.log('Email functionality for:', user.email);
+    } catch (error) {
+      console.error('Error sending email:', error);
+    }
   };
 
   useEffect(() => {
@@ -116,7 +132,8 @@ const KPIAuditDashboard: React.FC = () => {
       setLoading(true);
       const response = await apiService.auditScheduling.getByKPIRating();
       
-      if (response?.success && response?.data) {
+      // Response interceptor already returns response.data, so response is the API data
+      if (response && typeof response === 'object' && 'success' in response && response.success && response.data) {
         setData(response.data.groupedByRating);
         setStatistics(response.data.statistics);
         setLastUpdated(new Date(response.data.lastUpdated));
@@ -139,16 +156,6 @@ const KPIAuditDashboard: React.FC = () => {
     return colors[rating] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
-  const getRatingIcon = (rating: string) => {
-    const icons: Record<string, any> = {
-      'Outstanding': <Trophy className="w-5 h-5" />,
-      'Excellent': <Star className="w-5 h-5" />,
-      'Satisfactory': <ThumbsUp className="w-5 h-5" />,
-      'Need Improvement': <TrendingUp className="w-5 h-5" />,
-      'Unsatisfactory': <AlertTriangle className="w-5 h-5" />
-    };
-    return icons[rating] || null;
-  };
 
   const filterUsers = (users: UserKPIData[]) => {
     if (!searchTerm) return users;
@@ -160,7 +167,7 @@ const KPIAuditDashboard: React.FC = () => {
     );
   };
 
-  const renderUserTable = (users: UserKPIData[], rating: string, bgColor: string) => {
+  const renderUserTable = (users: UserKPIData[], rating: string) => {
     const filteredUsers = filterUsers(users);
 
     if (filteredUsers.length === 0) {
@@ -213,20 +220,23 @@ const KPIAuditDashboard: React.FC = () => {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={user.trainingRequirement === 'None' ? 'outline' : 'default'}>
+                  <Badge 
+                    variant={user.trainingRequirement === 'None' ? 'outline' : 'default'}
+                    className={user.trainingRequirement === 'None' ? '' : 'bg-orange-600 text-black dark:text-white font-semibold'}
+                  >
                     {user.trainingRequirement}
                   </Badge>
                   {user.pendingTraining.length > 0 && (
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 font-medium">
                       {user.pendingTraining.length} pending
                     </div>
                   )}
                 </TableCell>
                 <TableCell>
                   <div className="max-w-xs">
-                    <span className="text-sm">{user.auditRequirement}</span>
+                    <span className="text-sm text-gray-900 dark:text-gray-100">{user.auditRequirement}</span>
                     {user.pendingAudits.length > 0 && (
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 font-medium">
                         {user.pendingAudits.length} scheduled
                       </div>
                     )}
@@ -260,10 +270,20 @@ const KPIAuditDashboard: React.FC = () => {
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" title="View Details">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      title="View Details"
+                      onClick={() => viewUserDetails(user)}
+                    >
                       <Eye className="w-4 h-4" />
                     </Button>
-                    <Button variant="outline" size="sm" title="Send Email">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      title="Send Email"
+                      onClick={() => sendEmailToUser(user)}
+                    >
                       <Mail className="w-4 h-4" />
                     </Button>
                   </div>
@@ -527,7 +547,7 @@ const KPIAuditDashboard: React.FC = () => {
                   <Loader2 className="w-6 h-6 animate-spin" />
                 </div>
               ) : (
-                renderUserTable(data.outstanding, 'Outstanding', 'bg-green-50')
+                renderUserTable(data.outstanding, 'Outstanding')
               )}
             </CardContent>
           </Card>
@@ -550,7 +570,7 @@ const KPIAuditDashboard: React.FC = () => {
                   <Loader2 className="w-6 h-6 animate-spin" />
                 </div>
               ) : (
-                renderUserTable(data.excellent, 'Excellent', 'bg-blue-50')
+                renderUserTable(data.excellent, 'Excellent')
               )}
             </CardContent>
           </Card>
@@ -573,7 +593,7 @@ const KPIAuditDashboard: React.FC = () => {
                   <Loader2 className="w-6 h-6 animate-spin" />
                 </div>
               ) : (
-                renderUserTable(data.satisfactory, 'Satisfactory', 'bg-yellow-50')
+                renderUserTable(data.satisfactory, 'Satisfactory')
               )}
             </CardContent>
           </Card>
@@ -587,7 +607,7 @@ const KPIAuditDashboard: React.FC = () => {
                 Need Improvement (40-49)
               </CardTitle>
               <CardDescription>
-                Basic Training + Audit Call + Cross-check + Dummy Audit Case required
+                Basic Training + Audit Call + Cross-check required
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
@@ -596,7 +616,7 @@ const KPIAuditDashboard: React.FC = () => {
                   <Loader2 className="w-6 h-6 animate-spin" />
                 </div>
               ) : (
-                renderUserTable(data.needImprovement, 'Need Improvement', 'bg-orange-50')
+                renderUserTable(data.needImprovement, 'Need Improvement')
               )}
             </CardContent>
           </Card>
@@ -610,7 +630,7 @@ const KPIAuditDashboard: React.FC = () => {
                 Unsatisfactory Performance (&lt;40)
               </CardTitle>
               <CardDescription>
-                Basic Training + Audit Call + Cross-check + Dummy Audit + Warning Letter required
+                Basic Training + Audit Call + Cross-check + Warning Letter required
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
@@ -619,12 +639,159 @@ const KPIAuditDashboard: React.FC = () => {
                   <Loader2 className="w-6 h-6 animate-spin" />
                 </div>
               ) : (
-                renderUserTable(data.unsatisfactory, 'Unsatisfactory', 'bg-red-50')
+                renderUserTable(data.unsatisfactory, 'Unsatisfactory')
               )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* User Details Modal */}
+      {showDetailsModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  User KPI Details
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDetailsModal(false)}
+                >
+                  ✕
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                {/* User Info */}
+                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                  <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Employee Information</h3>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Name:</span>
+                      <span className="ml-2 font-medium text-gray-900 dark:text-white">{selectedUser.name}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Employee ID:</span>
+                      <span className="ml-2 font-medium text-gray-900 dark:text-white">{selectedUser.employeeId}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Email:</span>
+                      <span className="ml-2 font-medium text-gray-900 dark:text-white">{selectedUser.email}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 dark:text-gray-400">Department:</span>
+                      <span className="ml-2 font-medium text-gray-900 dark:text-white">{selectedUser.department}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* KPI Score */}
+                <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg">
+                  <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">KPI Performance</h3>
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                        {selectedUser.kpiScore.toFixed(2)}%
+                      </p>
+                      <Badge className={getRatingColor(selectedUser.rating)}>
+                        {selectedUser.rating}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-gray-700 dark:text-gray-300">
+                      <p>Period: {selectedUser.period}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Metrics */}
+                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                  <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Performance Metrics</h3>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">TAT:</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.tat}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Major Negativity:</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.majorNegativity}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Quality:</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.quality}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Neighbor Check:</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.neighborCheck}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">App Usage:</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.appUsage}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Insufficiency:</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.insufficiency}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Requirements */}
+                <div className="bg-yellow-50 dark:bg-yellow-900 p-4 rounded-lg">
+                  <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Action Requirements</h3>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="text-gray-700 dark:text-gray-300 font-medium">Training:</span>
+                      <span className="ml-2 text-gray-900 dark:text-white">{selectedUser.trainingRequirement}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-700 dark:text-gray-300 font-medium">Audit:</span>
+                      <span className="ml-2 text-gray-900 dark:text-white">{selectedUser.auditRequirement}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pending Actions */}
+                {(selectedUser.pendingAudits.length > 0 || selectedUser.pendingTraining.length > 0) && (
+                  <div className="bg-orange-50 dark:bg-orange-900 p-4 rounded-lg">
+                    <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Pending Actions</h3>
+                    {selectedUser.pendingAudits.length > 0 && (
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Audits: {selectedUser.pendingAudits.length} scheduled
+                      </p>
+                    )}
+                    {selectedUser.pendingTraining.length > 0 && (
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Training: {selectedUser.pendingTraining.length} assigned
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDetailsModal(false)}
+                >
+                  Close
+                </Button>
+                <Button
+                  onClick={() => {
+                    sendEmailToUser(selectedUser);
+                    setShowDetailsModal(false);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Send Email
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

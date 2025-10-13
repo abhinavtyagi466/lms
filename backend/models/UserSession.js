@@ -142,7 +142,7 @@ userSessionSchema.statics.getUserSessionSummary = function(userId, days = 30) {
   return this.aggregate([
     {
       $match: {
-        userId: mongoose.Types.ObjectId(userId),
+        userId: new mongoose.Types.ObjectId(userId),
         startTime: { $gte: startDate }
       }
     },
@@ -181,7 +181,7 @@ userSessionSchema.statics.getDeviceUsagePatterns = function(userId, days = 30) {
   return this.aggregate([
     {
       $match: {
-        userId: mongoose.Types.ObjectId(userId),
+        userId: new mongoose.Types.ObjectId(userId),
         startTime: { $gte: startDate }
       }
     },
@@ -212,7 +212,7 @@ userSessionSchema.statics.getLocationPatterns = function(userId, days = 30) {
   return this.aggregate([
     {
       $match: {
-        userId: mongoose.Types.ObjectId(userId),
+        userId: new mongoose.Types.ObjectId(userId),
         startTime: { $gte: startDate },
         'location.city': { $exists: true, $ne: null }
       }

@@ -1,14 +1,34 @@
 const nodemailer = require('nodemailer');
 const EmailLog = require('../models/EmailLog');
 
-// Create transporter using environment variables
+
+// Create transporter using environment variables with Gmail defaults
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  secure: process.env.SMTP_PORT === '465',
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.SMTP_PORT) || 587,
+  secure: (process.env.SMTP_PORT || '587') === '465', // true for 465, false for other ports
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
+    pass: process.env.SMTP_PASS // REQUIRED: Set this in .env file
+  },
+  tls: {
+    // Do not fail on invalid certs (useful for development)
+    rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== 'false'
+  },
+  debug: process.env.NODE_ENV === 'development', // Enable debug in development
+  logger: process.env.NODE_ENV === 'development' // Enable logging in development
+});
+
+// Verify SMTP connection on startup
+transporter.verify(function(error, success) {
+  if (error) {
+    console.error('❌ SMTP Connection Failed:', error.message);
+    console.error('   Please check your .env file and email credentials');
+    console.error('   Make sure you are using Gmail App Password, not regular password');
+  } else {
+    console.log('✅ SMTP Server is ready to send emails');
+    console.log(`   Using: ${process.env.SMTP_USER || 'Not configured'}`);
+    console.log(`   From: ${process.env.FROM_NAME || process.env.SMTP_FROM_NAME || 'E-Learning Platform'} <${process.env.FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER}>`);
   }
 });
 
@@ -506,14 +526,14 @@ const sendEmail = async (to, template, data, emailLogData = null) => {
     const { subject, html } = emailTemplates[template](data);
 
     const mailOptions = {
-      from: `"${process.env.FROM_NAME || 'E-Learning Platform'}" <${process.env.FROM_EMAIL || 'noreply@company.com'}>`,
+      from: `"${process.env.FROM_NAME || process.env.SMTP_FROM_NAME || 'E-Learning Platform'}" <${process.env.FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER}>`,
       to: Array.isArray(to) ? to.join(', ') : to,
       subject,
       html
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent:', info.messageId);
+    console.log('✅ Email sent successfully:', info.messageId);
 
     // Log email activity if emailLogData is provided
     if (emailLogData) {
@@ -583,7 +603,7 @@ const retryFailedEmail = async (emailLogId) => {
 
     // Resend email
     const mailOptions = {
-      from: `"${process.env.FROM_NAME || 'E-Learning Platform'}" <${process.env.FROM_EMAIL || 'noreply@company.com'}>`,
+      from: `"${process.env.FROM_NAME || process.env.SMTP_FROM_NAME || 'E-Learning Platform'}" <${process.env.FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER}>`,
       to: emailLog.recipientEmail,
       subject: emailLog.subject,
       html: emailLog.emailContent

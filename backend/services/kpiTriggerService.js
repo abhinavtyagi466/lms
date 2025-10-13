@@ -103,8 +103,12 @@ class KPITriggerService {
     };
   }
 
-  // Calculate KPI score from Excel row data - DYNAMIC using KPIConfiguration from database
+  // Calculate KPI score from Excel row data - Using hardcoded logic
   async calculateKPIScore(row) {
+    // Use fallback (hardcoded) calculation - no DB dependency
+    return this.calculateKPIScoreFallback(row);
+    
+    /* OLD DB-based calculation (model not found)
     try {
       // Fetch active KPI configurations from database
       const KPIConfiguration = require('../models/KPIConfiguration');
@@ -174,6 +178,7 @@ class KPITriggerService {
       console.log('Falling back to hardcoded calculation');
       return this.calculateKPIScoreFallback(row);
     }
+    */
   }
 
   // Fallback calculation if database config fails
@@ -253,29 +258,57 @@ class KPITriggerService {
     
     // Priority 1: Find by Employee ID (case-insensitive, trimmed)
     if (cleanEmployeeId) {
-      user = await User.findOne({ 
-        employeeId: { $regex: `^${cleanEmployeeId}$`, $options: 'i' } 
-      });
-      if (user) {
+      console.log(`🔍 Searching for Employee ID: "${cleanEmployeeId}"`);
+      
+      // Try case-insensitive regex match
+      try {
+        const escapedEmployeeId = cleanEmployeeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        user = await User.findOne({ 
+          employeeId: new RegExp(`^${escapedEmployeeId}$`, 'i')
+        });
+      } catch (regexError) {
+        console.log(`⚠️ Regex error, trying direct comparison:`, regexError.message);
+      }
+      
+      // Fallback: Try direct case-insensitive comparison
+      if (!user) {
+        const allUsers = await User.find({}).select('employeeId name _id');
+        user = allUsers.find(u => 
+          u.employeeId && u.employeeId.toLowerCase() === cleanEmployeeId.toLowerCase()
+        );
+        if (user) {
+          console.log(`✓ Matched user by Employee ID (direct): ${cleanEmployeeId} → ${user.name} (${user._id})`);
+        }
+      } else {
         console.log(`✓ Matched user by Employee ID: ${cleanEmployeeId} → ${user.name} (${user._id})`);
+      }
+      
+      if (!user) {
+        console.log(`✗ No match found for Employee ID: ${cleanEmployeeId}`);
       }
     }
     
     // Priority 2: Find by Email (exact match, case-insensitive)
     if (!user && cleanEmail) {
+      console.log(`🔍 Searching for Email: "${cleanEmail}"`);
       user = await User.findOne({ email: cleanEmail });
       if (user) {
         console.log(`✓ Matched user by Email: ${cleanEmail} → ${user.name} (${user._id})`);
+      } else {
+        console.log(`✗ No match found for Email: ${cleanEmail}`);
       }
     }
     
     // Priority 3: Find by Name (flexible regex match)
     if (!user && cleanName) {
+      console.log(`🔍 Searching for Name: "${cleanName}"`);
       user = await User.findOne({ 
         name: { $regex: cleanName, $options: 'i' }
       });
       if (user) {
         console.log(`✓ Matched user by Name: ${cleanName} → ${user.name} (${user._id})`);
+      } else {
+        console.log(`✗ No match found for Name: ${cleanName}`);
       }
     }
     
@@ -302,9 +335,9 @@ class KPITriggerService {
     return user;
   }
 
-  // Save KPI score to database
+  // Save KPI score to database (UPDATE if exists, INSERT if new)
   async saveKPIScore(userId, period, score, rating, rawData, submittedBy = null) {
-    const kpiScore = new KPIScore({
+    const kpiData = {
       userId: userId,
       period: period,
       overallScore: score,
@@ -331,11 +364,22 @@ class KPITriggerService {
       insufficiency: {
         percentage: parseFloat(rawData['Insuff %']) || 0
       },
-      submittedBy: submittedBy, // Required field
+      submittedBy: submittedBy,
       isActive: true
-    });
+    };
 
-    await kpiScore.save();
+    // Use findOneAndUpdate to UPDATE existing or CREATE new (upsert)
+    const kpiScore = await KPIScore.findOneAndUpdate(
+      { userId: userId, period: period }, // Find by userId + period
+      { $set: kpiData }, // Update with new data
+      { 
+        upsert: true, // Create if doesn't exist
+        new: true, // Return updated document
+        setDefaultsOnInsert: true
+      }
+    );
+
+    console.log(`   ${kpiScore.isNew ? '✨ Created' : '🔄 Updated'} KPI record for ${period}`);
     return kpiScore;
   }
 
@@ -363,8 +407,12 @@ class KPITriggerService {
     return triggers;
   }
 
-  // Get condition-based triggers - DYNAMIC from database
+  // Get condition-based triggers - Using fallback (no DB dependency)
   async getConditionBasedTriggers(overallScore, rawData) {
+    // Use fallback directly - TriggerConfiguration model not available
+    return this.getConditionBasedTriggersFallback(overallScore, rawData);
+    
+    /* OLD DB-based approach (model not found)
     try {
       const TriggerConfiguration = require('../models/TriggerConfiguration');
       const configs = await TriggerConfiguration.find({ 
@@ -424,6 +472,7 @@ class KPITriggerService {
       console.error('Error getting condition-based triggers:', error);
       return this.getConditionBasedTriggersFallback(overallScore, rawData);
     }
+    */
   }
 
   // Fallback condition-based triggers
@@ -442,8 +491,8 @@ class KPITriggerService {
         audit: 'Audit Call + Cross-check last 3 months data + Dummy Audit Case',
         conditionMet: 'Overall KPI Score < 55%',
         emailRecipients: {
-          training: ['FE', 'Coordinator', 'Manager', 'Compliance Team', 'HOD'],
-          audit: ['Compliance Team', 'HOD']
+          training: ['FE'], // Only send to FE
+          audit: ['FE']
         }
       });
     }
@@ -456,9 +505,9 @@ class KPITriggerService {
         warning: true,
         conditionMet: 'Overall KPI Score < 40%',
         emailRecipients: {
-          training: ['FE', 'Coordinator', 'Manager', 'Compliance Team', 'HOD'],
-          audit: ['Compliance Team', 'HOD'],
-          warning: ['FE', 'Coordinator', 'Manager', 'Compliance', 'HOD']
+          training: ['FE'],
+          audit: ['FE'],
+          warning: ['FE']
         }
       });
     }
@@ -470,8 +519,8 @@ class KPITriggerService {
         audit: 'Audit Call + Cross-check last 3 months',
         conditionMet: 'Major Negativity > 0% AND General Negativity < 25%',
         emailRecipients: {
-          training: ['FE', 'Coordinator', 'Manager', 'Compliance Team', 'HOD'],
-          audit: ['Compliance Team', 'HOD']
+          training: ['FE'],
+          audit: ['FE']
         }
       });
     }
@@ -483,8 +532,8 @@ class KPITriggerService {
         audit: 'Audit Call + Cross-check last 3 months + RCA of complaints',
         conditionMet: 'Quality Concern > 1%',
         emailRecipients: {
-          training: ['FE', 'Coordinator', 'Manager', 'Compliance Team', 'HOD'],
-          audit: ['Compliance Team', 'HOD']
+          training: ['FE'],
+          audit: ['FE']
         }
       });
     }
@@ -496,7 +545,7 @@ class KPITriggerService {
         audit: null,
         conditionMet: 'Cases Done on App < 80%',
         emailRecipients: {
-          training: ['FE', 'Coordinator', 'Manager', 'Compliance Team', 'HOD']
+          training: ['FE']
         }
       });
     }
@@ -508,7 +557,7 @@ class KPITriggerService {
         audit: 'Cross-verification of selected insuff cases by another FE',
         conditionMet: 'Insufficiency > 2%',
         emailRecipients: {
-          audit: ['Compliance Team', 'HOD']
+          audit: ['FE']
         }
       });
     }
@@ -583,15 +632,45 @@ class KPITriggerService {
     const triggers = [];
 
     if (score >= 85) {
-      triggers.push(this.triggerRules.scoreBased['85-100']);
+      triggers.push({
+        ...this.triggerRules.scoreBased['85-100'],
+        emailRecipients: {
+          reward: ['FE'] // Only send to FE
+        }
+      });
     } else if (score >= 70) {
-      triggers.push(this.triggerRules.scoreBased['70-84']);
+      triggers.push({
+        ...this.triggerRules.scoreBased['70-84'],
+        emailRecipients: {
+          audit: ['FE'],
+          kpi: ['FE']
+        }
+      });
     } else if (score >= 50) {
-      triggers.push(this.triggerRules.scoreBased['50-69']);
+      triggers.push({
+        ...this.triggerRules.scoreBased['50-69'],
+        emailRecipients: {
+          audit: ['FE'],
+          kpi: ['FE']
+        }
+      });
     } else if (score >= 40) {
-      triggers.push(this.triggerRules.scoreBased['40-49']);
+      triggers.push({
+        ...this.triggerRules.scoreBased['40-49'],
+        emailRecipients: {
+          training: ['FE'],
+          audit: ['FE']
+        }
+      });
     } else {
-      triggers.push(this.triggerRules.scoreBased['below-40']);
+      triggers.push({
+        ...this.triggerRules.scoreBased['below-40'],
+        emailRecipients: {
+          training: ['FE'],
+          audit: ['FE'],
+          warning: ['FE']
+        }
+      });
     }
 
     return triggers;
@@ -600,8 +679,8 @@ class KPITriggerService {
   // Execute individual trigger - ENHANCED with email template service
   async executeTrigger(user, kpiRecord, trigger, rawData, adminUser) {
     const result = {
-      type: trigger.training ? 'training' : trigger.audit ? 'audit' : 'warning',
-      action: trigger.training || trigger.audit || 'Warning Letter',
+      type: trigger.training ? 'training' : trigger.audit ? 'audit' : trigger.reward ? 'reward' : 'warning',
+      action: trigger.training || trigger.audit || (trigger.reward ? 'Reward Eligible' : 'Warning Letter'),
       executed: false,
       error: null,
       conditionMet: trigger.conditionMet || null,
@@ -654,6 +733,31 @@ class KPITriggerService {
         
         result.executed = true;
         result.auditScheduleId = audit._id;
+      }
+
+      // Send reward notification if needed
+      if (trigger.reward) {
+        console.log(`🏆 Reward trigger detected for ${user.name}`);
+        console.log(`   Email recipients:`, trigger.emailRecipients);
+        
+        // Send email notifications using template service
+        if (trigger.emailRecipients?.reward && trigger.emailRecipients.reward.length > 0) {
+          console.log(`   Sending reward emails to:`, trigger.emailRecipients.reward);
+          const emailResult = await this.sendTemplatedEmail(
+            'reward',
+            user,
+            kpiRecord,
+            trigger,
+            adminUser,
+            {}
+          );
+          console.log(`   Email result:`, emailResult);
+          result.emailsSent.push(...emailResult.results);
+        } else {
+          console.log(`   ⚠️ No reward email recipients configured`);
+        }
+        
+        result.executed = true;
       }
 
       // Send warning letter if needed
@@ -743,95 +847,66 @@ class KPITriggerService {
   // Send templated emails using EmailTemplateService
   async sendTemplatedEmail(type, user, kpiRecord, trigger, adminUser, additionalData = {}) {
     try {
-      // Determine template type and recipients
-      let templateType;
-      let recipientRoles = [];
-
-      switch (type) {
-        case 'training':
-          templateType = 'training_assignment';
-          recipientRoles = trigger.emailRecipients?.training || ['FE', 'Coordinator', 'Manager', 'HOD'];
-          break;
-
-        case 'audit':
-          templateType = 'audit_schedule';
-          recipientRoles = trigger.emailRecipients?.audit || ['Compliance Team', 'HOD'];
-          break;
-
-        case 'warning':
-          templateType = 'performance_warning';
-          recipientRoles = trigger.emailRecipients?.warning || ['FE', 'Coordinator', 'Manager', 'Compliance Team', 'HOD'];
-          break;
-
-        default:
-          // Determine by rating
-          if (kpiRecord.rating === 'Outstanding') {
-            templateType = 'kpi_outstanding';
-            recipientRoles = ['FE', 'Manager', 'HOD'];
-          } else if (kpiRecord.rating === 'Excellent') {
-            templateType = 'kpi_excellent';
-            recipientRoles = ['FE', 'Coordinator'];
-          } else {
-            templateType = 'kpi_need_improvement';
-            recipientRoles = ['FE', 'Coordinator', 'Manager', 'HOD'];
-          }
-      }
-
-      // Get recipients
-      const recipients = await EmailTemplateService.getRecipientsByRole(recipientRoles, user._id);
-
-      // Prepare variables for template
-      const variables = {
-        userName: user.name,
-        email: user.email,
-        employeeId: user.employeeId || 'N/A',
-        kpiScore: kpiRecord.overallScore.toFixed(2),
-        rating: kpiRecord.rating,
-        period: kpiRecord.period,
-        tatPercentage: kpiRecord.metrics.tat.percentage?.toFixed(2) || '0',
-        majorNegPercentage: kpiRecord.metrics.majorNegativity.percentage?.toFixed(2) || '0',
-        qualityPercentage: kpiRecord.metrics.quality.percentage?.toFixed(2) || '0',
-        neighborCheckPercentage: kpiRecord.metrics.neighborCheck.percentage?.toFixed(2) || '0',
-        generalNegPercentage: kpiRecord.metrics.negativity.percentage?.toFixed(2) || '0',
-        onlinePercentage: kpiRecord.metrics.appUsage.percentage?.toFixed(2) || '0',
-        insuffPercentage: kpiRecord.metrics.insufficiency.percentage?.toFixed(2) || '0',
-        trainingType: trigger.training || 'Basic Training Module',
-        trainingReason: trigger.conditionMet || `KPI Score: ${kpiRecord.overallScore.toFixed(2)}%`,
-        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-        trainingDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-        priority: 'High',
-        auditType: trigger.audit || 'Audit Call',
-        auditScope: trigger.conditionMet || 'Performance review based on KPI triggers',
-        scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-        preAuditDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-        auditDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-        performanceConcerns: trigger.conditionMet || 'Low KPI performance',
-        improvementAreas: `TAT: ${kpiRecord.metrics.tat.percentage?.toFixed(2)}%, Quality: ${kpiRecord.metrics.quality.percentage?.toFixed(2)}%`
-      };
-
-      // Send email
-      const result = await EmailTemplateService.sendEmail({
-        templateType: templateType,
-        variables: variables,
-        recipients: recipients,
-        userId: user._id,
-        sentBy: adminUser?._id || user._id,
-        kpiTriggerId: kpiRecord._id,
-        trainingAssignmentId: additionalData.trainingAssignmentId,
-        auditScheduleId: additionalData.auditScheduleId,
-        createNotification: true,
-        notificationMetadata: {
-          kpiScore: kpiRecord.overallScore,
-          rating: kpiRecord.rating,
-          period: kpiRecord.period,
-          trainingId: additionalData.trainingAssignmentId,
-          auditId: additionalData.auditScheduleId
+      console.log(`📧 Preparing email for type: ${type}`);
+      console.log(`   User: ${user.name} (${user.email})`);
+      console.log(`   Recipients: ${JSON.stringify(trigger.emailRecipients)}`);
+      
+      // USE NODEMAILER DIRECTLY (simpler, no service dependency)
+      const nodemailer = require('nodemailer');
+      
+      const emailSubject = this.getEmailSubject(type, kpiRecord);
+      const emailContent = this.getEmailContent(type, user, kpiRecord, trigger);
+      
+      const results = [];
+      
+      // Send to FE only (as per user requirement)
+      if (user.email) {
+        try {
+          console.log(`   Sending to FE: ${user.email}`);
+          
+          // Create transporter (same as emailService)
+          const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST || 'smtp.gmail.com',
+            port: parseInt(process.env.SMTP_PORT) || 587,
+            secure: (process.env.SMTP_PORT || '587') === '465',
+            auth: {
+              user: process.env.SMTP_USER,
+              pass: process.env.SMTP_PASS
+            }
+          });
+          
+          // Send email
+          await transporter.sendMail({
+            from: `"${process.env.FROM_NAME || 'E-Learning Platform'}" <${process.env.FROM_EMAIL || process.env.SMTP_USER}>`,
+            to: user.email,
+            subject: emailSubject,
+            html: emailContent
+          });
+          
+          results.push({
+            to: user.email,
+            status: 'sent',
+            templateType: type
+          });
+          
+          console.log(`   ✅ Email sent successfully to ${user.email}`);
+        } catch (emailError) {
+          console.error(`   ❌ Email failed to ${user.email}:`, emailError.message);
+          results.push({
+            to: user.email,
+            status: 'failed',
+            error: emailError.message
+          });
         }
-      });
-
-      return result;
+      }
+      
+      return {
+        success: results.length > 0,
+        results: results
+      };
+      
     } catch (error) {
-      console.error('Error sending templated email:', error);
+      console.error('❌ Send templated email error:', error);
       return {
         success: false,
         error: error.message,
@@ -839,6 +914,108 @@ class KPITriggerService {
       };
     }
   }
+  
+  // Get email subject based on type
+  getEmailSubject(type, kpiRecord) {
+    switch (type) {
+      case 'reward':
+        return `🏆 Congratulations! Outstanding KPI Performance - ${kpiRecord.period}`;
+      case 'training':
+        return `📚 Training Assignment - ${kpiRecord.period}`;
+      case 'audit':
+        return `📋 Audit Schedule - ${kpiRecord.period}`;
+      case 'warning':
+        return `⚠️ Performance Warning - ${kpiRecord.period}`;
+      default:
+        return `KPI Update - ${kpiRecord.period}`;
+    }
+  }
+  
+  // Get email content based on type
+  getEmailContent(type, user, kpiRecord, trigger) {
+    const commonHeader = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2>Dear ${user.name},</h2>
+        <p>Your KPI score for <strong>${kpiRecord.period}</strong> is <strong>${kpiRecord.overallScore.toFixed(2)}%</strong> (${kpiRecord.rating})</p>
+    `;
+    
+    const commonFooter = `
+        <hr style="margin: 20px 0;">
+        <p style="color: #666; font-size: 12px;">
+          This is an automated email from E-Learning Platform. Please do not reply to this email.
+        </p>
+      </div>
+    `;
+    
+    let content = '';
+    
+    switch (type) {
+      case 'reward':
+        content = `
+          ${commonHeader}
+          <div style="background-color: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="color: #155724; margin: 0;">🏆 Outstanding Performance!</h3>
+            <p style="color: #155724; margin: 10px 0 0 0;">
+              Congratulations on your excellent performance! Keep up the great work!
+            </p>
+          </div>
+          ${commonFooter}
+        `;
+        break;
+        
+      case 'training':
+        content = `
+          ${commonHeader}
+          <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="color: #856404;">📚 Training Assignment</h3>
+            <p style="color: #856404;">
+              <strong>Training Required:</strong> ${trigger.training || 'Basic Training Module'}<br>
+              <strong>Reason:</strong> ${trigger.conditionMet || 'KPI improvement required'}<br>
+              <strong>Due Date:</strong> ${new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+            </p>
+          </div>
+          ${commonFooter}
+        `;
+        break;
+        
+      case 'audit':
+        content = `
+          ${commonHeader}
+          <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="color: #0c5460;">📋 Audit Schedule</h3>
+            <p style="color: #0c5460;">
+              <strong>Audit Type:</strong> ${trigger.audit || 'Performance Audit'}<br>
+              <strong>Reason:</strong> ${trigger.conditionMet || 'Routine KPI check'}<br>
+              <strong>Scheduled Date:</strong> ${new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+            </p>
+          </div>
+          ${commonFooter}
+        `;
+        break;
+        
+      case 'warning':
+        content = `
+          ${commonHeader}
+          <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="color: #721c24;">⚠️ Performance Warning</h3>
+            <p style="color: #721c24;">
+              Your performance requires immediate attention. Please improve in the following areas:<br><br>
+              <strong>Concerns:</strong> ${trigger.conditionMet || 'Low KPI score'}<br>
+              <strong>Action Required:</strong> Performance improvement plan
+            </p>
+          </div>
+          ${commonFooter}
+        `;
+        break;
+        
+      default:
+        content = `${commonHeader}${commonFooter}`;
+    }
+    
+    return content;
+  }
+  
+  // Note: Now using direct email service instead of template-based approach for simplicity
 
   // Create user notification
   async createUserNotification(user, type, action, kpiRecord) {
@@ -940,37 +1117,63 @@ class KPITriggerService {
 
   // Create training assignment - ENHANCED with condition tracking
   async createTrainingAssignment(user, trainingType, kpiRecord, conditionMet = null) {
+    // Map training type to valid enum values
+    let validTrainingType = 'basic';
+    
+    if (trainingType.toLowerCase().includes('negativity')) {
+      validTrainingType = 'negativity_handling';
+    } else if (trainingType.toLowerCase().includes("don't") || trainingType.toLowerCase().includes('dos')) {
+      validTrainingType = 'dos_donts';
+    } else if (trainingType.toLowerCase().includes('app') || trainingType.toLowerCase().includes('usage')) {
+      validTrainingType = 'app_usage';
+    }
+    
+    console.log(`   📚 Mapping training: "${trainingType}" → "${validTrainingType}"`);
+    
     const trainingAssignment = new TrainingAssignment({
       userId: user._id,
-      trainingType: trainingType,
+      trainingType: validTrainingType,
       assignedBy: 'system',
       assignedAt: new Date(),
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
       status: 'assigned',
       priority: 'high',
       reason: conditionMet || `KPI Score: ${kpiRecord.overallScore}% (${kpiRecord.rating})`,
-      notes: `Automatically assigned based on KPI performance for period ${kpiRecord.period}`
+      notes: `Automatically assigned based on KPI performance for period ${kpiRecord.period}. Original: ${trainingType}`
     });
 
     await trainingAssignment.save();
+    console.log(`   ✅ Training assignment created: ${validTrainingType}`);
     return trainingAssignment;
   }
 
   // Create audit schedule - ENHANCED with condition tracking
   async createAuditSchedule(user, auditType, kpiRecord, conditionMet = null) {
+    // Map audit type to valid enum values
+    let validAuditType = 'audit_call';
+    
+    if (auditType.toLowerCase().includes('cross-check') || auditType.toLowerCase().includes('cross-verification')) {
+      validAuditType = 'cross_check';
+    } else if (auditType.toLowerCase().includes('dummy')) {
+      validAuditType = 'dummy_audit';
+    }
+    
+    console.log(`   📋 Mapping audit: "${auditType}" → "${validAuditType}"`);
+    
     const auditSchedule = new AuditSchedule({
       userId: user._id,
-      auditType: auditType,
+      auditType: validAuditType,
       scheduledBy: 'system',
       scheduledAt: new Date(),
       scheduledDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
       status: 'scheduled',
       priority: 'high',
       reason: conditionMet || `KPI Score: ${kpiRecord.overallScore}% (${kpiRecord.rating})`,
-      notes: `Automatically scheduled based on KPI performance for period ${kpiRecord.period}`
+      notes: `Automatically scheduled based on KPI performance for period ${kpiRecord.period}. Original: ${auditType}`
     });
 
     await auditSchedule.save();
+    console.log(`   ✅ Audit schedule created: ${validAuditType}`);
     return auditSchedule;
   }
 

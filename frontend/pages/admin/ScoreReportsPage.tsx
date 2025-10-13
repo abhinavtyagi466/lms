@@ -29,7 +29,7 @@ export const ScoreReportsPage: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState('all');
   const [sortBy, setSortBy] = useState('averageScore');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [dateRange, setDateRange] = useState('all');
+  // const [dateRange, setDateRange] = useState('all'); // Removed unused variable
   
   // Pagination state
   const [pageNumber, setPageNumber] = useState(1);
@@ -45,8 +45,8 @@ export const ScoreReportsPage: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await apiService.users.getAllUsers();
-      if (response && (response as any).success) {
+      const response = await apiService.users.getAllUsers({ limit: 1000 });
+      if (response && typeof response === 'object' && 'success' in response && response.success) {
         setUsers((response as any).users || (response as any).data || []);
       }
     } catch (error) {
@@ -59,76 +59,32 @@ export const ScoreReportsPage: React.FC = () => {
     try {
       setLoadingScores(true);
       
-      console.log('🔍 Starting to fetch user scores...');
+      // Use the dedicated user scores API endpoint
+      const response = await apiService.reports.getAllUserScores();
       
-      // Fetch all users first
-      const usersResponse = await apiService.users.getAllUsers();
-      console.log('👥 Users response:', usersResponse);
-      
-      if (!usersResponse || !(usersResponse as any).success) {
-        throw new Error('Failed to fetch users');
+      if (response && typeof response === 'object' && 'success' in response && response.success) {
+        const userScoresData = response.data || [];
+        
+        // Transform the data to match our component's expected format
+        const transformedData = userScoresData.map((score: any) => ({
+          userId: score.userId,
+          userName: score.userName,
+          userEmail: score.userEmail,
+          employeeId: score.employeeId,
+          totalModules: score.totalModules || 0,
+          completedModules: score.completedModules || 0,
+          averageScore: Math.round(score.averageScore || 0),
+          lastActivity: score.lastActivity
+        }));
+        
+        setUserScores(transformedData);
+      } else {
+        setUserScores([]);
       }
-      
-      const allUsers = (usersResponse as any).users || (usersResponse as any).data || [];
-      console.log('👥 All users:', allUsers);
-      
-      const userScoresData = [];
-      
-      // For each user, fetch their quiz attempts and calculate scores
-      for (const user of allUsers) {
-        try {
-          console.log(`🔍 Fetching data for user: ${user.name} (${user._id})`);
-          
-          // Fetch user's quiz attempts
-          const quizAttemptsResponse = await apiService.quizAttempts.getUserQuizAttempts(user._id, { limit: 100 });
-          console.log(`📊 Quiz attempts for ${user.name}:`, quizAttemptsResponse);
-          
-          const quizAttempts = (quizAttemptsResponse as any).data || [];
-          console.log(`📊 Quiz attempts data for ${user.name}:`, quizAttempts);
-          
-          // Calculate user statistics
-          const totalModules = new Set(quizAttempts.map((attempt: any) => attempt.moduleId)).size;
-          const completedModules = new Set(quizAttempts.filter((attempt: any) => attempt.passed).map((attempt: any) => attempt.moduleId)).size;
-          const scores = quizAttempts.map((attempt: any) => attempt.score || 0);
-          const averageScore = scores.length > 0 ? scores.reduce((sum: number, score: number) => sum + score, 0) / scores.length : 0;
-          const lastActivity = quizAttempts.length > 0 ? Math.max(...quizAttempts.map((attempt: any) => new Date(attempt.createdAt).getTime())) : null;
-          
-          const userScoreData = {
-            userId: user._id,
-            userName: user.name,
-            userEmail: user.email,
-            employeeId: user.employeeId,
-            totalModules,
-            completedModules,
-            averageScore: Math.round(averageScore),
-            lastActivity: lastActivity ? new Date(lastActivity).toISOString() : null
-          };
-          
-          console.log(`✅ User score data for ${user.name}:`, userScoreData);
-          userScoresData.push(userScoreData);
-        } catch (userError) {
-          console.error(`❌ Error fetching data for user ${user.name}:`, userError);
-          // Add user with zero scores if we can't fetch their data
-          const userScoreData = {
-            userId: user._id,
-            userName: user.name,
-            userEmail: user.email,
-            employeeId: user.employeeId,
-            totalModules: 0,
-            completedModules: 0,
-            averageScore: 0,
-            lastActivity: null
-          };
-          console.log(`⚠️ Adding user with zero scores: ${user.name}`, userScoreData);
-          userScoresData.push(userScoreData);
-        }
-      }
-      
-      console.log('🎯 Final user scores data:', userScoresData);
-      setUserScores(userScoresData);
     } catch (error) {
-      console.error('❌ Error fetching user scores:', error);
+      console.error('Error fetching user scores:', error);
       toast.error('Failed to fetch user scores');
+      setUserScores([]);
     } finally {
       setLoadingScores(false);
     }
@@ -421,7 +377,6 @@ export const ScoreReportsPage: React.FC = () => {
                   setSelectedUser('all');
                   setSortBy('averageScore');
                   setSortOrder('desc');
-                  setDateRange('all');
                 }}
               >
                 Reset Filters

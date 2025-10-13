@@ -663,131 +663,10 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// @route   GET /api/audits/:id
-// @desc    Get specific audit schedule
-// @access  Private (user can access own, admin can access any)
-router.get('/:id', authenticateToken, validateObjectId, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Get audit schedule
-    const audit = await AuditSchedule.findById(id)
-      .populate('userId', 'name email employeeId department')
-      .populate('assignedTo', 'name email')
-      .populate('assignedBy', 'name email')
-      .populate('kpiTriggerId', 'overallScore rating period');
-
-    if (!audit) {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: 'Audit schedule not found'
-      });
-    }
-
-    // Check authorization
-    if (req.user.userType !== 'admin' && req.user._id.toString() !== audit.userId._id.toString()) {
-      return res.status(403).json({
-        error: 'Access Denied',
-        message: 'You can only access your own audit schedules'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: audit
-    });
-
-  } catch (error) {
-    console.error('Get audit schedule error:', error);
-    res.status(500).json({
-      error: 'Server Error',
-      message: 'Error fetching audit schedule'
-    });
-  }
-});
-
-// @route   PUT /api/audits/:id
-// @desc    Update audit schedule
-// @access  Private (Admin only)
-router.put('/:id', authenticateToken, requireAdmin, validateObjectId, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { scheduledDate, priority, auditScope, auditMethod, assignedTo } = req.body;
-
-    // Get audit schedule
-    const audit = await AuditSchedule.findById(id);
-
-    if (!audit) {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: 'Audit schedule not found'
-      });
-    }
-
-    // Update fields
-    if (scheduledDate) audit.scheduledDate = new Date(scheduledDate);
-    if (priority) audit.priority = priority;
-    if (auditScope) audit.auditScope = auditScope;
-    if (auditMethod) audit.auditMethod = auditMethod;
-    if (assignedTo) audit.assignedTo = assignedTo;
-
-    await audit.save();
-
-    // Get updated audit with populated data
-    const updatedAudit = await AuditSchedule.findById(id)
-      .populate('userId', 'name email employeeId')
-      .populate('assignedTo', 'name email')
-      .populate('assignedBy', 'name email')
-      .populate('kpiTriggerId', 'overallScore rating period');
-
-    res.json({
-      success: true,
-      message: 'Audit schedule updated successfully',
-      data: updatedAudit
-    });
-
-  } catch (error) {
-    console.error('Update audit schedule error:', error);
-    res.status(500).json({
-      error: 'Server Error',
-      message: 'Error updating audit schedule'
-    });
-  }
-});
-
-// @route   GET /api/audits/upcoming
-// @desc    Get upcoming audits
-// @access  Private (Admin only)
-router.get('/upcoming', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const days = parseInt(req.query.days) || 7;
-    const limit = parseInt(req.query.limit) || 20;
-
-    // Get upcoming audits
-    const audits = await AuditSchedule.getUpcomingAudits(days, { isActive: true })
-      .limit(limit);
-
-    res.json({
-      success: true,
-      data: {
-        audits,
-        days,
-        totalUpcoming: audits.length
-      }
-    });
-
-  } catch (error) {
-    console.error('Get upcoming audits error:', error);
-    res.status(500).json({
-      error: 'Server Error',
-      message: 'Error fetching upcoming audits'
-    });
-  }
-});
-
 // @route   GET /api/audits/by-kpi-rating
 // @desc    Get users grouped by KPI ratings with their audit requirements
 // @access  Private (Admin only)
+// NOTE: This MUST be before /:id route to avoid route matching issues
 router.get('/by-kpi-rating', authenticateToken, requireAdmin, async (req, res) => {
   try {
     // Get latest KPI scores for all users
@@ -934,6 +813,128 @@ router.get('/by-kpi-rating', authenticateToken, requireAdmin, async (req, res) =
       error: 'Server Error',
       message: 'Error fetching KPI-based audit data',
       details: error.message
+    });
+  }
+});
+
+// @route   GET /api/audits/:id
+// @desc    Get specific audit schedule
+// @access  Private (user can access own, admin can access any)
+router.get('/:id', authenticateToken, validateObjectId, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get audit schedule
+    const audit = await AuditSchedule.findById(id)
+      .populate('userId', 'name email employeeId department')
+      .populate('assignedTo', 'name email')
+      .populate('assignedBy', 'name email')
+      .populate('kpiTriggerId', 'overallScore rating period');
+
+    if (!audit) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Audit schedule not found'
+      });
+    }
+
+    // Check authorization
+    if (req.user.userType !== 'admin' && req.user._id.toString() !== audit.userId._id.toString()) {
+      return res.status(403).json({
+        error: 'Access Denied',
+        message: 'You can only access your own audit schedules'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: audit
+    });
+
+  } catch (error) {
+    console.error('Get audit schedule error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching audit schedule'
+    });
+  }
+});
+
+// @route   PUT /api/audits/:id
+// @desc    Update audit schedule
+// @access  Private (Admin only)
+router.put('/:id', authenticateToken, requireAdmin, validateObjectId, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { scheduledDate, priority, auditScope, auditMethod, assignedTo } = req.body;
+
+    // Get audit schedule
+    const audit = await AuditSchedule.findById(id);
+
+    if (!audit) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Audit schedule not found'
+      });
+    }
+
+    // Update fields
+    if (scheduledDate) audit.scheduledDate = new Date(scheduledDate);
+    if (priority) audit.priority = priority;
+    if (auditScope) audit.auditScope = auditScope;
+    if (auditMethod) audit.auditMethod = auditMethod;
+    if (assignedTo) audit.assignedTo = assignedTo;
+
+    await audit.save();
+
+    // Get updated audit with populated data
+    const updatedAudit = await AuditSchedule.findById(id)
+      .populate('userId', 'name email employeeId')
+      .populate('assignedTo', 'name email')
+      .populate('assignedBy', 'name email')
+      .populate('kpiTriggerId', 'overallScore rating period');
+
+    res.json({
+      success: true,
+      message: 'Audit schedule updated successfully',
+      data: updatedAudit
+    });
+
+  } catch (error) {
+    console.error('Update audit schedule error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error updating audit schedule'
+    });
+  }
+});
+
+// @route   GET /api/audits/upcoming
+// @desc    Get upcoming audits
+// @access  Private (Admin only)
+router.get('/upcoming', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 7;
+    const limit = parseInt(req.query.limit) || 20;
+
+    // Get upcoming audits
+    const audits = await AuditSchedule.getUpcomingAudits(days, { isActive: true })
+      .limit(limit);
+
+    res.json({
+      success: true,
+      data: {
+        audits,
+        days,
+        totalUpcoming: audits.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Get upcoming audits error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching upcoming audits'
     });
   }
 });

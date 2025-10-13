@@ -139,7 +139,7 @@ userActivitySchema.statics.getUserActivitySummary = function(userId, days = 30) 
   return this.aggregate([
     {
       $match: {
-        userId: mongoose.Types.ObjectId(userId),
+        userId: new mongoose.Types.ObjectId(userId),
         createdAt: { $gte: startDate }
       }
     },
