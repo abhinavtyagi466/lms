@@ -21,7 +21,8 @@ import {
   Users,
   Eye,
   Mail,
-  FilePlus
+  FilePlus,
+  UploadCloud
 } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -73,6 +74,25 @@ interface Statistics {
   averageScore: number;
 }
 
+// Preview row returned by /api/kpi-triggers/preview
+interface PreviewRow {
+  fe: string;
+  employeeId: string;
+  email: string;
+  matched: boolean;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    employeeId: string;
+    department: string;
+  } | null;
+  kpiScore?: number;
+  rating?: string;
+  error?: string;
+  rawData?: Record<string, any>;
+}
+
 const KPIAuditDashboard: React.FC = () => {
   const { setCurrentPage } = useAuth();
   const [data, setData] = useState<GroupedData>({
@@ -97,6 +117,16 @@ const KPIAuditDashboard: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState('overview');
   const [selectedUser, setSelectedUser] = useState<UserKPIData | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailTemplate, setEmailTemplate] = useState<'kpiScore' | 'trainingAssignment' | 'auditNotification' | 'warning'>('kpiScore');
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<Record<string, 'success' | 'failed' | undefined>>({});
+
+  // Unmatched preview state
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [unmatchedRows, setUnmatchedRows] = useState<PreviewRow[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Navigate to Audit Management
   const openAuditManagement = () => {
@@ -110,22 +140,34 @@ const KPIAuditDashboard: React.FC = () => {
   };
 
   // Send email to user
-  const sendEmailToUser = async (user: UserKPIData) => {
-    try {
-      // TODO: Implement actual email sending logic
-      // Email sending functionality will be implemented here
-      console.log('Email functionality for:', user.email);
-    } catch (error) {
-      console.error('Error sending email:', error);
-    }
+  const openEmailModal = (user: UserKPIData) => {
+    setSelectedUser(user);
+    setEmailTemplate('kpiScore');
+    setShowEmailModal(true);
   };
 
-  useEffect(() => {
-    loadKPIData();
-    // Auto-refresh every 5 minutes
-    const interval = setInterval(loadKPIData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const confirmSendEmail = async () => {
+    if (!selectedUser) return;
+    try {
+      setEmailSending(true);
+      const payload: any = {
+        userId: selectedUser.userId,
+        template: emailTemplate,
+        data: {
+          userName: selectedUser.name,
+          employeeId: selectedUser.employeeId,
+          period: selectedUser.period,
+          kpiScore: selectedUser.kpiScore,
+          rating: selectedUser.rating,
+        }
+      };
+      const resp = await apiService.kpiTriggers.sendEmail(payload);
+      setEmailStatus(prev => ({ ...prev, [selectedUser.userId]: resp?.data ? 'success' : 'failed' }));
+      setShowEmailModal(false);
+    } catch (e) {
+      if (selectedUser) setEmailStatus(prev => ({ ...prev, [selectedUser.userId]: 'failed' }));
+    }
+  };
 
   const loadKPIData = async () => {
     try {
@@ -139,9 +181,66 @@ const KPIAuditDashboard: React.FC = () => {
         setLastUpdated(new Date(response.data.lastUpdated));
       }
     } catch (error) {
-      console.error('Failed to load KPI data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadKPIData();
+  }, []);
+
+  // Auto-load unmatched data when tab changes to unmatched
+  useEffect(() => {
+    if (selectedTab === 'unmatched') {
+      loadUnmatched();
+    }
+  }, [selectedTab, selectedPeriod, searchTerm]);
+
+  const loadPreview = async () => {
+    if (!selectedFile || !selectedPeriod) {
+      alert('Please select both file and period');
+      return;
+    }
+
+    try {
+      setPreviewLoading(true);
+      const resp = await apiService.kpiTriggers.previewExcel(selectedFile, selectedPeriod);
+      // resp is response.data from axios: expected { success, data: { previewResults } }
+      const rows: PreviewRow[] = (resp?.data?.previewResults || resp?.previewResults || []);
+      setUnmatchedRows(rows);
+    } catch (e) {
+      console.error('Failed to load preview KPI entries', e);
+      setUnmatchedRows([]);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const loadUnmatched = async () => {
+    try {
+      setPreviewLoading(true);
+      const resp = await apiService.kpiTriggers.getUnmatched({
+        period: selectedPeriod || undefined,
+        search: searchTerm || undefined,
+        limit: 500
+      });
+      const entries = resp?.data?.data || [];
+      const rows = entries.map((e: any) => ({
+        fe: e.fe,
+        employeeId: e.employeeId,
+        email: e.email,
+        matched: false,
+        kpiScore: e.kpiScore,
+        rating: e.rating,
+        rawData: e.rawData
+      }));
+      setUnmatchedRows(rows);
+    } catch (e) {
+      console.error('Failed to load unmatched KPI entries', e);
+      setUnmatchedRows([]);
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -282,9 +381,11 @@ const KPIAuditDashboard: React.FC = () => {
                       variant="outline" 
                       size="sm" 
                       title="Send Email"
-                      onClick={() => sendEmailToUser(user)}
+                      onClick={() => openEmailModal(user)}
                     >
                       <Mail className="w-4 h-4" />
+                      {emailStatus[user.userId] === 'success' && <span className="ml-1 text-green-600">✔</span>}
+                      {emailStatus[user.userId] === 'failed' && <span className="ml-1 text-red-600">✖</span>}
                     </Button>
                   </div>
                 </TableCell>
@@ -420,7 +521,7 @@ const KPIAuditDashboard: React.FC = () => {
 
       {/* Main Content Tabs */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="outstanding">
             Outstanding ({statistics.outstanding})
@@ -437,6 +538,7 @@ const KPIAuditDashboard: React.FC = () => {
           <TabsTrigger value="unsatisfactory">
             Unsatisfactory ({statistics.unsatisfactory})
           </TabsTrigger>
+          <TabsTrigger value="unmatched">Unmatched</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -528,6 +630,106 @@ const KPIAuditDashboard: React.FC = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="unmatched">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                Unmatched Entries (Not Found In Database)
+              </CardTitle>
+              <CardDescription>
+                Showing rows that did not match any existing user during KPI uploads/previews
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col md:flex-row gap-3 items-start md:items-end">
+                <div className="flex-1">
+                  <label className="text-sm text-gray-600">Period (e.g., Oct-25)</label>
+                  <Input
+                    placeholder="Oct-25"
+                    value={selectedPeriod}
+                    onChange={(e) => setSelectedPeriod(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Button
+                    onClick={() => loadKPIData() || undefined}
+                    variant="outline"
+                    className="mr-2"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  </Button>
+                  <Button
+                    onClick={loadUnmatched}
+                    variant="outline"
+                    className="mr-2"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${previewLoading ? 'animate-spin' : ''}`} />
+                    Refresh Unmatched
+                  </Button>
+                </div>
+              </div>
+
+              {unmatchedRows.length > 0 && (
+                <div className="text-sm text-gray-600">{unmatchedRows.length} unmatched rows found</div>
+              )}
+
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>FE Name</TableHead>
+                      <TableHead>Employee ID</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Period</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {previewLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={4}>
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-6 h-6 animate-spin" />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : unmatchedRows.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4}>
+                          <div className="text-center py-8 text-gray-500">
+                            <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <p>No unmatched entries to show</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      unmatchedRows
+                        .filter(r => {
+                          if (!searchTerm) return true;
+                          const term = searchTerm.toLowerCase();
+                          return (
+                            (r.fe || '').toLowerCase().includes(term) ||
+                            (r.email || '').toLowerCase().includes(term) ||
+                            (r.employeeId || '').toLowerCase().includes(term)
+                          );
+                        })
+                        .map((row, idx) => (
+                          <TableRow key={`${row.fe}-${idx}`}>
+                            <TableCell>{row.fe || '-'}</TableCell>
+                            <TableCell>{row.employeeId || '-'}</TableCell>
+                            <TableCell>{row.email || '-'}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">{selectedPeriod || '—'}</Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="outstanding">
@@ -779,13 +981,53 @@ const KPIAuditDashboard: React.FC = () => {
                 </Button>
                 <Button
                   onClick={() => {
-                    sendEmailToUser(selectedUser);
                     setShowDetailsModal(false);
+                    setTimeout(() => openEmailModal(selectedUser), 0);
                   }}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Mail className="w-4 h-4 mr-2" />
                   Send Email
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showEmailModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6 space-y-4">
+              <div className="flex justify-between items-start">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Send Email</h2>
+                <Button variant="ghost" size="sm" onClick={() => setShowEmailModal(false)}>✕</Button>
+              </div>
+
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                <div className="mb-2"><span className="font-medium">To:</span> {selectedUser.name} ({selectedUser.email})</div>
+                <div className="mb-2"><span className="font-medium">Employee ID:</span> {selectedUser.employeeId}</div>
+                <div className="mb-2"><span className="font-medium">Period:</span> {selectedUser.period}</div>
+              </div>
+
+              <div>
+                <label className="text-sm text-gray-600">Template</label>
+                <select
+                  className="w-full mt-1 border rounded px-3 py-2 bg-white dark:bg-gray-900"
+                  value={emailTemplate}
+                  onChange={(e) => setEmailTemplate(e.target.value as any)}
+                >
+                  <option value="kpiScore">KPI Score</option>
+                  <option value="trainingAssignment">Training Assignment</option>
+                  <option value="auditNotification">Audit Notification</option>
+                  <option value="warning">Warning Letter</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowEmailModal(false)}>Cancel</Button>
+                <Button onClick={confirmSendEmail} disabled={emailSending} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  {emailSending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  Send
                 </Button>
               </div>
             </div>

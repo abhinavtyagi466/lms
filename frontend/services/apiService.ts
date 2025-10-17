@@ -1618,6 +1618,15 @@ export const apiService = {
       return response;
     },
 
+    getUnmatched: async (params?: { period?: string; search?: string; limit?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.period) qs.append('period', params.period);
+      if (params?.search) qs.append('search', params.search);
+      if (params?.limit) qs.append('limit', String(params.limit));
+      const response = await apiClient.get(`/kpi-triggers/unmatched?${qs.toString()}`);
+      return response;
+    },
+
     getHistory: async (userId: string, limit?: number) => {
       const params = new URLSearchParams();
       if (limit) params.append('limit', limit.toString());
@@ -1649,6 +1658,20 @@ export const apiService = {
       const response = await apiClient.get('/kpi-triggers/template', {
         responseType: 'blob'
       });
+      return response;
+    },
+
+    getUnmatched: async (params?: { period?: string; search?: string; limit?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.period) qs.append('period', params.period);
+      if (params?.search) qs.append('search', params.search);
+      if (params?.limit) qs.append('limit', String(params.limit));
+      const response = await apiClient.get(`/kpi-triggers/unmatched?${qs.toString()}`);
+      return response;
+    },
+
+    sendEmail: async (payload: { userId?: string; fallbackEmail?: string; template: string; data?: any }) => {
+      const response = await apiClient.post('/kpi-triggers/send-email', payload);
       return response;
     }
   },

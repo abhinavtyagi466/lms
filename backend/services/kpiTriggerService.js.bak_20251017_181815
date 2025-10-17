@@ -1,4 +1,4 @@
-const User = require('../models/User');
+﻿const User = require('../models/User');
 const KPIScore = require('../models/KPIScore');
 const TrainingAssignment = require('../models/TrainingAssignment');
 const AuditSchedule = require('../models/AuditSchedule');
@@ -57,26 +57,20 @@ class KPITriggerService {
         const kpiScore = await this.calculateKPIScore(row);
         const rating = this.getRating(kpiScore);
 
-        // Try to find existing user only (no auto-create) with robust matching
+        // FIXED: Only search by Employee ID (completely unique identifier)
         const cleanEmployeeId = feEmployeeId ? String(feEmployeeId).trim() : '';
-        const cleanEmail = feEmail ? String(feEmail).trim().toLowerCase() : '';
-        const cleanName = feName ? String(feName).trim() : '';
-
-        const orClauses = [];
-        if (cleanEmployeeId) {
-          const escapedId = cleanEmployeeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          orClauses.push({ employeeId: { $regex: `^${escapedId}$`, $options: 'i' } });
-        }
-        if (cleanEmail) {
-          orClauses.push({ email: cleanEmail });
-        }
-        if (cleanName) {
-          orClauses.push({ name: { $regex: cleanName, $options: 'i' } });
-        }
-
-        const matchedUser = orClauses.length > 0
-          ? await User.findOne({ $or: orClauses })
+        
+        console.log(`ðŸ” Searching for Employee ID: "${cleanEmployeeId}"`);
+        
+        const matchedUser = cleanEmployeeId 
+          ? await User.findOne({ employeeId: cleanEmployeeId })
           : null;
+          
+        if (matchedUser) {
+          console.log(`âœ“ Matched user by Employee ID: ${cleanEmployeeId} â†’ ${matchedUser.name}`);
+        } else {
+          console.log(`âŒ No user found with Employee ID: ${cleanEmployeeId}`);
+        }
 
         if (matchedUser) {
           // Normal flow for matched user: save KPI, process triggers, send emails to DB email
@@ -104,71 +98,45 @@ class KPITriggerService {
             success: true
           });
         } else {
-          // Unmatched: store in UnmatchedKPI
-          try {
-            await UnmatchedKPI.findOneAndUpdate(
-              {
-                period,
-                fe: cleanName || feName || 'Unknown',
-                employeeId: cleanEmployeeId || undefined
-              },
-              {
-                $set: {
-                  fe: cleanName || feName || 'Unknown',
-                  employeeId: cleanEmployeeId || undefined,
-                  email: cleanEmail || feEmail || undefined,
-                  period,
-                  kpiScore,
-                  rating,
-                  rawData: row,
-                  createdBy: submittedBy || undefined
-                }
-              },
-              { upsert: true, new: true, setDefaultsOnInsert: true }
-            );
-          } catch (dbError) {
-            console.error(`DB error storing unmatched user ${feName}:`, dbError.message);
-          }
+          // Unmatched: store and email to Excel email if present
+          await UnmatchedKPI.findOneAndUpdate(
+            {
+              period,
+              fe: feName || 'Unknown',
+              employeeId: cleanEmployeeId || undefined
+            },
+            {
+              $set: {
+                fe: feName || 'Unknown',
+                employeeId: cleanEmployeeId || undefined,
+                email: feEmail || undefined,
+            period,
+            kpiScore,
+            rating,
+            rawData: row,
+            createdBy: submittedBy || undefined
+              }
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+          );
 
-          let emailsSent = [];
-          
-          // Send email ONLY if email address is available
-          if (feEmail && feEmail.trim()) {
-            try {
-              console.log(`📧 Sending email to unmatched user: ${feEmail}`);
-              
-              const pseudoUser = {
-                _id: null,
-                name: feName || 'Field Executive',
-                email: feEmail.trim()
-              };
-              const pseudoKPI = {
-                overallScore: kpiScore,
-                rating,
-                period
-              };
+          // Prepare pseudo user for email content
+          const pseudoUser = {
+            _id: null,
+            name: feName || 'Field Executive',
+            email: feEmail || ''
+          };
+          const pseudoKPI = {
+            overallScore: kpiScore,
+            rating,
+            period
+          };
 
-              const emailResult = await this.sendTemplatedEmail(
-                'kpi',
-                pseudoUser,
-                pseudoKPI,
-                { emailRecipients: { kpi: ['FE'] } },
-                null,
-                {}
-              );
-              emailsSent = emailResult?.results || [];
-            } catch (emailError) {
-              console.error(`Email failed for unmatched user ${feName}:`, emailError.message);
-              emailsSent = [{ to: feEmail, status: 'failed', error: emailError.message }];
-            }
-          } else {
-            console.log(`⚠️ No email for unmatched user ${feName}, skipping email`);
-          }
-
-          results.push({
+          const emailsSent = [];
+results.push({
             fe: feName,
             matched: false,
-            employeeId: cleanEmployeeId || null,
+            employeeId: feEmployeeId || null,
             email: feEmail || null,
             kpiScore,
             rating,
@@ -193,7 +161,7 @@ class KPITriggerService {
   async processKPIRow(row, period, submittedBy = null) {
     const fe = row.FE;
     
-    console.log(`\n📋 Processing KPI for: ${fe}`);
+    console.log(`\nðŸ“‹ Processing KPI for: ${fe}`);
     console.log(`   Employee ID: ${row['Employee ID'] || 'Not provided'}`);
     console.log(`   Email: ${row['Email'] || 'Not provided'}`);
     
@@ -216,7 +184,7 @@ class KPITriggerService {
     // Process triggers (now fully dynamic)
     const triggers = await this.processTriggers(user, kpiRecord, row, adminUser);
     
-    console.log(`   ✓ Triggers processed: ${triggers.length} actions`);
+    console.log(`   âœ“ Triggers processed: ${triggers.length} actions`);
     
     return {
       fe: fe,
@@ -242,7 +210,7 @@ class KPITriggerService {
       const configs = await KPIConfiguration.find({ isActive: true }).sort({ metric: 1 });
       
       if (!configs || configs.length === 0) {
-        console.log('⚠ No KPI configurations found, using fallback calculation');
+        console.log('âš  No KPI configurations found, using fallback calculation');
         return this.calculateKPIScoreFallback(row);
       }
 
@@ -294,10 +262,10 @@ class KPITriggerService {
         }
 
         totalScore += metricScore;
-        console.log(`  ${config.metric}: ${metricValue}% → Score: ${metricScore}`);
+        console.log(`  ${config.metric}: ${metricValue}% â†’ Score: ${metricScore}`);
       }
 
-      console.log(`📊 Total KPI Score (Dynamic): ${totalScore}`);
+      console.log(`ðŸ“Š Total KPI Score (Dynamic): ${totalScore}`);
       return Math.round(totalScore * 100) / 100;
 
     } catch (error) {
@@ -373,94 +341,28 @@ class KPITriggerService {
     return 'Unsatisfactory';
   }
 
-  // Find or create user based on FE name
-  // Find or create user by employeeId, email, or name (priority order)
-  async findOrCreateUser(feName, email = null, employeeId = null) {
-    let user = null;
-    
-    // Clean inputs - trim spaces and handle case
-    const cleanEmployeeId = employeeId ? employeeId.toString().trim() : null;
-    const cleanEmail = email ? email.toString().trim().toLowerCase() : null;
-    const cleanName = feName ? feName.toString().trim() : null;
-    
-    // Priority 1: Find by Employee ID (case-insensitive, trimmed)
-    if (cleanEmployeeId) {
-      console.log(`🔍 Searching for Employee ID: "${cleanEmployeeId}"`);
-      
-      // Try case-insensitive regex match
-      try {
-        const escapedEmployeeId = cleanEmployeeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        user = await User.findOne({ 
-          employeeId: new RegExp(`^${escapedEmployeeId}$`, 'i')
-        });
-      } catch (regexError) {
-        console.log(`⚠️ Regex error, trying direct comparison:`, regexError.message);
-      }
-      
-      // Fallback: Try direct case-insensitive comparison
-      if (!user) {
-        const allUsers = await User.find({}).select('employeeId name _id');
-        user = allUsers.find(u => 
-          u.employeeId && u.employeeId.toLowerCase() === cleanEmployeeId.toLowerCase()
-        );
-        if (user) {
-          console.log(`✓ Matched user by Employee ID (direct): ${cleanEmployeeId} → ${user.name} (${user._id})`);
-        }
-      } else {
-        console.log(`✓ Matched user by Employee ID: ${cleanEmployeeId} → ${user.name} (${user._id})`);
-      }
-      
-      if (!user) {
-        console.log(`✗ No match found for Employee ID: ${cleanEmployeeId}`);
-      }
-    }
-    
-    // Priority 2: Find by Email (exact match, case-insensitive)
-    if (!user && cleanEmail) {
-      console.log(`🔍 Searching for Email: "${cleanEmail}"`);
-      user = await User.findOne({ email: cleanEmail });
-      if (user) {
-        console.log(`✓ Matched user by Email: ${cleanEmail} → ${user.name} (${user._id})`);
-      } else {
-        console.log(`✗ No match found for Email: ${cleanEmail}`);
-      }
-    }
-    
-    // Priority 3: Find by Name (flexible regex match)
-    if (!user && cleanName) {
-      console.log(`🔍 Searching for Name: "${cleanName}"`);
-      user = await User.findOne({ 
-        name: { $regex: cleanName, $options: 'i' }
-      });
-      if (user) {
-        console.log(`✓ Matched user by Name: ${cleanName} → ${user.name} (${user._id})`);
-      } else {
-        console.log(`✗ No match found for Name: ${cleanName}`);
-      }
-    }
-    
-    // Create new user if still not found
-    if (!user) {
-      console.log(`⚠ User not found in database: ${cleanName} | ${cleanEmployeeId} | ${cleanEmail}`);
-      console.log(`Creating placeholder user...`);
-      
-      const [firstName, lastName] = (cleanName || 'Unknown').split(' ');
-      user = new User({
-        name: cleanName || 'Unknown User',
-        email: cleanEmail || `${firstName?.toLowerCase() || 'user'}@company.com`,
-        employeeId: cleanEmployeeId || `FE-${Date.now()}`,
-        password: 'defaultPassword123',
-        phone: '0000000000', // Add default phone to avoid validation issues
-        userType: 'user',
-        isActive: true,
-        department: 'Field Operations'
-      });
-      await user.save({ validateModifiedOnly: true });
-      console.log(`✓ Created new user: ${user.name} (${user._id}) | Employee ID: ${user.employeeId}`);
-    }
-
-    return user;
+  // FIXED: Find user ONLY by Employee ID (completely unique identifier)
+async findOrCreateUser(feName, email = null, employeeId = null) {
+  const cleanEmployeeId = employeeId ? employeeId.toString().trim() : null;
+  
+  if (!cleanEmployeeId) {
+    console.log(`âŒ No Employee ID provided for ${feName}`);
+    return null;
   }
+  
+  console.log(`ðŸ” Searching for Employee ID: "${cleanEmployeeId}"`);
+  
+  // Simple exact match by Employee ID
+  const user = await User.findOne({ employeeId: cleanEmployeeId });
+  
+  if (user) {
+    console.log(`âœ“ Matched user by Employee ID: ${cleanEmployeeId} â†’ ${user.name}`);
+  } else {
+    console.log(`âŒ No user found with Employee ID: ${cleanEmployeeId}`);
+  }
+
+  return user;
+}
 
   // Save KPI score to database (UPDATE if exists, INSERT if new)
   async saveKPIScore(userId, period, score, rating, rawData, submittedBy = null) {
@@ -506,7 +408,7 @@ class KPITriggerService {
       }
     );
 
-    console.log(`   ${kpiScore.isNew ? '✨ Created' : '🔄 Updated'} KPI record for ${period}`);
+    console.log(`   ${kpiScore.isNew ? 'âœ¨ Created' : 'ðŸ”„ Updated'} KPI record for ${period}`);
     return kpiScore;
   }
 
@@ -703,7 +605,7 @@ class KPITriggerService {
       }).sort({ threshold: -1 }); // Sort descending to match highest threshold first
       
       if (!configs || configs.length === 0) {
-        console.log('⚠ No trigger configurations found, using fallback triggers');
+        console.log('âš  No trigger configurations found, using fallback triggers');
         return this.getScoreBasedTriggersFallback(score);
       }
 
@@ -864,7 +766,7 @@ class KPITriggerService {
 
       // Send reward notification if needed
       if (trigger.reward) {
-        console.log(`🏆 Reward trigger detected for ${user.name}`);
+        console.log(`ðŸ† Reward trigger detected for ${user.name}`);
         console.log(`   Email recipients:`, trigger.emailRecipients);
         
         // Send email notifications using template service
@@ -881,7 +783,7 @@ class KPITriggerService {
           console.log(`   Email result:`, emailResult);
           result.emailsSent.push(...emailResult.results);
         } else {
-          console.log(`   ⚠️ No reward email recipients configured`);
+          console.log(`   âš ï¸ No reward email recipients configured`);
         }
         
         result.executed = true;
@@ -964,7 +866,7 @@ class KPITriggerService {
         }
       });
 
-      console.log(`✅ Created KPI notification for user ${user.name} (${user.email}) - ${notificationType} - ${priority}`);
+      console.log(`âœ… Created KPI notification for user ${user.name} (${user.email}) - ${notificationType} - ${priority}`);
       
     } catch (error) {
       console.error('Error creating KPI notification:', error);
@@ -974,14 +876,14 @@ class KPITriggerService {
   // Send templated emails using EmailTemplateService
   async sendTemplatedEmail(type, user, kpiRecord, trigger, adminUser, additionalData = {}) {
     try {
-      console.log(`📧 Preparing email for type: ${type}`);
+      console.log(`ðŸ“§ Preparing email for type: ${type}`);
       console.log(`   User: ${user.name} (${user.email})`);
       console.log(`   Recipients: ${JSON.stringify(trigger.emailRecipients)}`);
       
       // USE NODEMAILER DIRECTLY (simpler, no service dependency)
-      const nodemailer = require('nodemailer');
       
-      const emailSubject = this.getEmailSubject(type, kpiRecord);
+const EmailLog = require('../models/EmailLog');
+const emailSubject = this.getEmailSubject(type, kpiRecord);
       const emailContent = this.getEmailContent(type, user, kpiRecord, trigger);
       
       const results = [];
@@ -1016,15 +918,31 @@ class KPITriggerService {
             templateType: type
           });
           
-          console.log(`   ✅ Email sent successfully to ${user.email}`);
+          console.log(`   âœ… Email sent successfully to ${user.email}`);
         } catch (emailError) {
-          console.error(`   ❌ Email failed to ${user.email}:`, emailError.message);
+          console.error(`   âŒ Email failed to ${user.email}:`, emailError.message);
           results.push({
             to: user.email,
             status: 'failed',
             error: emailError.message
           });
-        }
+                  try {
+            await EmailLog.create({
+              recipientEmail: user.email,
+              recipientRole: 'fe',
+              templateType: type === 'kpi' ? 'kpi_score' : type,
+              subject: emailSubject,
+              status: 'failed',
+              errorMessage: emailError.message,
+              kpiTriggerId: kpiRecord?._id || undefined,
+              userId: user?._id || undefined,
+              trainingAssignmentId: additionalData?.trainingAssignmentId || undefined,
+              auditScheduleId: additionalData?.auditScheduleId || undefined,
+              emailContent: emailContent
+            });
+          } catch (logErr) {
+            console.warn('    EmailLog (failed) persist failed:', logErr.Message)
+          }}
       }
       
       return {
@@ -1033,7 +951,7 @@ class KPITriggerService {
       };
       
     } catch (error) {
-      console.error('❌ Send templated email error:', error);
+      console.error('âŒ Send templated email error:', error);
       return {
         success: false,
         error: error.message,
@@ -1046,13 +964,13 @@ class KPITriggerService {
   getEmailSubject(type, kpiRecord) {
     switch (type) {
       case 'reward':
-        return `🏆 Congratulations! Outstanding KPI Performance - ${kpiRecord.period}`;
+        return `ðŸ† Congratulations! Outstanding KPI Performance - ${kpiRecord.period}`;
       case 'training':
-        return `📚 Training Assignment - ${kpiRecord.period}`;
+        return `ðŸ“š Training Assignment - ${kpiRecord.period}`;
       case 'audit':
-        return `📋 Audit Schedule - ${kpiRecord.period}`;
+        return `ðŸ“‹ Audit Schedule - ${kpiRecord.period}`;
       case 'warning':
-        return `⚠️ Performance Warning - ${kpiRecord.period}`;
+        return `âš ï¸ Performance Warning - ${kpiRecord.period}`;
       default:
         return `KPI Update - ${kpiRecord.period}`;
     }
@@ -1081,7 +999,7 @@ class KPITriggerService {
         content = `
           ${commonHeader}
           <div style="background-color: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="color: #155724; margin: 0;">🏆 Outstanding Performance!</h3>
+            <h3 style="color: #155724; margin: 0;">ðŸ† Outstanding Performance!</h3>
             <p style="color: #155724; margin: 10px 0 0 0;">
               Congratulations on your excellent performance! Keep up the great work!
             </p>
@@ -1094,7 +1012,7 @@ class KPITriggerService {
         content = `
           ${commonHeader}
           <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="color: #856404;">📚 Training Assignment</h3>
+            <h3 style="color: #856404;">ðŸ“š Training Assignment</h3>
             <p style="color: #856404;">
               <strong>Training Required:</strong> ${trigger.training || 'Basic Training Module'}<br>
               <strong>Reason:</strong> ${trigger.conditionMet || 'KPI improvement required'}<br>
@@ -1109,7 +1027,7 @@ class KPITriggerService {
         content = `
           ${commonHeader}
           <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="color: #0c5460;">📋 Audit Schedule</h3>
+            <h3 style="color: #0c5460;">ðŸ“‹ Audit Schedule</h3>
             <p style="color: #0c5460;">
               <strong>Audit Type:</strong> ${trigger.audit || 'Performance Audit'}<br>
               <strong>Reason:</strong> ${trigger.conditionMet || 'Routine KPI check'}<br>
@@ -1124,7 +1042,7 @@ class KPITriggerService {
         content = `
           ${commonHeader}
           <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="color: #721c24;">⚠️ Performance Warning</h3>
+            <h3 style="color: #721c24;">âš ï¸ Performance Warning</h3>
             <p style="color: #721c24;">
               Your performance requires immediate attention. Please improve in the following areas:<br><br>
               <strong>Concerns:</strong> ${trigger.conditionMet || 'Low KPI score'}<br>
@@ -1255,7 +1173,7 @@ class KPITriggerService {
       validTrainingType = 'app_usage';
     }
     
-    console.log(`   📚 Mapping training: "${trainingType}" → "${validTrainingType}"`);
+    console.log(`   ðŸ“š Mapping training: "${trainingType}" â†’ "${validTrainingType}"`);
     
     const trainingAssignment = new TrainingAssignment({
       userId: user._id,
@@ -1270,7 +1188,7 @@ class KPITriggerService {
     });
 
     await trainingAssignment.save();
-    console.log(`   ✅ Training assignment created: ${validTrainingType}`);
+    console.log(`   âœ… Training assignment created: ${validTrainingType}`);
     return trainingAssignment;
   }
 
@@ -1285,7 +1203,7 @@ class KPITriggerService {
       validAuditType = 'dummy_audit';
     }
     
-    console.log(`   📋 Mapping audit: "${auditType}" → "${validAuditType}"`);
+    console.log(`   ðŸ“‹ Mapping audit: "${auditType}" â†’ "${validAuditType}"`);
     
     const auditSchedule = new AuditSchedule({
       userId: user._id,
@@ -1300,7 +1218,7 @@ class KPITriggerService {
     });
 
     await auditSchedule.save();
-    console.log(`   ✅ Audit schedule created: ${validAuditType}`);
+    console.log(`   âœ… Audit schedule created: ${validAuditType}`);
     return auditSchedule;
   }
 
@@ -1353,3 +1271,4 @@ class KPITriggerService {
 }
 
 module.exports = new KPITriggerService();
+

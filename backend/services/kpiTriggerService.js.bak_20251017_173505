@@ -57,26 +57,20 @@ class KPITriggerService {
         const kpiScore = await this.calculateKPIScore(row);
         const rating = this.getRating(kpiScore);
 
-        // Try to find existing user only (no auto-create) with robust matching
+        // FIXED: Only search by Employee ID (completely unique identifier)
         const cleanEmployeeId = feEmployeeId ? String(feEmployeeId).trim() : '';
-        const cleanEmail = feEmail ? String(feEmail).trim().toLowerCase() : '';
-        const cleanName = feName ? String(feName).trim() : '';
-
-        const orClauses = [];
-        if (cleanEmployeeId) {
-          const escapedId = cleanEmployeeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          orClauses.push({ employeeId: { $regex: `^${escapedId}$`, $options: 'i' } });
-        }
-        if (cleanEmail) {
-          orClauses.push({ email: cleanEmail });
-        }
-        if (cleanName) {
-          orClauses.push({ name: { $regex: cleanName, $options: 'i' } });
-        }
-
-        const matchedUser = orClauses.length > 0
-          ? await User.findOne({ $or: orClauses })
+        
+        console.log(`🔍 Searching for Employee ID: "${cleanEmployeeId}"`);
+        
+        const matchedUser = cleanEmployeeId 
+          ? await User.findOne({ employeeId: cleanEmployeeId })
           : null;
+          
+        if (matchedUser) {
+          console.log(`✓ Matched user by Employee ID: ${cleanEmployeeId} → ${matchedUser.name}`);
+        } else {
+          console.log(`❌ No user found with Employee ID: ${cleanEmployeeId}`);
+        }
 
         if (matchedUser) {
           // Normal flow for matched user: save KPI, process triggers, send emails to DB email
@@ -104,71 +98,58 @@ class KPITriggerService {
             success: true
           });
         } else {
-          // Unmatched: store in UnmatchedKPI
-          try {
-            await UnmatchedKPI.findOneAndUpdate(
-              {
-                period,
+          // Unmatched: store and email to Excel email if present
+          await UnmatchedKPI.findOneAndUpdate(
+            {
+              period,
+              fe: cleanName || feName || 'Unknown',
+              employeeId: cleanEmployeeId || undefined
+            },
+            {
+              $set: {
                 fe: cleanName || feName || 'Unknown',
-                employeeId: cleanEmployeeId || undefined
-              },
-              {
-                $set: {
-                  fe: cleanName || feName || 'Unknown',
-                  employeeId: cleanEmployeeId || undefined,
-                  email: cleanEmail || feEmail || undefined,
-                  period,
-                  kpiScore,
-                  rating,
-                  rawData: row,
-                  createdBy: submittedBy || undefined
-                }
-              },
-              { upsert: true, new: true, setDefaultsOnInsert: true }
-            );
-          } catch (dbError) {
-            console.error(`DB error storing unmatched user ${feName}:`, dbError.message);
-          }
+                employeeId: cleanEmployeeId || undefined,
+                email: cleanEmail || undefined,
+            period,
+            kpiScore,
+            rating,
+            rawData: row,
+            createdBy: submittedBy || undefined
+              }
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+          );
+
+          // Prepare pseudo user for email content
+          const pseudoUser = {
+            _id: null,
+            name: feName || 'Field Executive',
+            email: feEmail || ''
+          };
+          const pseudoKPI = {
+            overallScore: kpiScore,
+            rating,
+            period
+          };
 
           let emailsSent = [];
-          
-          // Send email ONLY if email address is available
-          if (feEmail && feEmail.trim()) {
-            try {
-              console.log(`📧 Sending email to unmatched user: ${feEmail}`);
-              
-              const pseudoUser = {
-                _id: null,
-                name: feName || 'Field Executive',
-                email: feEmail.trim()
-              };
-              const pseudoKPI = {
-                overallScore: kpiScore,
-                rating,
-                period
-              };
-
-              const emailResult = await this.sendTemplatedEmail(
-                'kpi',
-                pseudoUser,
-                pseudoKPI,
-                { emailRecipients: { kpi: ['FE'] } },
-                null,
-                {}
-              );
-              emailsSent = emailResult?.results || [];
-            } catch (emailError) {
-              console.error(`Email failed for unmatched user ${feName}:`, emailError.message);
-              emailsSent = [{ to: feEmail, status: 'failed', error: emailError.message }];
-            }
-          } else {
-            console.log(`⚠️ No email for unmatched user ${feName}, skipping email`);
+          if (feEmail) {
+            // Reuse email pipeline to send to the Excel email address
+            const emailResult = await this.sendTemplatedEmail(
+              'kpi',
+              pseudoUser,
+              pseudoKPI,
+              { emailRecipients: { kpi: ['FE'] } },
+              null,
+              {}
+            );
+            emailsSent = emailResult?.results || [];
           }
 
           results.push({
             fe: feName,
             matched: false,
-            employeeId: cleanEmployeeId || null,
+            employeeId: feEmployeeId || null,
             email: feEmail || null,
             kpiScore,
             rating,
@@ -373,94 +354,28 @@ class KPITriggerService {
     return 'Unsatisfactory';
   }
 
-  // Find or create user based on FE name
-  // Find or create user by employeeId, email, or name (priority order)
-  async findOrCreateUser(feName, email = null, employeeId = null) {
-    let user = null;
-    
-    // Clean inputs - trim spaces and handle case
-    const cleanEmployeeId = employeeId ? employeeId.toString().trim() : null;
-    const cleanEmail = email ? email.toString().trim().toLowerCase() : null;
-    const cleanName = feName ? feName.toString().trim() : null;
-    
-    // Priority 1: Find by Employee ID (case-insensitive, trimmed)
-    if (cleanEmployeeId) {
-      console.log(`🔍 Searching for Employee ID: "${cleanEmployeeId}"`);
-      
-      // Try case-insensitive regex match
-      try {
-        const escapedEmployeeId = cleanEmployeeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        user = await User.findOne({ 
-          employeeId: new RegExp(`^${escapedEmployeeId}$`, 'i')
-        });
-      } catch (regexError) {
-        console.log(`⚠️ Regex error, trying direct comparison:`, regexError.message);
-      }
-      
-      // Fallback: Try direct case-insensitive comparison
-      if (!user) {
-        const allUsers = await User.find({}).select('employeeId name _id');
-        user = allUsers.find(u => 
-          u.employeeId && u.employeeId.toLowerCase() === cleanEmployeeId.toLowerCase()
-        );
-        if (user) {
-          console.log(`✓ Matched user by Employee ID (direct): ${cleanEmployeeId} → ${user.name} (${user._id})`);
-        }
-      } else {
-        console.log(`✓ Matched user by Employee ID: ${cleanEmployeeId} → ${user.name} (${user._id})`);
-      }
-      
-      if (!user) {
-        console.log(`✗ No match found for Employee ID: ${cleanEmployeeId}`);
-      }
-    }
-    
-    // Priority 2: Find by Email (exact match, case-insensitive)
-    if (!user && cleanEmail) {
-      console.log(`🔍 Searching for Email: "${cleanEmail}"`);
-      user = await User.findOne({ email: cleanEmail });
-      if (user) {
-        console.log(`✓ Matched user by Email: ${cleanEmail} → ${user.name} (${user._id})`);
-      } else {
-        console.log(`✗ No match found for Email: ${cleanEmail}`);
-      }
-    }
-    
-    // Priority 3: Find by Name (flexible regex match)
-    if (!user && cleanName) {
-      console.log(`🔍 Searching for Name: "${cleanName}"`);
-      user = await User.findOne({ 
-        name: { $regex: cleanName, $options: 'i' }
-      });
-      if (user) {
-        console.log(`✓ Matched user by Name: ${cleanName} → ${user.name} (${user._id})`);
-      } else {
-        console.log(`✗ No match found for Name: ${cleanName}`);
-      }
-    }
-    
-    // Create new user if still not found
-    if (!user) {
-      console.log(`⚠ User not found in database: ${cleanName} | ${cleanEmployeeId} | ${cleanEmail}`);
-      console.log(`Creating placeholder user...`);
-      
-      const [firstName, lastName] = (cleanName || 'Unknown').split(' ');
-      user = new User({
-        name: cleanName || 'Unknown User',
-        email: cleanEmail || `${firstName?.toLowerCase() || 'user'}@company.com`,
-        employeeId: cleanEmployeeId || `FE-${Date.now()}`,
-        password: 'defaultPassword123',
-        phone: '0000000000', // Add default phone to avoid validation issues
-        userType: 'user',
-        isActive: true,
-        department: 'Field Operations'
-      });
-      await user.save({ validateModifiedOnly: true });
-      console.log(`✓ Created new user: ${user.name} (${user._id}) | Employee ID: ${user.employeeId}`);
-    }
-
-    return user;
+  // FIXED: Find user ONLY by Employee ID (completely unique identifier)
+async findOrCreateUser(feName, email = null, employeeId = null) {
+  const cleanEmployeeId = employeeId ? employeeId.toString().trim() : null;
+  
+  if (!cleanEmployeeId) {
+    console.log(`❌ No Employee ID provided for ${feName}`);
+    return null;
   }
+  
+  console.log(`🔍 Searching for Employee ID: "${cleanEmployeeId}"`);
+  
+  // Simple exact match by Employee ID
+  const user = await User.findOne({ employeeId: cleanEmployeeId });
+  
+  if (user) {
+    console.log(`✓ Matched user by Employee ID: ${cleanEmployeeId} → ${user.name}`);
+  } else {
+    console.log(`❌ No user found with Employee ID: ${cleanEmployeeId}`);
+  }
+
+  return user;
+}
 
   // Save KPI score to database (UPDATE if exists, INSERT if new)
   async saveKPIScore(userId, period, score, rating, rawData, submittedBy = null) {

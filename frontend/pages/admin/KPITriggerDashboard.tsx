@@ -10,7 +10,8 @@ import {
   Eye,
   RefreshCw,
   ExternalLink,
-  BarChart3
+  BarChart3,
+  X
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -89,6 +90,9 @@ export const KPITriggerDashboard: React.FC = () => {
       }
       
       setSelectedFile(file);
+      // Clear previous preview results when new file is selected
+      setPreviewResults([]);
+      setShowPreview(false);
       toast.success('File selected successfully');
     }
   };
@@ -565,15 +569,30 @@ export const KPITriggerDashboard: React.FC = () => {
                     Preview of triggers that will be created (no actual actions taken yet)
                   </CardDescription>
                 </div>
-                <Button
-                  onClick={viewInAuditDashboard}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <BarChart3 className="w-4 h-4" />
-                  View in Audit Dashboard
-                  <ExternalLink className="w-3 h-3" />
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      setPreviewResults([]);
+                      setShowPreview(false);
+                      toast.success('Preview cleared');
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <X className="w-4 h-4" />
+                    Clear Preview
+                  </Button>
+                  <Button
+                    onClick={viewInAuditDashboard}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    View in Audit Dashboard
+                    <ExternalLink className="w-3 h-3" />
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -589,27 +608,27 @@ export const KPITriggerDashboard: React.FC = () => {
                             {result.fe}
                           </h4>
                           <div className="space-y-2 text-sm">
-                            {result.matchedUser ? (
+                            {result.matched ? (
                               <>
                                 <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
                                   <CheckCircle className="w-4 h-4" />
                                   <span className="font-semibold">Matched User</span>
                                 </div>
-                                {result.matchedUser.email && (
+                                {result.email && (
                                   <div className="flex gap-2 bg-blue-50 dark:bg-blue-900/30 p-2 rounded">
                                     <span className="text-gray-600 dark:text-gray-400">Email:</span>
-                                    <span className="font-medium text-blue-700 dark:text-blue-300">{result.matchedUser.email}</span>
+                                    <span className="font-medium text-blue-700 dark:text-blue-300">{result.email}</span>
                                   </div>
                                 )}
-                                {result.matchedUser.employeeId && (
+                                {result.employeeId && (
                                   <div className="flex gap-2 bg-purple-50 dark:bg-purple-900/30 p-2 rounded">
                                     <span className="text-gray-600 dark:text-gray-400">Employee ID:</span>
-                                    <span className="font-medium text-purple-700 dark:text-purple-300">{result.matchedUser.employeeId}</span>
+                                    <span className="font-medium text-purple-700 dark:text-purple-300">{result.employeeId}</span>
                                   </div>
                                 )}
                                 <div className="flex gap-2 bg-gray-50 dark:bg-gray-800 p-2 rounded">
                                   <span className="text-gray-600 dark:text-gray-400">User ID:</span>
-                                  <span className="font-mono text-xs text-gray-700 dark:text-gray-300">{result.matchedUser._id}</span>
+                                  <span className="font-mono text-xs text-gray-700 dark:text-gray-300">{result.userId}</span>
                                 </div>
                               </>
                             ) : (

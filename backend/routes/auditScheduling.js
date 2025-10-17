@@ -672,7 +672,7 @@ router.get('/by-kpi-rating', authenticateToken, requireAdmin, async (req, res) =
     // Get latest KPI scores for all users
     const latestScores = await KPIScore.aggregate([
       { $match: { isActive: true } },
-      { $sort: { createdAt: -1 } },
+      { $sort: { updatedAt: -1 } },
       {
         $group: {
           _id: '$userId',

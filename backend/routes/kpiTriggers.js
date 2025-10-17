@@ -3,6 +3,7 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const path = require('path');
 const kpiTriggerService = require('../services/kpiTriggerService');
+const emailService = require('../services/emailService');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -99,7 +100,7 @@ router.post('/upload-excel', authenticateToken, requireAdmin, upload.single('exc
     console.log('Processing KPI data...');
     console.log('Calling kpiTriggerService.processKPIFromExcel...');
 
-    // Process KPI data and triggers
+    // Process KPI data and triggers (now stores unmatched and emails to Excel for unmatched)
     const results = await kpiTriggerService.processKPIFromExcel(jsonData, period, req.user._id);
 
     console.log('Processing complete!');
@@ -139,6 +140,96 @@ router.post('/upload-excel', authenticateToken, requireAdmin, upload.single('exc
     });
   }
 });
+// @route   GET /api/kpi-triggers/unmatched
+// @desc    Fetch unmatched KPI entries (stored)
+// @access  Private (Admin only)
+router.get('/unmatched', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { period, search, limit = 200 } = req.query;
+    const UnmatchedKPI = require('../models/UnmatchedKPI');
+
+    const query = {};
+    if (period) query.period = period;
+    if (search) {
+      const regex = new RegExp(search, 'i');
+      query.$or = [
+        { fe: regex },
+        { email: regex },
+        { employeeId: regex }
+      ];
+    }
+
+    const entries = await UnmatchedKPI.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+
+    res.json({ success: true, data: entries });
+  } catch (error) {
+    console.error('Get unmatched KPI error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching unmatched KPI entries', error: error.message });
+  }
+});
+
+// @route   POST /api/kpi-triggers/send-email
+// @desc    Manually send KPI-related email for a user (choose template)
+// @access  Private (Admin only)
+router.post('/send-email', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId, fallbackEmail, template, data, scheduledFor } = req.body;
+    if (!template) {
+      return res.status(400).json({ success: false, message: 'template is required' });
+    }
+
+    const User = require('../models/User');
+    let toEmail = null;
+    let userName = 'User';
+    let employeeId = undefined;
+
+    if (userId) {
+      const user = await User.findById(userId).select('email name employeeId');
+      toEmail = user?.email || null;
+      userName = user?.name || userName;
+      employeeId = user?.employeeId;
+    }
+
+    if (!toEmail && fallbackEmail) {
+      toEmail = String(fallbackEmail).trim().toLowerCase();
+    }
+
+    if (!toEmail) {
+      return res.status(400).json({ success: false, message: 'No recipient email found' });
+    }
+
+    // Map simple templates to emailService templates
+    const allowedTemplates = new Set(['kpiScore', 'trainingAssignment', 'auditNotification', 'warning']);
+    const templateKey = allowedTemplates.has(template) ? template : 'kpiScore';
+
+    // If scheduledFor provided, only schedule; otherwise send immediately
+    if (scheduledFor) {
+      const scheduled = await emailService.scheduleEmail(
+        toEmail,
+        templateKey,
+        data || {},
+        new Date(scheduledFor),
+        { templateType: templateKey, recipientEmail: toEmail, userId }
+      );
+      return res.json({ success: true, scheduled: true, data: { to: toEmail, scheduledFor: scheduled.scheduledFor } });
+    }
+
+    const sentInfo = await emailService.sendEmail(
+      toEmail,
+      templateKey,
+      data || { userName, employeeId },
+      { templateType: templateKey, recipientEmail: toEmail, userId }
+    );
+
+    return res.json({ success: true, sent: true, data: { to: toEmail, messageId: sentInfo?.messageId || 'sent', sentAt: new Date() } });
+  } catch (error) {
+    console.error('Manual KPI email send error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to send email', error: error.message });
+  }
+});
+
 
 // @route   POST /api/kpi-triggers/preview
 // @desc    Preview KPI triggers without executing them - ENHANCED with user matching
@@ -240,24 +331,44 @@ router.post('/preview', authenticateToken, requireAdmin, (req, res) => {
     // Generate preview WITH user matching
     const previewResults = [];
     const User = require('../models/User');
+    const UnmatchedKPI = require('../models/UnmatchedKPI');
+
+    // Helper to safely read a value from multiple possible column names
+    const getCol = (rowObj, namesArray) => {
+      for (const n of namesArray) {
+        if (rowObj[n] !== undefined && rowObj[n] !== null && String(rowObj[n]).toString().trim() !== '') {
+          return rowObj[n];
+        }
+      }
+      return undefined;
+    };
     
     for (const row of jsonData) {
       try {
-        const feName = row.FE;
-        const feEmail = row['Email'];
-        const feEmployeeId = row['Employee ID'];
+        // Read values flexibly from common header variants
+        const feName = getCol(row, ['FE', 'Field Executive', 'Name']);
+        const feEmailRaw = getCol(row, ['Email', 'E-mail', 'Email ID', 'Mail id', 'Mail', 'email']);
+        const feEmployeeIdRaw = getCol(row, ['Employee ID', 'Emp ID', 'EmployeeId', 'EMP ID']);
+
+        const feEmail = feEmailRaw ? String(feEmailRaw).trim().toLowerCase() : undefined;
+        const feEmployeeId = feEmployeeIdRaw ? String(feEmployeeIdRaw).trim() : undefined;
         
         // Try to find matching user in database - ENHANCED matching strategy
         let matchQuery = [];
         
         // Priority 1: Match by Employee ID (most accurate)
         if (feEmployeeId) {
-          matchQuery.push({ employeeId: feEmployeeId });
+          // Case-insensitive exact match on employeeId
+          const escaped = feEmployeeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          matchQuery.push({ employeeId: { $regex: `^${escaped}$`, $options: 'i' } });
         }
         
         // Priority 2: Match by Email (very accurate)
         if (feEmail) {
-          matchQuery.push({ email: { $regex: feEmail, $options: 'i' } });
+          // Try exact lowercase and relaxed regex (trimmed)
+          matchQuery.push({ email: feEmail });
+          const escapedEmail = feEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          matchQuery.push({ email: { $regex: `^${escapedEmail}$`, $options: 'i' } });
         }
         
         // Priority 3: Match by Name (less accurate but fallback)
@@ -265,9 +376,33 @@ router.post('/preview', authenticateToken, requireAdmin, (req, res) => {
           matchQuery.push({ name: { $regex: feName, $options: 'i' } });
         }
         
-        const matchedUser = matchQuery.length > 0 
+        let matchedUser = matchQuery.length > 0 
           ? await User.findOne({ $or: matchQuery }).select('_id name email employeeId department')
           : null;
+
+        // Fallback: normalize employeeId (strip non-alphanumerics) and compare in-memory
+        if (!matchedUser && feEmployeeId) {
+          try {
+            const normalizeId = (v) => String(v || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            const targetId = normalizeId(feEmployeeId);
+            const candidates = await User.find({ employeeId: { $exists: true, $ne: null } }).select('_id name email employeeId department');
+            matchedUser = candidates.find(u => normalizeId(u.employeeId) === targetId) || null;
+          } catch (_) {}
+        }
+
+        // Fallback: tokenized name match (all tokens present, order-agnostic)
+        if (!matchedUser && feName) {
+          try {
+            const tokens = String(feName).trim().split(/\s+/).filter(Boolean).map(t => t.toLowerCase());
+            if (tokens.length > 0) {
+              const candidates = await User.find({ name: { $exists: true, $ne: null } }).select('_id name email employeeId department');
+              matchedUser = candidates.find(u => {
+                const uname = String(u.name || '').toLowerCase();
+                return tokens.every(t => uname.includes(t));
+              }) || null;
+            }
+          } catch (_) {}
+        }
 
         // Calculate KPI (now async)
         const kpiScore = await kpiTriggerService.calculateKPIScore(row);
@@ -278,6 +413,35 @@ router.post('/preview', authenticateToken, requireAdmin, (req, res) => {
         const conditionTriggers = await kpiTriggerService.getConditionBasedTriggers(kpiScore, row);
         const allTriggers = [...scoreTriggers, ...conditionTriggers];
         
+        // If unmatched, upsert an entry to UnmatchedKPI so Audit Dashboard can pick it up
+        if (!matchedUser) {
+          try {
+            await UnmatchedKPI.findOneAndUpdate(
+              {
+                period: period,
+                $or: [
+                  ...(feEmployeeId ? [{ employeeId: feEmployeeId }] : []),
+                  ...(feName ? [{ fe: feName }] : [])
+                ]
+              },
+              {
+                $set: {
+                  fe: feName || 'Unknown',
+                  employeeId: feEmployeeId || undefined,
+                  email: feEmail || undefined,
+                  period: period,
+                  kpiScore: kpiScore,
+                  rating: rating,
+                  rawData: row
+                }
+              },
+              { upsert: true, new: true, setDefaultsOnInsert: true }
+            );
+          } catch (unErr) {
+            console.error('Failed to upsert UnmatchedKPI from preview:', unErr.message);
+          }
+        }
+
         previewResults.push({
           fe: feName,
           employeeId: matchedUser?.employeeId || feEmployeeId || 'Not found',

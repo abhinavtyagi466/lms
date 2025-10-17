@@ -236,38 +236,38 @@ const emailTemplates = {
             </tr>
             <tr>
               <td>TAT</td>
-              <td style="text-align: center;">${data.scores.tat.score}/20</td>
-              <td style="text-align: center;">${data.scores.tat.percentage}%</td>
+              <td style="text-align: center;">${data?.scores?.tat?.score ?? 0}/20</td>
+              <td style="text-align: center;">${data?.scores?.tat?.percentage ?? 0}%</td>
             </tr>
             <tr>
               <td>Major Negativity</td>
-              <td style="text-align: center;">${data.scores.majorNegativity.score}/20</td>
-              <td style="text-align: center;">${data.scores.majorNegativity.percentage}%</td>
+              <td style="text-align: center;">${data?.scores?.majorNegativity?.score ?? 0}/20</td>
+              <td style="text-align: center;">${data?.scores?.majorNegativity?.percentage ?? 0}%</td>
             </tr>
             <tr>
               <td>Quality</td>
-              <td style="text-align: center;">${data.scores.quality.score}/20</td>
-              <td style="text-align: center;">${data.scores.quality.percentage}%</td>
+              <td style="text-align: center;">${data?.scores?.quality?.score ?? 0}/20</td>
+              <td style="text-align: center;">${data?.scores?.quality?.percentage ?? 0}%</td>
             </tr>
             <tr>
               <td>Neighbor Check</td>
-              <td style="text-align: center;">${data.scores.neighborCheck.score}/10</td>
-              <td style="text-align: center;">${data.scores.neighborCheck.percentage}%</td>
+              <td style="text-align: center;">${data?.scores?.neighborCheck?.score ?? 0}/10</td>
+              <td style="text-align: center;">${data?.scores?.neighborCheck?.percentage ?? 0}%</td>
             </tr>
             <tr>
               <td>Negativity</td>
-              <td style="text-align: center;">${data.scores.negativity.score}/10</td>
-              <td style="text-align: center;">${data.scores.negativity.percentage}%</td>
+              <td style="text-align: center;">${data?.scores?.negativity?.score ?? 0}/10</td>
+              <td style="text-align: center;">${data?.scores?.negativity?.percentage ?? 0}%</td>
             </tr>
             <tr>
               <td>App Usage</td>
-              <td style="text-align: center;">${data.scores.appUsage.score}/10</td>
-              <td style="text-align: center;">${data.scores.appUsage.percentage}%</td>
+              <td style="text-align: center;">${data?.scores?.appUsage?.score ?? 0}/10</td>
+              <td style="text-align: center;">${data?.scores?.appUsage?.percentage ?? 0}%</td>
             </tr>
             <tr>
               <td>Insufficiency</td>
-              <td style="text-align: center;">${data.scores.insufficiency.score}/10</td>
-              <td style="text-align: center;">${data.scores.insufficiency.percentage}%</td>
+              <td style="text-align: center;">${data?.scores?.insufficiency?.score ?? 0}/10</td>
+              <td style="text-align: center;">${data?.scores?.insufficiency?.percentage ?? 0}%</td>
             </tr>
             <tr style="background-color: #e8f5e8; font-weight: bold;">
               <td colspan="2"><strong>Overall Score</strong></td>
@@ -316,38 +316,38 @@ const emailTemplates = {
             </tr>
             <tr>
               <td>TAT</td>
-              <td style="text-align: center;">${data.scores.tat.score}/20</td>
-              <td style="text-align: center;">${data.scores.tat.percentage}%</td>
+              <td style="text-align: center;">${data?.scores?.tat?.score ?? 0}/20</td>
+              <td style="text-align: center;">${data?.scores?.tat?.percentage ?? 0}%</td>
             </tr>
             <tr>
               <td>Major Negativity</td>
-              <td style="text-align: center;">${data.scores.majorNegativity.score}/20</td>
-              <td style="text-align: center;">${data.scores.majorNegativity.percentage}%</td>
+              <td style="text-align: center;">${data?.scores?.majorNegativity?.score ?? 0}/20</td>
+              <td style="text-align: center;">${data?.scores?.majorNegativity?.percentage ?? 0}%</td>
             </tr>
             <tr>
               <td>Quality</td>
-              <td style="text-align: center;">${data.scores.quality.score}/20</td>
-              <td style="text-align: center;">${data.scores.quality.percentage}%</td>
+              <td style="text-align: center;">${data?.scores?.quality?.score ?? 0}/20</td>
+              <td style="text-align: center;">${data?.scores?.quality?.percentage ?? 0}%</td>
             </tr>
             <tr>
               <td>Neighbor Check</td>
-              <td style="text-align: center;">${data.scores.neighborCheck.score}/10</td>
-              <td style="text-align: center;">${data.scores.neighborCheck.percentage}%</td>
+              <td style="text-align: center;">${data?.scores?.neighborCheck?.score ?? 0}/10</td>
+              <td style="text-align: center;">${data?.scores?.neighborCheck?.percentage ?? 0}%</td>
             </tr>
             <tr>
               <td>Negativity</td>
-              <td style="text-align: center;">${data.scores.negativity.score}/10</td>
-              <td style="text-align: center;">${data.scores.negativity.percentage}%</td>
+              <td style="text-align: center;">${data?.scores?.negativity?.score ?? 0}/10</td>
+              <td style="text-align: center;">${data?.scores?.negativity?.percentage ?? 0}%</td>
             </tr>
             <tr>
               <td>App Usage</td>
-              <td style="text-align: center;">${data.scores.appUsage.score}/10</td>
-              <td style="text-align: center;">${data.scores.appUsage.percentage}%</td>
+              <td style="text-align: center;">${data?.scores?.appUsage?.score ?? 0}/10</td>
+              <td style="text-align: center;">${data?.scores?.appUsage?.percentage ?? 0}%</td>
             </tr>
             <tr>
               <td>Insufficiency</td>
-              <td style="text-align: center;">${data.scores.insufficiency.score}/10</td>
-              <td style="text-align: center;">${data.scores.insufficiency.percentage}%</td>
+              <td style="text-align: center;">${data?.scores?.insufficiency?.score ?? 0}/10</td>
+              <td style="text-align: center;">${data?.scores?.insufficiency?.percentage ?? 0}%</td>
             </tr>
           </table>
           
@@ -537,11 +537,18 @@ const sendEmail = async (to, template, data, emailLogData = null) => {
 
     // Log email activity if emailLogData is provided
     if (emailLogData) {
+      const normalizedType = ['training','audit','warning'].includes(emailLogData.templateType)
+        ? emailLogData.templateType
+        : (String(template).toLowerCase().includes('kpi') ? 'kpi_score' : 'notification');
       await logEmailActivity({
         ...emailLogData,
+        subject,
+        templateType: normalizedType,
+        recipientRole: emailLogData.recipientRole || 'fe',
         status: 'sent',
         sentAt: new Date(),
-        deliveredAt: new Date()
+        deliveredAt: new Date(),
+        emailContent: html
       });
     }
 
@@ -551,8 +558,14 @@ const sendEmail = async (to, template, data, emailLogData = null) => {
 
     // Log failed email if emailLogData is provided
     if (emailLogData) {
+      const normalizedType = ['training','audit','warning'].includes(emailLogData.templateType)
+        ? emailLogData.templateType
+        : (String(template).toLowerCase().includes('kpi') ? 'kpi_score' : 'notification');
       await logEmailActivity({
         ...emailLogData,
+        subject: (emailTemplates[template] && emailTemplates[template](data).subject) || emailLogData.subject || 'Email',
+        templateType: normalizedType,
+        recipientRole: emailLogData.recipientRole || 'fe',
         status: 'failed',
         errorMessage: error.message,
         sentAt: new Date()
@@ -570,8 +583,14 @@ const scheduleEmail = async (to, template, data, scheduledFor, emailLogData = nu
 
     // Log scheduled email
     if (emailLogData) {
+      const normalizedType = ['training','audit','warning'].includes(emailLogData.templateType)
+        ? emailLogData.templateType
+        : (String(template).toLowerCase().includes('kpi') ? 'kpi_score' : 'notification');
       await logEmailActivity({
         ...emailLogData,
+        subject,
+        templateType: normalizedType,
+        recipientRole: emailLogData.recipientRole || 'fe',
         status: 'pending',
         scheduledFor: new Date(scheduledFor),
         emailContent: html
@@ -762,6 +781,10 @@ const logEmailActivity = async (emailData) => {
 
 // Enhanced notification functions for different scenarios
 const emailService = {
+  // Expose direct send for callers that need immediate send
+  sendEmail: async (to, template, data, emailLogData = null) => {
+    return await sendEmail(to, template, data, emailLogData);
+  },
   // Send KPI trigger emails (main method for automation)
   sendKPITriggerEmails: async (kpiScore, triggers) => {
     const results = [];
