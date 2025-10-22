@@ -560,8 +560,8 @@ export const UserDashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center space-x-4 sm:space-x-6">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-200">
-                <User className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-500 dark:bg-gradient-to-br dark:from-blue-600 dark:to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-200">
+                <User className="w-6 h-6 sm:w-8 sm:h-8 text-white drop-shadow-lg" />
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-blue-600 dark:text-blue-400">
@@ -573,9 +573,9 @@ export const UserDashboard: React.FC = () => {
               </div>
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
-              <Badge variant="outline" className="bg-white/70 dark:bg-gray-700/70 border-blue-200 dark:border-blue-500 text-blue-700 dark:text-blue-300 px-3 sm:px-5 py-2 sm:py-2.5 rounded-full shadow-sm text-sm">
+              <Badge variant="outline" className="bg-white/70 dark:bg-gray-700/70 border-blue-200 dark:border-blue-500 text-blue-700 dark:text-blue-300 px-3 sm:px-5 py-2 sm:py-2.5 rounded-full shadow-sm text-sm" title="Key Performance Indicator - measures your work performance based on quality, efficiency, and compliance metrics">
                 <Target className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                KPI Score: {kpiScore?.overallScore || 0}
+                Performance Score: {kpiScore?.overallScore || 0}
                 {kpiScore?.rating && (
                   <span className={`ml-1 sm:ml-2 px-1 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs ${getKPIRatingColor(kpiScore.rating)}`}>
                     {kpiScore.rating}
@@ -606,8 +606,8 @@ export const UserDashboard: React.FC = () => {
                   <p className="text-xs sm:text-sm font-medium text-gray-600">Total Modules</p>
                   <p className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.totalModules}</p>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                  <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-blue-500 dark:to-blue-600 rounded-xl flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-white drop-shadow-lg" />
                 </div>
               </div>
               <div className="mt-4">
@@ -628,8 +628,8 @@ export const UserDashboard: React.FC = () => {
                     {stats.totalModules > 0 ? Math.round((stats.completedModules / stats.totalModules) * 100) : 0}%
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-green-500 dark:to-emerald-600 rounded-xl flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-white drop-shadow-lg" />
                 </div>
               </div>
               <div className="mt-4">
@@ -650,8 +650,8 @@ export const UserDashboard: React.FC = () => {
                      0}%
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl flex items-center justify-center">
-                  <FileQuestion className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-purple-500 dark:to-violet-600 rounded-xl flex items-center justify-center">
+                  <FileQuestion className="w-6 h-6 text-white drop-shadow-lg" />
                 </div>
               </div>
               <div className="mt-4">
@@ -670,8 +670,8 @@ export const UserDashboard: React.FC = () => {
                   <p className="text-sm font-medium text-gray-600">Total Watch Time</p>
                   <p className="text-3xl font-bold text-gray-900">{stats.totalWatchTime}m</p>
                 </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-orange-500 dark:to-red-600 rounded-xl flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-white drop-shadow-lg" />
                 </div>
               </div>
               <div className="mt-4">

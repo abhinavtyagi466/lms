@@ -48,28 +48,31 @@ export const UserProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('personal');
 
   useEffect(() => {
-    if (authUser?._id) {
+    if (authUser && (authUser as any)?._id) {
       fetchUserProfile();
     }
   }, [authUser]);
 
   const fetchUserProfile = async () => {
+    if (!authUser || !(authUser as any)?._id) return;
+    
     try {
       setLoading(true);
+      const userId = (authUser as any)._id;
       const [profileRes, kpiRes, awardsRes, warningsRes]: any[] = await Promise.all([
-        apiService.users.getProfile(authUser._id),
-        apiService.kpi.getUserKPIScores(authUser._id).catch(() => ({ scores: [] })),
-        apiService.awards.getUserAwards(authUser._id).catch(() => ({ awards: [] })),
-        apiService.users.getUserWarnings(authUser._id).catch(() => ({ warnings: [] }))
+        apiService.users.getProfile(userId),
+        apiService.kpi.getUserKPIScores(userId).catch(() => ({ scores: [] })),
+        apiService.awards.getUserAwards(userId).catch(() => ({ awards: [] })),
+        apiService.users.getUserWarnings(userId).catch(() => ({ warnings: [] }))
       ]);
 
       // Get KPI scores and find latest
-      const scores = kpiRes.scores || kpiRes || [];
-      setKpiScores(scores);
+      const scores = kpiRes?.scores || kpiRes?.data || kpiRes || [];
+      setKpiScores(Array.isArray(scores) ? scores : []);
       
       // Update user profile with latest KPI score from KPIScore database (overrides user model kpiScore field)
       // Backend already returns latest KPI via KPIScore.getLatestForUser() but we double-check here
-      if (scores.length > 0) {
+      if (Array.isArray(scores) && scores.length > 0) {
         // Find latest by sorting by createdAt or period
         const sortedScores = [...scores].sort((a, b) => {
           const dateA = new Date(a.createdAt || a.period);
@@ -90,8 +93,11 @@ export const UserProfilePage: React.FC = () => {
       }
       
       setUser(profileRes);
-      setAwards(awardsRes.awards || awardsRes || []);
-      setWarnings(warningsRes.warnings || warningsRes || []);
+      const awardsData = awardsRes?.awards || awardsRes?.data || awardsRes || [];
+      setAwards(Array.isArray(awardsData) ? awardsData : []);
+      
+      const warningsData = warningsRes?.warnings || warningsRes?.data || warningsRes || [];
+      setWarnings(Array.isArray(warningsData) ? warningsData : []);
     } catch (error: any) {
       console.error('Error fetching profile:', error);
       toast.error('Failed to load profile');
@@ -153,7 +159,7 @@ export const UserProfilePage: React.FC = () => {
           <div className="flex items-start gap-6">
             {/* Avatar */}
             <div className="flex-shrink-0">
-              <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg">
+              <div className="w-24 h-24 bg-blue-500 dark:bg-gradient-to-br dark:from-blue-600 dark:to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg">
                 {user.name?.charAt(0).toUpperCase() || 'U'}
               </div>
             </div>
@@ -191,7 +197,7 @@ export const UserProfilePage: React.FC = () => {
 
             {/* KPI Score Card */}
             <div className="flex-shrink-0">
-              <Card className="p-4 bg-gradient-to-br from-blue-600 to-purple-600 text-white border-0">
+              <Card className="p-4 bg-blue-500 dark:bg-gradient-to-br dark:from-blue-600 dark:to-purple-600 text-white border-0">
                 <div className="text-center">
                   <p className="text-sm opacity-90 mb-1">Current KPI</p>
                   <p className="text-4xl font-bold">{user.kpiScore || 0}</p>
@@ -215,8 +221,8 @@ export const UserProfilePage: React.FC = () => {
                 <p className="text-sm text-gray-600 dark:text-gray-400">Awards</p>
                 <p className="text-3xl font-bold text-green-600">{awards.length}</p>
               </div>
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                <Award className="w-6 h-6 text-green-600" />
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                <Award className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </Card>
@@ -227,8 +233,8 @@ export const UserProfilePage: React.FC = () => {
                 <p className="text-sm text-gray-600 dark:text-gray-400">Warnings</p>
                 <p className="text-3xl font-bold text-orange-600">{warnings.length}</p>
               </div>
-              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6 text-orange-600" />
+              <div className="w-12 h-12 bg-blue-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </Card>
@@ -256,8 +262,8 @@ export const UserProfilePage: React.FC = () => {
                 </p>
                 <p className="text-xs text-gray-500">Months</p>
               </div>
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-                <Clock className="w-6 h-6 text-purple-600" />
+              <div className="w-12 h-12 bg-blue-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                <Clock className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </Card>
@@ -475,7 +481,7 @@ export const UserProfilePage: React.FC = () => {
             <TabsContent value="awards" className="space-y-6 mt-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-semibold">Awards & Recognition</h3>
-                <Badge className="bg-green-100 text-green-800">
+                <Badge className="bg-blue-100 text-blue-800">
                   {awards.length} Awards
                 </Badge>
               </div>
@@ -489,10 +495,10 @@ export const UserProfilePage: React.FC = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {awards.map((award) => (
-                    <Card key={award._id} className="p-6 border-l-4 border-l-green-500 hover:shadow-lg transition-all">
+                    <Card key={award._id} className="p-6 border-l-4 border-l-blue-500 hover:shadow-lg transition-all">
                       <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                          <Award className="w-6 h-6 text-green-600" />
+                        <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                          <Award className="w-6 h-6 text-blue-600" />
                         </div>
                         <div className="flex-1">
                           <h4 className="font-semibold text-lg mb-1">{award.title}</h4>
@@ -516,7 +522,7 @@ export const UserProfilePage: React.FC = () => {
             <TabsContent value="warnings" className="space-y-6 mt-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-semibold">Warnings & Notices</h3>
-                <Badge className="bg-orange-100 text-orange-800">
+                <Badge className="bg-blue-100 text-blue-800">
                   {warnings.length} Warnings
                 </Badge>
               </div>
@@ -530,10 +536,10 @@ export const UserProfilePage: React.FC = () => {
               ) : (
                 <div className="space-y-4">
                   {warnings.map((warning) => (
-                    <Card key={warning._id} className="p-6 border-l-4 border-l-orange-500">
+                    <Card key={warning._id} className="p-6 border-l-4 border-l-blue-500">
                       <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                          <AlertTriangle className="w-6 h-6 text-orange-600" />
+                        <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                          <AlertTriangle className="w-6 h-6 text-blue-600" />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-2">

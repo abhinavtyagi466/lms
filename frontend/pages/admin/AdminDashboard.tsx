@@ -128,8 +128,8 @@ export const AdminDashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-200">
-                <Shield className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 bg-blue-500 dark:bg-gradient-to-br dark:from-indigo-600 dark:to-purple-700 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-200">
+                <Shield className="w-8 h-8 text-white drop-shadow-lg" />
               </div>
               <div>
                 <h1 className="text-4xl font-bold text-indigo-600 dark:text-indigo-400">
@@ -181,8 +181,8 @@ export const AdminDashboard: React.FC = () => {
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Total Users</p>
                   <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats?.totalUsers || 0}</p>
                 </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                  <Users className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-blue-500 dark:to-blue-600 rounded-xl flex items-center justify-center">
+                  <Users className="w-6 h-6 text-white drop-shadow-lg" />
                 </div>
               </div>
               <div className="mt-4">
@@ -201,8 +201,8 @@ export const AdminDashboard: React.FC = () => {
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Training Modules</p>
                   <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats?.totalModules || 0}</p>
                 </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
-                  <BookOpen className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-green-500 dark:to-emerald-600 rounded-xl flex items-center justify-center">
+                  <BookOpen className="w-6 h-6 text-white drop-shadow-lg" />
                 </div>
               </div>
               <div className="mt-4">
@@ -221,8 +221,8 @@ export const AdminDashboard: React.FC = () => {
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Average Progress</p>
                   <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats?.averageProgress || 0}%</p>
                 </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl flex items-center justify-center">
-                  <BarChart3 className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-purple-500 dark:to-violet-600 rounded-xl flex items-center justify-center">
+                  <BarChart3 className="w-6 h-6 text-white drop-shadow-lg" />
                 </div>
               </div>
               <div className="mt-4">
@@ -239,8 +239,8 @@ export const AdminDashboard: React.FC = () => {
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Certificates</p>
                   <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats?.certificatesIssued || 0}</p>
                 </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl flex items-center justify-center">
-                  <Award className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-yellow-500 dark:to-orange-600 rounded-xl flex items-center justify-center">
+                  <Award className="w-6 h-6 text-white drop-shadow-lg" />
                 </div>
               </div>
               <div className="mt-4">
@@ -319,8 +319,8 @@ export const AdminDashboard: React.FC = () => {
                     .map((progress) => (
                     <div key={progress._id} className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100/50 dark:hover:bg-gray-600/50 transition-colors">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-                          <Users className="w-5 h-5 text-white" />
+                        <div className="w-10 h-10 bg-blue-500 dark:bg-gradient-to-br dark:from-indigo-500 dark:to-purple-600 rounded-lg flex items-center justify-center">
+                          <Users className="w-5 h-5 text-white drop-shadow-lg" />
                         </div>
                         <div>
                           <h4 className="font-medium text-gray-900 dark:text-white">{progress.userId.name}</h4>

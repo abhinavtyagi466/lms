@@ -189,7 +189,7 @@ export const NotificationBell: React.FC = () => {
       {/* Bell Icon with Badge */}
       <button
         onClick={handleToggleDropdown}
-        className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700 rounded-lg transition-all duration-200 hover:scale-110"
+        className="relative p-2 bg-blue-500 text-white hover:bg-blue-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-600 rounded-lg transition-all duration-200 hover:scale-110"
         aria-label="Notifications"
       >
         <Bell className={`w-6 h-6 ${unreadCount > 0 ? 'animate-pulse' : ''}`} />
@@ -208,12 +208,16 @@ export const NotificationBell: React.FC = () => {
         <>
           {/* Backdrop */}
           <div 
-            className="fixed inset-0 z-40"
+            className="fixed inset-0"
+            style={{ zIndex: 999999 }}
             onClick={() => setIsOpen(false)}
           />
           
           {/* Dropdown Card - Properly Centered */}
-          <Card className="fixed top-16 right-4 w-[420px] max-h-[calc(100vh-80px)] overflow-hidden shadow-2xl border-2 border-gray-300 dark:border-gray-600 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+          <Card 
+            className="fixed top-16 right-4 w-[420px] max-h-[calc(100vh-80px)] overflow-hidden shadow-2xl border-2 border-gray-300 dark:border-gray-600 animate-in fade-in slide-in-from-top-2 duration-200"
+            style={{ zIndex: 1000000 }}
+          >
           {/* Header - Enhanced */}
           <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white p-5 border-b-2 border-blue-800">
             <div className="flex items-center justify-between">

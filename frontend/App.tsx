@@ -8,7 +8,8 @@ import {
   LogOut,
   Home,
   Bell,
-  Mail
+  Mail,
+  Clock
 } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Sidebar } from './components/common/Sidebar';
@@ -67,21 +68,21 @@ const userSidebarItems = [
 
 const adminSidebarItems = [
   { key: 'admin-dashboard', label: 'Dashboard', icon: Home },
-  { key: 'user-management', label: 'User Management', icon: Users },
+  { key: 'user-management', label: 'Manage Users', icon: Users },
   { key: 'exit-records', label: 'Exit Records', icon: FileText },
-  { key: 'module-management', label: 'Module Management', icon: BookOpen },
-  { key: 'score-reports', label: 'Score Reports', icon: BarChart3 },
-  { key: 'kpi-triggers', label: 'KPI Triggers', icon: BarChart3 },
-  { key: 'kpi-audit-dashboard', label: 'KPI Audit Dashboard', icon: BarChart3 },
-  { key: 'kpi-configuration', label: 'KPI Configuration', icon: BarChart3 },
-  { key: 'email-templates', label: 'Emails', icon: Mail },
+  { key: 'module-management', label: 'Training Modules', icon: BookOpen },
+  { key: 'score-reports', label: 'Performance Reports', icon: BarChart3 },
+  { key: 'kpi-triggers', label: 'Upload KPI Data', icon: BarChart3 },
+  { key: 'kpi-audit-dashboard', label: 'KPI Dashboard', icon: BarChart3 },
+  { key: 'kpi-configuration', label: 'KPI Settings', icon: BarChart3 },
+  { key: 'email-templates', label: 'Email Templates', icon: Mail },
   // TEMPORARILY HIDDEN: Email Center and Recipient Groups
   // { key: 'email-center', label: 'Email Center', icon: Mail },
   // { key: 'recipient-groups', label: 'Recipient Groups', icon: Users },
   // { key: 'audit-scheduler', label: 'Audit Scheduler', icon: Calendar }, // TEMPORARILY HIDDEN
   // { key: 'warnings-audit', label: 'Audit Management', icon: FileText }, // MOVED TO KPI AUDIT DASHBOARD
-  { key: 'awards', label: 'Awards / Recognition', icon: Award },
-  // { key: 'lifecycle', label: 'Lifecycle Dashboard', icon: Clock },
+  { key: 'awards', label: 'Awards & Recognition', icon: Award },
+  { key: 'lifecycle', label: 'Lifecycle Dashboard', icon: Clock },
   // { key: 'mail-preview', label: 'Mail Preview', icon: Mail },
   { key: 'logout', label: 'Logout', icon: LogOut }
 ];

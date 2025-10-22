@@ -55,28 +55,31 @@ export const NotificationsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'notifications' | 'awards' | 'certificates' | 'warnings' | 'training'>('all');
 
   useEffect(() => {
-    if (user?._id) {
+    if (user && (user as any)?._id) {
       fetchAllData();
     }
   }, [user]);
 
-  useEffect(() => {
-    applyFilter();
-  }, [activeTab, notifications]);
-
   const fetchAllData = async () => {
+    if (!user || !(user as any)?._id) return;
+    
     try {
       setLoading(true);
+      const userId = (user as any)._id;
       const [notifRes, awardsRes, certsRes]: any[] = await Promise.all([
         apiService.notifications.getAll(false).catch(() => ({ data: [] })),
-        apiService.awards.getUserAwards(user._id).catch(() => ({ awards: [] })),
-        apiService.users.getUserCertificates(user._id).catch(() => ({ certificates: [] }))
+        apiService.awards.getUserAwards(userId).catch(() => ({ awards: [] })),
+        apiService.users.getUserCertificates(userId).catch(() => ({ certificates: [] }))
       ]);
       
       const notificationsData = notifRes?.data || notifRes || [];
       setNotifications(Array.isArray(notificationsData) ? notificationsData : []);
-      setAwards(awardsRes.awards || awardsRes || []);
-      setCertificates(certsRes.certificates || certsRes || []);
+      
+      const awardsData = awardsRes?.awards || awardsRes?.data || awardsRes || [];
+      setAwards(Array.isArray(awardsData) ? awardsData : []);
+      
+      const certsData = certsRes?.certificates || certsRes?.data || certsRes || [];
+      setCertificates(Array.isArray(certsData) ? certsData : []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to fetch notifications');

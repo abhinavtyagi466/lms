@@ -4,10 +4,8 @@ import {
   BookOpen,
   BarChart3,
   Award,
-  FileText,
   Zap,
   Shield,
-  Lightbulb,
   Activity,
   Target,
   RefreshCw,
@@ -154,8 +152,8 @@ export const AdminDashboardEnhanced: React.FC = () => {
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-200">
-                <Shield className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 bg-blue-500 dark:bg-gradient-to-br dark:from-indigo-600 dark:to-purple-700 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-200">
+                <Shield className="w-8 h-8 text-white drop-shadow-lg" />
               </div>
               <div>
                 <h1 className="text-4xl font-bold text-indigo-600 dark:text-indigo-400">
@@ -402,14 +400,6 @@ export const AdminDashboardEnhanced: React.FC = () => {
                   Manage Users
                 </Button>
                 <Button 
-                  onClick={() => setCurrentPage('user-details')}
-                  variant="outline"
-                  className="w-full justify-start border-indigo-200 dark:border-indigo-500 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  User Details
-                </Button>
-                <Button 
                   onClick={() => setCurrentPage('user-lifecycle')}
                   variant="outline"
                   className="w-full justify-start border-purple-200 dark:border-purple-500 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
@@ -424,13 +414,6 @@ export const AdminDashboardEnhanced: React.FC = () => {
                   <BookOpen className="w-4 h-4 mr-2" />
                   Manage Modules
                 </Button>
-                <Button 
-                  onClick={() => setCurrentPage('quiz-management')}
-                  className="w-full justify-start bg-purple-50 hover:bg-purple-100 dark:bg-purple-600 dark:hover:bg-purple-700 text-purple-700 dark:text-white border border-purple-200 dark:border-purple-500 transition-all duration-200"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  Manage Quizzes
-                </Button>
                 {/* TEMPORARILY HIDDEN FOR MEETING */}
                 {/* <Button 
                   onClick={() => window.location.href = '/admin/reports'}
@@ -442,69 +425,6 @@ export const AdminDashboardEnhanced: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Performance Insights */}
-            <Card className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0 shadow-lg">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center text-lg font-semibold">
-                  <Lightbulb className="w-5 h-5 mr-2" />
-                  Performance Insights
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                    <span className="text-sm">Platform is performing well</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                    <span className="text-sm">Consider adding more modules</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                    <span className="text-sm">User engagement is increasing</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* System Status */}
-            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
-                  <Shield className="w-5 h-5 mr-2 text-green-600 dark:text-green-400" />
-                  System Status
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">Database</span>
-                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
-                      Online
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">API Server</span>
-                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
-                      Online
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">File Storage</span>
-                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
-                      Online
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">Email Service</span>
-                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
-                      Online
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>

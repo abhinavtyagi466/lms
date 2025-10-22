@@ -246,7 +246,7 @@ export const ModulesPage: React.FC = () => {
                   <div className="relative">
                     <img
                       src={getYouTubeThumbnail(module.ytVideoId, 'medium') || '/placeholder-video.jpg'}
-                      alt={module.title}
+                      alt={`Training video thumbnail for ${module.title} - Click to start learning`}
                       className="w-full h-48 object-cover cursor-pointer"
                       onClick={() => {
                         if (!isCompleted) {
@@ -390,7 +390,7 @@ export const ModulesPage: React.FC = () => {
                     >
                       <img
                         src={getYouTubeThumbnail(module.ytVideoId, 'medium') || ''}
-                        alt={`${module.title} video thumbnail`}
+                        alt={`Training video thumbnail for ${module.title} - Click to start training module`}
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         onError={(e) => {
                           // Fallback to a default thumbnail if YouTube thumbnail fails

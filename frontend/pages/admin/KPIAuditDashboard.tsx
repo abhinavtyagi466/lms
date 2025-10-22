@@ -280,7 +280,7 @@ const KPIAuditDashboard: React.FC = () => {
 
     return (
       <div className="overflow-x-auto">
-        <Table>
+        <Table className="min-w-[800px]">
           <TableHeader>
             <TableRow>
               <TableHead>Employee</TableHead>
@@ -306,7 +306,12 @@ const KPIAuditDashboard: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <div className="flex flex-col">
                       <span className="font-bold text-lg">{user.kpiScore.toFixed(2)}%</span>
-                      <Badge className={`${getRatingColor(rating)} text-xs`}>
+                      <Badge className={`${getRatingColor(rating)} text-xs flex items-center gap-1`}>
+                        {rating === 'Outstanding' && <Trophy className="w-3 h-3" />}
+                        {rating === 'Excellent' && <Star className="w-3 h-3" />}
+                        {rating === 'Satisfactory' && <ThumbsUp className="w-3 h-3" />}
+                        {rating === 'Need Improvement' && <TrendingUp className="w-3 h-3" />}
+                        {rating === 'Unsatisfactory' && <AlertTriangle className="w-3 h-3" />}
                         {rating}
                       </Badge>
                     </div>
@@ -371,7 +376,8 @@ const KPIAuditDashboard: React.FC = () => {
                   <div className="flex gap-2">
                     <Button 
                       variant="outline" 
-                      size="sm" 
+                      size="default"
+                      className="min-h-[44px] min-w-[44px]"
                       title="View Details"
                       onClick={() => viewUserDetails(user)}
                     >
@@ -379,7 +385,8 @@ const KPIAuditDashboard: React.FC = () => {
                     </Button>
                     <Button 
                       variant="outline" 
-                      size="sm" 
+                      size="default"
+                      className="min-h-[44px]"
                       title="Send Email"
                       onClick={() => openEmailModal(user)}
                     >
@@ -533,12 +540,12 @@ const KPIAuditDashboard: React.FC = () => {
             Satisfactory ({statistics.satisfactory})
           </TabsTrigger>
           <TabsTrigger value="needImprovement">
-            Need Improvement ({statistics.needImprovement})
+            Needs Training ({statistics.needImprovement})
           </TabsTrigger>
           <TabsTrigger value="unsatisfactory">
             Unsatisfactory ({statistics.unsatisfactory})
           </TabsTrigger>
-          <TabsTrigger value="unmatched">Unmatched</TabsTrigger>
+          <TabsTrigger value="unmatched">Not Found</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -676,7 +683,7 @@ const KPIAuditDashboard: React.FC = () => {
               )}
 
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="min-w-[600px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>FE Name</TableHead>
@@ -941,7 +948,7 @@ const KPIAuditDashboard: React.FC = () => {
 
                 {/* Requirements */}
                 <div className="bg-yellow-50 dark:bg-yellow-900 p-4 rounded-lg">
-                  <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Action Requirements</h3>
+                  <h5 className="font-semibold mb-2 text-sm text-gray-700 dark:text-gray-300">Actions to be Taken:</h5>
                   <div className="space-y-2 text-sm">
                     <div>
                       <span className="text-gray-700 dark:text-gray-300 font-medium">Training:</span>

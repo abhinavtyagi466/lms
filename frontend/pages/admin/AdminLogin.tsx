@@ -58,9 +58,9 @@ export const AdminLogin: React.FC = () => {
         <div className="text-center lg:text-left space-y-6">
           <div className="space-y-4">
             <div className={`w-20 h-20 mx-auto lg:mx-0 rounded-2xl flex items-center justify-center ${
-              isDarkMode ? 'bg-red-600' : 'bg-red-500'
+              isDarkMode ? 'bg-blue-600' : 'bg-blue-500'
             } shadow-lg`}>
-              <Shield className="w-10 h-10 text-white" />
+              <Shield className="w-10 h-10 text-white drop-shadow-lg" />
             </div>
             <h1 className={`text-4xl lg:text-5xl font-bold ${
               isDarkMode ? 'text-white' : 'text-gray-900'
@@ -115,10 +115,10 @@ export const AdminLogin: React.FC = () => {
                 Enter your credentials to access the admin panel
               </p>
               <div className={`mt-3 p-3 rounded-lg ${
-                isDarkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-200'
+                isDarkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'
               }`}>
                 <p className={`text-xs ${
-                  isDarkMode ? 'text-red-300' : 'text-red-700'
+                  isDarkMode ? 'text-blue-300' : 'text-blue-700'
                 }`}>
                   <strong>Who can access:</strong> Managers, HODs, HRs, and Admins only
                 </p>
@@ -144,8 +144,8 @@ export const AdminLogin: React.FC = () => {
                     placeholder="admin@company.com"
                     className={`pl-10 h-12 ${
                       isDarkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-red-500' 
-                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-red-500'
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
                     }`}
                     disabled={isLoading}
                   />
@@ -170,8 +170,8 @@ export const AdminLogin: React.FC = () => {
                     placeholder="Enter your password"
                     className={`pl-10 h-12 ${
                       isDarkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-red-500' 
-                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-red-500'
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
                     }`}
                     disabled={isLoading}
                   />
@@ -182,8 +182,8 @@ export const AdminLogin: React.FC = () => {
                 type="submit" 
                 className={`w-full h-12 text-white font-medium transition-all duration-200 ${
                   isDarkMode 
-                    ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' 
-                    : 'bg-red-500 hover:bg-red-600 focus:ring-red-400'
+                    ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500' 
+                    : 'bg-blue-500 hover:bg-blue-600 focus:ring-blue-400'
                 } focus:ring-2 focus:ring-offset-2`}
                 disabled={isLoading}
               >

@@ -321,10 +321,10 @@ export const KPITriggerDashboard: React.FC = () => {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            KPI Trigger Dashboard
+            KPI Data Upload Center
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Upload Excel files to automatically process KPI scores and trigger training/audit assignments
+            Upload Excel files with employee performance data to automatically calculate KPI scores and assign training or audits
           </p>
         </div>
 
@@ -337,29 +337,29 @@ export const KPITriggerDashboard: React.FC = () => {
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                  How it works
-                  <Badge variant="outline" className="text-xs">3 Steps</Badge>
+                  Simple 3-Step Process
+                  <Badge variant="outline" className="text-xs">Easy Upload</Badge>
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div className="flex items-start gap-2">
                     <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">Upload Excel</p>
-                      <p className="text-gray-600 dark:text-gray-400 text-xs">Select KPI data file</p>
+                      <p className="font-medium text-gray-900 dark:text-white">Upload Excel File</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-xs">Choose your KPI performance data file</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">Preview Triggers</p>
-                      <p className="text-gray-600 dark:text-gray-400 text-xs">Check what will happen</p>
+                      <p className="font-medium text-gray-900 dark:text-white">Preview Results</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-xs">Review what actions will be taken</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</span>
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">Process & View</p>
-                      <p className="text-gray-600 dark:text-gray-400 text-xs">See live data in Audit Dashboard</p>
+                      <p className="font-medium text-gray-900 dark:text-white">Process & Monitor</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-xs">View results in KPI Dashboard</p>
                     </div>
                   </div>
                 </div>
@@ -373,10 +373,10 @@ export const KPITriggerDashboard: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5" />
-              Upload KPI Data
+              Upload Performance Data
             </CardTitle>
             <CardDescription>
-              Upload Excel file with KPI data to automatically trigger training and audit assignments
+              Upload your Excel file containing employee performance metrics to automatically calculate KPI scores and assign training or audits
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -430,9 +430,9 @@ export const KPITriggerDashboard: React.FC = () => {
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-start gap-2">
                 <AlertTriangle className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">Step 1: Click "Preview Triggers"</p>
+                  <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">Next Step: Click "Preview Results"</p>
                   <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                    This will auto-detect the period from Excel's "Month" column and show you what will happen before processing.
+                    This will automatically detect the time period from your Excel file and show you what actions will be taken before processing.
                   </p>
                 </div>
               </div>
@@ -444,7 +444,7 @@ export const KPITriggerDashboard: React.FC = () => {
                 <div>
                   <p className="text-sm font-semibold text-green-900 dark:text-green-100">Period Detected: {period}</p>
                   <p className="text-xs text-green-700 dark:text-green-300 mt-1">
-                    Click "Preview Triggers" to see matched users and triggers before processing.
+                    Click "Preview Results" to see matched users and actions before processing.
                   </p>
                 </div>
               </div>
@@ -466,7 +466,7 @@ export const KPITriggerDashboard: React.FC = () => {
                 ) : (
                   <>
                     <Eye className="w-4 h-4 mr-2" />
-                    Preview Triggers
+                    Preview Results
                   </>
                 )}
               </Button>
@@ -484,7 +484,7 @@ export const KPITriggerDashboard: React.FC = () => {
                 ) : (
                   <>
                     <Upload className="w-4 h-4 mr-2" />
-                    Upload & Process
+                    Process Data
                   </>
                 )}
               </Button>
@@ -563,10 +563,10 @@ export const KPITriggerDashboard: React.FC = () => {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <Eye className="w-5 h-5" />
-                    Trigger Preview - {previewResults.length} Users
+                    Results Preview - {previewResults.length} Users
                   </CardTitle>
                   <CardDescription>
-                    Preview of triggers that will be created (no actual actions taken yet)
+                    Preview of actions that will be taken (no actual processing done yet)
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">

@@ -87,7 +87,6 @@ export const UserLogin: React.FC = () => {
       // Handle specific access denied errors
       if (error?.response?.data?.error === 'Access Denied') {
         const userType = error?.response?.data?.userType;
-        const attemptedAccess = error?.response?.data?.attemptedAccess;
         const errorMessage = error?.response?.data?.message || `Access denied. ${userType} accounts cannot access the user dashboard.`;
         
         setError(errorMessage);
@@ -115,12 +114,12 @@ export const UserLogin: React.FC = () => {
             <div className={`w-20 h-20 mx-auto lg:mx-0 rounded-2xl flex items-center justify-center ${
               isDarkMode ? 'bg-blue-600' : 'bg-blue-500'
             } shadow-lg`}>
-              <GraduationCap className="w-10 h-10 text-white" />
+              <GraduationCap className="w-10 h-10 text-white drop-shadow-lg" />
             </div>
             <h1 className={`text-4xl lg:text-5xl font-bold ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
-              Welcome Sir
+              Welcome back
             </h1>
             <p className={`text-lg ${
               isDarkMode ? 'text-gray-300' : 'text-gray-600'
