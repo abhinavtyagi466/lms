@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Plus, Trash2, Eye, Send, BarChart3, Edit, Copy, CheckCircle } from 'lucide-react';
+import { Mail, Trash2, Eye, Send, BarChart3, Edit, Copy, CheckCircle } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -231,8 +231,8 @@ export const EmailTemplatesPage: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg">
-                <Mail className="w-7 h-7 text-white" />
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shadow-lg">
+                <Mail className="w-7 h-7 text-blue-600 dark:text-blue-300" />
               </div>
               Email Templates
             </h1>

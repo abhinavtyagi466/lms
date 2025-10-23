@@ -694,49 +694,9 @@ class KPITriggerService {
 
   // Get score-based triggers
   async getScoreBasedTriggers(score) {
-    try {
-      // Fetch active trigger configurations from database
-      const TriggerConfiguration = require('../models/TriggerConfiguration');
-      const configs = await TriggerConfiguration.find({ 
-        isActive: true,
-        triggerType: 'score_based'
-      }).sort({ threshold: -1 }); // Sort descending to match highest threshold first
-      
-      if (!configs || configs.length === 0) {
-        console.log('⚠ No trigger configurations found, using fallback triggers');
-        return this.getScoreBasedTriggersFallback(score);
-      }
-
-      const triggers = [];
-      
-      // Find matching triggers based on score
-      for (const config of configs) {
-        // Check if score meets the threshold condition
-        const conditionMet = this.evaluateTriggerCondition(score, config.condition, config.threshold);
-        
-        if (conditionMet && config.actions && config.actions.length > 0) {
-          triggers.push({
-            training: config.actions.includes('Basic Training Module') ? 'Basic Training Module' : null,
-            audit: config.actions.find(a => a.includes('Audit')) || null,
-            warning: config.actions.includes('Warning Letter'),
-            reward: config.actions.includes('Reward'),
-            conditionMet: `${config.condition} ${config.threshold}`,
-            emailRecipients: {
-              training: config.emailRecipients || [],
-              audit: config.emailRecipients || [],
-              warning: config.emailRecipients || []
-            }
-          });
-          break; // Use first matching trigger
-        }
-      }
-
-      return triggers.length > 0 ? triggers : this.getScoreBasedTriggersFallback(score);
-
-    } catch (error) {
-      console.error('Error getting triggers from database:', error);
-      return this.getScoreBasedTriggersFallback(score);
-    }
+    // Use fallback triggers directly since TriggerConfiguration model doesn't exist
+    console.log('ℹ Using fallback triggers (TriggerConfiguration model not implemented)');
+    return this.getScoreBasedTriggersFallback(score);
   }
 
   // Evaluate trigger condition

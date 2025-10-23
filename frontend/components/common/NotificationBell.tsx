@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, X, CheckCheck, AlertCircle, BookOpen, FileText, Award, Clock, Eye, CheckCircle } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -203,20 +204,18 @@ export const NotificationBell: React.FC = () => {
         )}
       </button>
 
-      {/* Notification Dropdown - Fixed Positioning */}
-      {isOpen && (
+      {/* Notification Dropdown - Using Portal for proper z-index */}
+      {isOpen && createPortal(
         <>
           {/* Backdrop */}
           <div 
-            className="fixed inset-0"
-            style={{ zIndex: 999999 }}
+            className="fixed inset-0 z-[9998]"
             onClick={() => setIsOpen(false)}
           />
           
-          {/* Dropdown Card - Properly Centered */}
+          {/* Dropdown Card - Properly Positioned at Top Right */}
           <Card 
-            className="fixed top-16 right-4 w-[420px] max-h-[calc(100vh-80px)] overflow-hidden shadow-2xl border-2 border-gray-300 dark:border-gray-600 animate-in fade-in slide-in-from-top-2 duration-200"
-            style={{ zIndex: 1000000 }}
+            className="fixed top-20 right-4 w-[420px] max-h-[calc(100vh-100px)] overflow-hidden shadow-2xl border-2 border-gray-300 dark:border-gray-600 animate-in fade-in slide-in-from-top-2 duration-200 z-[9999]"
           >
           {/* Header - Enhanced */}
           <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white p-5 border-b-2 border-blue-800">
@@ -412,7 +411,8 @@ export const NotificationBell: React.FC = () => {
             </div>
           )}
         </Card>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );

@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, BarChart3, Award, AlertTriangle, TrendingUp, Clock, 
   CheckCircle, FileText, Target, FileQuestion, Bell,
-  User, Trophy, Activity, Zap, Eye,
-  GraduationCap, Shield, Lightbulb,
+  User, Trophy, Activity, Eye,
+  GraduationCap, Shield,
   ClipboardList, UserCheck, AlertCircle,
   Smartphone, Phone
 } from 'lucide-react';
@@ -424,8 +424,17 @@ export const UserDashboard: React.FC = () => {
             setAwards(secondaryData[1].status === 'fulfilled' ? (secondaryData[1].value as any).data?.awards || [] : []);
             // setLifecycleStats(secondaryData[2].status === 'fulfilled' ? (secondaryData[2].value as any).data?.statistics : null);
             setRecentLifecycleEvents(secondaryData[3].status === 'fulfilled' ? (secondaryData[3].value as any).data?.events || [] : []);
-            setQuizAttemptStats(secondaryData[4].status === 'fulfilled' ? (secondaryData[4].value as any).data : null);
-            setQuizAttempts(secondaryData[5].status === 'fulfilled' ? (secondaryData[5].value as any).data || [] : []);
+            const quizStats = secondaryData[4].status === 'fulfilled' ? (secondaryData[4].value as any).data : null;
+            const quizAttemptsData = secondaryData[5].status === 'fulfilled' ? (secondaryData[5].value as any).data || [] : [];
+            
+            console.log('=== QUIZ ATTEMPTS DEBUG ===');
+            console.log('Quiz Stats Response:', secondaryData[4]);
+            console.log('Quiz Stats Data:', quizStats);
+            console.log('Quiz Attempts Response:', secondaryData[5]);
+            console.log('Quiz Attempts Data:', quizAttemptsData);
+            
+            setQuizAttemptStats(quizStats);
+            setQuizAttempts(quizAttemptsData);
           } catch (error) {
             console.error('Error fetching secondary data:', error);
           }
@@ -586,7 +595,7 @@ export const UserDashboard: React.FC = () => {
                 onClick={() => setCurrentPage('modules')}
                 variant="secondary"
                 size="lg"
-                className="px-4 sm:px-8 py-2 sm:py-3 w-full sm:w-auto text-sm sm:text-base"
+                className="px-4 sm:px-8 py-2 sm:py-3 w-full sm:w-auto text-sm sm:text-base text-blue-700 dark:text-white"
               >
                 <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
                 Continue Learning
@@ -1050,7 +1059,7 @@ export const UserDashboard: React.FC = () => {
         )}
 
         {/* User Activity & Lifestyle Section */}
-        {(activitySummary || loginAttempts || sessionData) && (
+        {(activitySummary || loginAttempts || sessionData) && false && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             {/* Activity Summary Card */}
             {activitySummary && (
@@ -1155,7 +1164,7 @@ export const UserDashboard: React.FC = () => {
         )}
 
         {/* Session Data Section */}
-        {sessionData && (
+        {sessionData && false && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             {/* Session Summary */}
             <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
@@ -1248,7 +1257,7 @@ export const UserDashboard: React.FC = () => {
         )}
 
         {/* Recent Activities Section */}
-        {recentActivities.length > 0 && (
+        {recentActivities.length > 0 && false && (
           <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg mb-8">
             <CardHeader>
               <CardTitle className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
@@ -1448,44 +1457,6 @@ export const UserDashboard: React.FC = () => {
               </Card>
             )}
 
-            {/* Recent Activity */}
-            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center text-xl font-semibold text-gray-900 dark:text-white">
-                  <Activity className="w-5 h-5 mr-2 text-green-600 dark:text-green-400" />
-                  Recent Activity
-                </CardTitle>
-                <CardDescription>
-                  Your latest learning milestones and achievements
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentLifecycleEvents.slice(0, 5).map((event, index) => (
-                    <div key={index} className={`flex items-start space-x-3 p-3 rounded-lg border-l-4 ${getEventColor(event.type || 'default')}`}>
-                      {getEventIcon(event.type || 'default')}
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">{event.title || 'Activity'}</p>
-                        <p className="text-xs text-gray-600">{event.description || 'No description available'}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {new Date(event.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  {recentLifecycleEvents.length === 0 && (
-                    <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-                      <Activity className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-                      <p>No recent activity</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Column - Quick Actions & Notifications */}
-          <div className="space-y-6">
             {/* Notifications */}
             {notifications.length > 0 && (
               <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
@@ -1519,58 +1490,6 @@ export const UserDashboard: React.FC = () => {
                 </CardContent>
               </Card>
             )}
-
-            {/* Quick Actions */}
-            <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
-                  <Zap className="w-5 h-5 mr-2 text-yellow-600 dark:text-yellow-400" />
-                  Quick Actions
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button 
-                  onClick={() => setCurrentPage('modules')}
-                  className="w-full justify-start bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-                >
-                  <BookOpen className="w-4 h-4 mr-2" />
-                  Browse Modules
-                </Button>
-                <Button 
-                  onClick={() => setCurrentPage('quizzes')}
-                  variant="outline"
-                  className="w-full justify-start border-blue-200 text-blue-700 hover:bg-blue-50"
-                >
-                  <FileQuestion className="w-4 h-4 mr-2" />
-                  Take Quizzes
-                </Button>
-                <Button 
-                  onClick={() => setCurrentPage('notifications')}
-                  variant="outline"
-                  className="w-full justify-start border-green-200 text-green-700 hover:bg-green-50"
-                >
-                  <Bell className="w-4 h-4 mr-2" />
-                  View Notifications
-                </Button>
-                <Button 
-                  onClick={() => setCurrentPage('kpi-scores')}
-                  variant="outline"
-                  className="w-full justify-start border-purple-200 text-purple-700 hover:bg-purple-50"
-                >
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  KPI Scores
-                </Button>
-                {/* TEMPORARILY HIDDEN: Email Center */}
-                {/* <Button 
-                  onClick={() => setCurrentPage('user-emails')}
-                  variant="outline"
-                  className="w-full justify-start border-orange-200 text-orange-700 hover:bg-orange-50"
-                >
-                  <Mail className="w-4 h-4 mr-2" />
-                  Email Center
-                </Button> */}
-              </CardContent>
-            </Card>
 
             {/* Recent Warnings */}
             {warnings.length > 0 && (
@@ -1621,56 +1540,6 @@ export const UserDashboard: React.FC = () => {
                 </CardContent>
               </Card>
             )}
-
-            {/* Performance Insights */}
-            <Card className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0 shadow-lg">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center text-lg font-semibold">
-                  <Lightbulb className="w-5 h-5 mr-2" />
-                  Performance Insights
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Learning Efficiency</span>
-                    <span className="text-sm font-semibold">
-                      {stats.totalModules > 0 ? Math.round((stats.completedModules / stats.totalModules) * 100) : 0}%
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Quiz Success Rate</span>
-                    <span className="text-sm font-semibold">
-                      {stats.totalQuizzes > 0 ? Math.round((stats.completedQuizzes / stats.totalQuizzes) * 100) : 0}%
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Time Investment</span>
-                    <span className="text-sm font-semibold">{stats.totalWatchTime}m</span>
-                  </div>
-                  {kpiScore && (
-                    <>
-                      <div className="border-t border-white/20 pt-3 mt-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm">KPI Performance</span>
-                          <span className="text-sm font-semibold">{kpiScore.overallScore}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm">Training Assignments</span>
-                          <span className="text-sm font-semibold">{trainingAssignments.length}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm">Upcoming Audits</span>
-                          <span className="text-sm font-semibold">
-                            {auditSchedules.filter(a => a.status === 'scheduled').length}
-                          </span>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
 
@@ -1698,7 +1567,7 @@ export const UserDashboard: React.FC = () => {
         {loadingModuleScores && (
           <div className="mt-8">
             <div className="flex items-center justify-center py-8">
-              <LoadingSpinner size="md" />
+              <LoadingSpinner size="lg" />
               <span className="ml-3 text-gray-600 dark:text-gray-400">
                 Loading module scores...
               </span>

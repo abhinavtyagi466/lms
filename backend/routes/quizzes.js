@@ -379,8 +379,20 @@ router.post('/submit', authenticateToken, async (req, res) => {
   try {
     const { userId, moduleId, answers, timeTaken, attemptId } = req.body;
 
+    console.log('\n========================================');
+    console.log('=== QUIZ SUBMISSION RECEIVED ===');
+    console.log('========================================');
+    console.log('User ID:', userId);
+    console.log('Module ID:', moduleId);
+    console.log('Answers count:', answers?.length);
+    console.log('Answers:', JSON.stringify(answers, null, 2));
+    console.log('Time Taken:', timeTaken);
+    console.log('Attempt ID:', attemptId);
+    console.log('Request User:', req.user?.email || req.user?._id);
+
     // Validate required fields
     if (!userId || !moduleId || !answers || !Array.isArray(answers)) {
+      console.log('Validation failed - missing required fields');
       return res.status(400).json({
         error: 'Validation Error',
         message: 'User ID, module ID, and answers array are required'
@@ -388,13 +400,20 @@ router.post('/submit', authenticateToken, async (req, res) => {
     }
 
     // Get the quiz for this module
+    console.log('Searching for quiz with moduleId:', moduleId);
     const quiz = await Quiz.findOne({ moduleId, isActive: true });
+    
     if (!quiz) {
+      console.log('❌ Quiz not found for moduleId:', moduleId);
       return res.status(404).json({
         error: 'Quiz not found',
         message: 'No quiz available for this module'
       });
     }
+    
+    console.log('✅ Quiz found:', quiz._id);
+    console.log('   Questions count:', quiz.questions?.length);
+    console.log('   Pass percent:', quiz.passPercent);
 
     // Calculate score
     let score = 0;
@@ -477,6 +496,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
       });
       
       await quizAttempt.save();
+      console.log('Quiz attempt saved:', quizAttempt._id);
     }
 
     // Create quiz result
@@ -499,6 +519,8 @@ router.post('/submit', authenticateToken, async (req, res) => {
     });
 
     await quizResult.save();
+    console.log('Quiz result saved:', quizResult._id);
+    console.log('Final score:', percentage, '% - Passed:', passed);
 
     res.json({
       success: true,

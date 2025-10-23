@@ -68,6 +68,10 @@ router.get('/login-attempts/:userId', authenticateToken, validateUserId, async (
     const { userId } = req.params;
     const { days = 30 } = req.query;
     
+    console.log(`\n=== FETCHING LOGIN ATTEMPTS ===`);
+    console.log(`User ID: ${userId}`);
+    console.log(`Days: ${days}`);
+    
     // Check if user is accessing their own data or is admin
     if (req.user.id !== userId && req.user.role !== 'admin') {
       return res.status(403).json({
@@ -120,6 +124,10 @@ router.get('/sessions/:userId', authenticateToken, validateUserId, async (req, r
     const { userId } = req.params;
     const { days = 7 } = req.query;
     
+    console.log(`\n=== FETCHING SESSION DATA ===`);
+    console.log(`User ID: ${userId}`);
+    console.log(`Days: ${days}`);
+    
     // Check if user is accessing their own data or is admin
     if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
       return res.status(403).json({
@@ -128,10 +136,18 @@ router.get('/sessions/:userId', authenticateToken, validateUserId, async (req, r
       });
     }
 
+    // Check total sessions for this user
+    const totalSessions = await UserSession.countDocuments({ userId });
+    console.log(`Total sessions in DB for user: ${totalSessions}`);
+
     const sessionSummary = await UserSession.getUserSessionSummary(userId, parseInt(days));
     const recentSessions = await UserSession.getRecentSessions(userId, 10);
     const devicePatterns = await UserSession.getDeviceUsagePatterns(userId, parseInt(days));
     const locationPatterns = await UserSession.getLocationPatterns(userId, parseInt(days));
+    
+    console.log(`Session summary:`, sessionSummary);
+    console.log(`Recent sessions count:`, recentSessions?.length || 0);
+    console.log(`Device patterns:`, devicePatterns?.length || 0);
 
     res.json({
       success: true,

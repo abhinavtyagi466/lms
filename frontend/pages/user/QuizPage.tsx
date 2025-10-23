@@ -21,7 +21,7 @@ import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
 
 export const QuizPage: React.FC = () => {
-  const { setCurrentPage, selectedModuleId } = useAuth();
+  const { setCurrentPage, selectedModuleId, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [selectedQuiz, setSelectedQuiz] = useState<any>(null);
@@ -415,30 +415,62 @@ export const QuizPage: React.FC = () => {
 
       // Submit quiz to backend
       const userId = (user as any)?._id || (user as any)?.id;
-      const moduleId = selectedQuiz.moduleId;
+      
+      // Extract moduleId - handle both populated and non-populated cases
+      let moduleId = selectedQuiz.moduleId;
+      if (typeof moduleId === 'object' && moduleId !== null) {
+        moduleId = moduleId._id || moduleId.id;
+      }
 
-      const response = await apiService.quizzes.submitQuiz(
+      console.log('=== QUIZ SUBMISSION DEBUG ===');
+      console.log('User:', user);
+      console.log('User ID:', userId);
+      console.log('Module ID (extracted):', moduleId);
+      console.log('Module ID (original):', selectedQuiz.moduleId);
+      console.log('Answers Data:', answersData);
+      console.log('Time Spent:', timeSpent);
+      console.log('Selected Quiz ID:', selectedQuiz._id);
+
+      if (!userId) {
+        console.error('❌ User ID is missing!');
+        toast.error('User ID not found. Please login again.');
+        return;
+      }
+
+      if (!moduleId) {
+        console.error('❌ Module ID is missing!');
+        console.error('Selected Quiz:', selectedQuiz);
+        toast.error('Module ID not found. Please try again.');
+        return;
+      }
+
+      console.log('✅ Submitting quiz to backend...');
+      const response: any = await apiService.quizzes.submitQuiz(
         userId,
         moduleId,
         answersData,
         timeSpent
       );
 
+      console.log('Quiz submission response:', response);
+      console.log('Response data:', response?.data);
+
       // Update UI with backend response
-      if (response?.result) {
-        setScore(response.result.percentage);
+      const result = response?.data?.result || response?.result;
+      if (result) {
+        setScore(result.percentage);
         setQuizCompleted(true);
         
         toast.success(
-          `Quiz submitted successfully! Score: ${response.result.percentage}% ${
-            response.result.passed ? '✅ PASSED' : '❌ FAILED'
+          `Quiz submitted successfully! Score: ${result.percentage}% ${
+            result.passed ? '✅ PASSED' : '❌ FAILED'
           }`
         );
       } else {
         // Fallback to local calculation if backend response is unexpected
-        const correctAnswers = selectedQuiz.questions.filter((question: any, index: number) => {
+        const correctAnswers = selectedQuiz.questions.filter((_question: any, index: number) => {
           const selectedAnswer = selectedAnswers[index];
-          const correctAnswer = question.correctIndex !== undefined ? question.correctIndex : question.correctOption;
+          const correctAnswer = _question.correctIndex !== undefined ? _question.correctIndex : _question.correctOption;
           return selectedAnswer === correctAnswer;
         }).length;
 
@@ -466,8 +498,13 @@ export const QuizPage: React.FC = () => {
       }, 3000);
 
     } catch (error: any) {
-      console.error('Quiz submission error:', error);
-      toast.error('Failed to submit quiz');
+      console.error('=== QUIZ SUBMISSION ERROR ===');
+      console.error('Error:', error);
+      console.error('Error response:', error?.response);
+      console.error('Error data:', error?.response?.data);
+      
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to submit quiz';
+      toast.error(`Quiz submission failed: ${errorMessage}`);
     }
   };
 
@@ -659,17 +696,24 @@ export const QuizPage: React.FC = () => {
               variant="outline"
               onClick={previousQuestion}
               disabled={currentQuestionIndex === 0}
+              className="text-gray-900 dark:text-white"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Previous
             </Button>
 
             {currentQuestionIndex === selectedQuiz.questions.length - 1 ? (
-              <Button onClick={submitQuiz} variant="success">
+              <Button 
+                onClick={submitQuiz} 
+                className="bg-green-600 hover:bg-green-700 text-white dark:bg-green-500 dark:hover:bg-green-600"
+              >
                 Submit Quiz
               </Button>
             ) : (
-              <Button onClick={nextQuestion}>
+              <Button 
+                onClick={nextQuestion}
+                className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600"
+              >
                 Next
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -736,7 +780,10 @@ export const QuizPage: React.FC = () => {
                     <p className="text-sm text-gray-600">Module Quiz</p>
                   </div>
                 </div>
-                <Badge variant={quiz.moduleStatus === 'published' ? 'default' : 'secondary'}>
+                <Badge 
+                  variant={quiz.moduleStatus === 'published' ? 'default' : 'secondary'}
+                  className="text-gray-900 dark:text-white"
+                >
                   {quiz.moduleStatus}
                 </Badge>
               </div>
@@ -754,7 +801,7 @@ export const QuizPage: React.FC = () => {
               
               <Button 
                 onClick={() => startQuiz(quiz)}
-                className="w-full"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600 dark:text-white"
                 disabled={quiz.moduleStatus !== 'published' || !quiz.hasQuestions}
               >
                 <Play className="w-4 h-4 mr-2" />

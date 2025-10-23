@@ -586,7 +586,7 @@ export const KPITriggerDashboard: React.FC = () => {
                   <Button
                     onClick={viewInAuditDashboard}
                     variant="outline"
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 dark:text-white"
                   >
                     <BarChart3 className="w-4 h-4" />
                     View in Audit Dashboard
@@ -798,7 +798,7 @@ export const KPITriggerDashboard: React.FC = () => {
                         </td>
                         <td className="p-2">
                           <div className="space-y-1">
-                            {result.triggers.map((trigger: any, idx: number) => (
+                            {result.triggers?.map((trigger: any, idx: number) => (
                               <Badge 
                                 key={idx} 
                                 className={getTriggerTypeColor(trigger.type)}
@@ -806,7 +806,7 @@ export const KPITriggerDashboard: React.FC = () => {
                               >
                                 {trigger.action}
                               </Badge>
-                            ))}
+                            )) || <span className="text-sm text-gray-500">No triggers</span>}
                           </div>
                         </td>
                         <td className="p-2">

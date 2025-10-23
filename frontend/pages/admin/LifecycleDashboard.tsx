@@ -12,7 +12,7 @@ interface UserWithActivity {
   createdAt: string;
   isActive?: boolean;
   status?: string;
-  lastLogin?: string;
+  lastLogin?: string | Date;
   sessionStatus?: 'online' | 'offline';
   totalSessions?: number;
   deviceInfo?: string;
@@ -46,8 +46,12 @@ export const LifecycleDashboard: React.FC = () => {
   const loadUserActivities = async (usersList: any[]) => {
     const activityMap = new Map();
     
+    console.log('=== LOADING USER ACTIVITIES ===');
+    console.log('Total users:', usersList.length);
+    
     // Load activities for first 15 users to avoid overwhelming the API
     const usersToLoad = usersList.slice(0, 15);
+    console.log('Loading activities for:', usersToLoad.length, 'users');
     
     // Process users in batches to avoid API overload
     const batchSize = 3;
@@ -56,10 +60,21 @@ export const LifecycleDashboard: React.FC = () => {
       
       await Promise.all(batch.map(async (user) => {
         try {
+          console.log(`Fetching activity for user: ${user.name} (${user._id})`);
+          
           const [sessionData, loginAttempts] = await Promise.allSettled([
-            apiService.userActivity.getSessionData(user._id, 7).catch(() => null),
-            apiService.userActivity.getLoginAttempts(user._id, 30).catch(() => null)
+            apiService.userActivity.getSessionData(user._id, 7).catch((err) => {
+              console.error(`Session data error for ${user.name}:`, err);
+              return null;
+            }),
+            apiService.userActivity.getLoginAttempts(user._id, 30).catch((err) => {
+              console.error(`Login attempts error for ${user.name}:`, err);
+              return null;
+            })
           ]);
+          
+          console.log(`Session data for ${user.name}:`, sessionData);
+          console.log(`Login attempts for ${user.name}:`, loginAttempts);
 
           const activity: any = {
             isOnline: false,
@@ -82,6 +97,12 @@ export const LifecycleDashboard: React.FC = () => {
             const logins = loginAttempts.value.data;
             activity.successfulLogins = logins.statistics?.successfulLogins || 0;
             activity.lastLogin = logins.attempts?.[0]?.createdAt;
+          }
+          
+          // Fallback: Use user's lastLogin if no session data
+          if (!activity.lastSession && user.lastLogin) {
+            activity.lastLogin = user.lastLogin;
+            activity.lastSession = user.lastLogin;
           }
           
           activityMap.set(user._id, activity);

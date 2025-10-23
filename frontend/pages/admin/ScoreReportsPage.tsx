@@ -238,7 +238,7 @@ export const ScoreReportsPage: React.FC = () => {
                 onClick={handleExportCSV}
                 disabled={isExporting}
                 variant="outline"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 text-black dark:text-black"
               >
                 <Download className="w-4 h-4" />
                 {isExporting ? 'Exporting...' : 'Export CSV'}

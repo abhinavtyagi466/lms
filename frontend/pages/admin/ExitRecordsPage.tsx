@@ -118,7 +118,7 @@ export const ExitRecordsPage: React.FC = () => {
           </div>
           <Button
             onClick={handleExport}
-            className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white dark:text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center [&]:text-white"
+            className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-black dark:text-black px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center"
           >
             <Download className="w-5 h-5 mr-2" />
             Export to CSV
