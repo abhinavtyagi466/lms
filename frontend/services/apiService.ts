@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // API Configuration
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://marasasarovarpremiere.in/api'
+  ? 'https://feportal.foxivision.net/api'
   : '/api'; // Use proxy in development
 
 // Create axios instance with default config
