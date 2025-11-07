@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Quiz = require('../models/Quiz');
 const QuizResult = require('../models/QuizResult');
 const QuizAttempt = require('../models/QuizAttempt');
+const UserProgress = require('../models/UserProgress');
 const Module = require('../models/Module');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
@@ -415,23 +416,65 @@ router.post('/submit', authenticateToken, async (req, res) => {
     console.log('   Questions count:', quiz.questions?.length);
     console.log('   Pass percent:', quiz.passPercent);
 
+    // Validate answers array length matches questions
+    if (answers.length !== quiz.questions.length) {
+      console.log('⚠️ Warning: Answers count (', answers.length, ') does not match questions count (', quiz.questions.length, ')');
+    }
+
     // Calculate score
     let score = 0;
     const evaluatedAnswers = answers.map((answer, index) => {
+      // Handle cases where answer array might be shorter than questions
+      if (index >= quiz.questions.length) {
+        return {
+          questionIndex: index,
+          selectedOption: answer?.selectedOption ?? -1,
+          isCorrect: false,
+          timeSpent: answer?.timeSpent || 0
+        };
+      }
+
       const question = quiz.questions[index];
-      const isCorrect = answer.selectedOption === question.correctOption;
-      if (isCorrect) score++;
+      if (!question) {
+        console.error('Question not found at index:', index);
+        return {
+          questionIndex: index,
+          selectedOption: answer?.selectedOption ?? -1,
+          isCorrect: false,
+          timeSpent: answer?.timeSpent || 0
+        };
+      }
+
+      // Handle both correctOption (0-3) format and ensure proper comparison
+      const selectedOption = answer?.selectedOption !== undefined ? Number(answer.selectedOption) : -1;
+      const correctOption = question.correctOption !== undefined ? Number(question.correctOption) : -1;
+      const isCorrect = selectedOption === correctOption && selectedOption !== -1;
+      
+      if (isCorrect) {
+        score++;
+        console.log(`✅ Question ${index + 1}: Correct (Selected: ${selectedOption}, Correct: ${correctOption})`);
+      } else {
+        console.log(`❌ Question ${index + 1}: Incorrect (Selected: ${selectedOption}, Correct: ${correctOption})`);
+      }
       
       return {
         questionIndex: index,
-        selectedOption: answer.selectedOption,
+        selectedOption: selectedOption,
         isCorrect,
-        timeSpent: answer.timeSpent || 0
+        timeSpent: answer?.timeSpent || 0
       };
     });
 
-    const percentage = Math.round((score / quiz.questions.length) * 100);
+    const percentage = quiz.questions.length > 0 
+      ? Math.round((score / quiz.questions.length) * 100) 
+      : 0;
     const passed = percentage >= quiz.passPercent;
+    
+    console.log('📊 Score Calculation:');
+    console.log('   Correct answers:', score, 'out of', quiz.questions.length);
+    console.log('   Percentage:', percentage, '%');
+    console.log('   Pass threshold:', quiz.passPercent, '%');
+    console.log('   Passed:', passed);
 
     let quizAttempt;
     let attemptNumber;
@@ -454,7 +497,8 @@ router.post('/submit', authenticateToken, async (req, res) => {
       quizAttempt.score = percentage;
       quizAttempt.passed = passed;
       quizAttempt.answers = evaluatedAnswers.map(answer => ({
-        questionId: quiz.questions[answer.questionIndex]._id,
+        questionId: null, // Questions don't have _id in Quiz model
+        questionIndex: answer.questionIndex,
         selectedAnswer: answer.selectedOption,
         isCorrect: answer.isCorrect,
         timeSpent: answer.timeSpent || 0,
@@ -462,7 +506,14 @@ router.post('/submit', authenticateToken, async (req, res) => {
       }));
       quizAttempt.status = 'completed';
       
-      await quizAttempt.save();
+      try {
+        await quizAttempt.save();
+        console.log('✅ Quiz attempt updated successfully:', quizAttempt._id);
+        console.log('   Score:', quizAttempt.score, '% | Passed:', quizAttempt.passed);
+      } catch (saveError) {
+        console.error('❌ Error saving quiz attempt:', saveError);
+        throw saveError;
+      }
     } else {
       // Create new attempt
       const previousAttempts = await QuizAttempt.countDocuments({ userId, moduleId });
@@ -478,7 +529,8 @@ router.post('/submit', authenticateToken, async (req, res) => {
         score: percentage,
         passed,
         answers: evaluatedAnswers.map(answer => ({
-          questionId: quiz.questions[answer.questionIndex]._id,
+          questionId: null, // Questions don't have _id in Quiz model
+          questionIndex: answer.questionIndex,
           selectedAnswer: answer.selectedOption,
           isCorrect: answer.isCorrect,
           timeSpent: answer.timeSpent || 0,
@@ -495,8 +547,22 @@ router.post('/submit', authenticateToken, async (req, res) => {
         personalisedQuizId: quiz.isPersonalised ? quiz._id : null
       });
       
-      await quizAttempt.save();
-      console.log('Quiz attempt saved:', quizAttempt._id);
+      try {
+        await quizAttempt.save();
+        console.log('✅ Quiz attempt saved successfully:', quizAttempt._id);
+        console.log('   Score:', quizAttempt.score, '% | Passed:', quizAttempt.passed);
+      } catch (saveError) {
+        console.error('❌ Error saving quiz attempt:', saveError);
+        console.error('   Error details:', saveError.message);
+        console.error('   Attempt data:', {
+          userId,
+          moduleId,
+          score: percentage,
+          passed,
+          answersCount: quizAttempt.answers.length
+        });
+        throw saveError;
+      }
     }
 
     // Create quiz result
@@ -518,9 +584,64 @@ router.post('/submit', authenticateToken, async (req, res) => {
       personalisedQuizId: quiz.isPersonalised ? quiz._id : null
     });
 
-    await quizResult.save();
-    console.log('Quiz result saved:', quizResult._id);
-    console.log('Final score:', percentage, '% - Passed:', passed);
+    try {
+      await quizResult.save();
+      console.log('✅ Quiz result saved successfully:', quizResult._id);
+      console.log('   Final score:', quizResult.percentage, '% | Passed:', quizResult.passed);
+    } catch (saveError) {
+      console.error('❌ Error saving quiz result:', saveError);
+      console.error('   Error details:', saveError.message);
+      // Don't throw here, as quiz attempt is already saved
+      // But log the error for debugging
+    }
+
+    // Update UserProgress to track quiz completion
+    try {
+      let userProgress = await UserProgress.getUserProgress(userId, moduleId);
+      
+      if (!userProgress) {
+        // Create new user progress if it doesn't exist
+        userProgress = new UserProgress({
+          userId,
+          moduleId,
+          videoProgress: 0,
+          videoWatched: false,
+          bestScore: 0,
+          bestPercentage: 0,
+          passed: false,
+          certificateIssued: false
+        });
+      }
+
+      // Add quiz attempt to user progress
+      const attemptData = {
+        score,
+        totalMarks: quiz.questions.length,
+        percentage,
+        passed,
+        answers: evaluatedAnswers.map(answer => ({
+          selectedAnswer: answer.selectedOption,
+          isCorrect: answer.isCorrect,
+          marks: answer.isCorrect ? 1 : 0
+        })),
+        timeTaken: timeTaken || 0,
+        completedAt: new Date()
+      };
+
+      await userProgress.addQuizAttempt(attemptData);
+      console.log('✅ UserProgress updated successfully');
+
+      // Issue certificate if passed
+      if (passed && !userProgress.certificateIssued) {
+        await userProgress.issueCertificate();
+        console.log('✅ Certificate issued to user');
+      }
+    } catch (progressError) {
+      console.error('⚠️ Error updating UserProgress:', progressError);
+      console.error('   Error details:', progressError.message);
+      // Don't throw here, as quiz attempt and result are already saved
+      // This is a non-critical update
+    }
 
     res.json({
       success: true,
@@ -547,14 +668,34 @@ router.post('/submit', authenticateToken, async (req, res) => {
 });
 
 // @route   GET /api/quiz/results/:userId
-// @desc    Get quiz results for a user (Admin only)
-// @access  Private (Admin only)
-router.get('/results/:userId', authenticateToken, requireAdmin, async (req, res) => {
+// @desc    Get quiz results for a user (Users can access their own, Admin can access any)
+// @access  Private
+router.get('/results/:userId', authenticateToken, async (req, res) => {
   try {
-    const results = await QuizResult.find({ userId: req.params.userId })
+    const { userId } = req.params;
+    const requestingUserId = req.user._id;
+    const isAdmin = req.user.userType === 'admin';
+
+    // Check if user is accessing their own data or is admin
+    // Convert both to ObjectId for proper comparison
+    const requestedUserIdObj = new mongoose.Types.ObjectId(userId);
+    const currentUserIdObj = new mongoose.Types.ObjectId(requestingUserId);
+    
+    if (!requestedUserIdObj.equals(currentUserIdObj) && !isAdmin) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You can only access your own quiz results'
+      });
+    }
+
+    console.log('Fetching quiz results for userId:', userId);
+    console.log('Requesting user:', requestingUserId.toString(), '| Is Admin:', isAdmin);
+    const results = await QuizResult.find({ userId: requestedUserIdObj })
       .populate('moduleId', 'title')
       .populate('quizId', 'passPercent')
       .sort({ createdAt: -1 });
+
+    console.log('Quiz results found:', results.length);
 
     res.json({
       success: true,

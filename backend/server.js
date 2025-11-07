@@ -293,6 +293,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/modules', moduleRoutes);
 app.use('/api/quizzes', quizRoutes);
+app.use('/api/quiz', quizRoutes); // Alias for backward compatibility
 app.use('/api/questions', questionRoutes);
 app.use('/api/user-progress', userProgressRoutes);
 app.use('/api/progress', progressRoutes);

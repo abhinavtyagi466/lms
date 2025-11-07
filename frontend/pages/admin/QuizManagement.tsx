@@ -58,6 +58,7 @@ export const QuizManagement: React.FC = () => {
   const [createQuizData, setCreateQuizData] = useState({
     moduleId: '',
     passPercent: 70,
+    estimatedTime: 30, // Default 30 minutes
     questions: [] as Question[]
   });
   const [csvData, setCsvData] = useState('');
@@ -143,6 +144,7 @@ export const QuizManagement: React.FC = () => {
         setCreateQuizData({
           moduleId: '',
           passPercent: 70,
+          estimatedTime: 30,
           questions: []
         });
         fetchQuizzes();
@@ -476,7 +478,7 @@ mcq,What is the capital of France?,Paris,London,Berlin,Madrid,0`;
             <h2 className="text-xl font-semibold mb-4">Create New Quiz</h2>
             
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
                   <Label htmlFor="moduleId">Module *</Label>
                   <Select
@@ -496,16 +498,34 @@ mcq,What is the capital of France?,Paris,London,Berlin,Madrid,0`;
                   </Select>
                 </div>
                 
-                <div>
-                  <Label htmlFor="passPercent">Pass Percentage (%)</Label>
-                  <Input
-                    id="passPercent"
-                    type="number"
-                    min="1"
-                    max="100"
-                    value={createQuizData.passPercent}
-                    onChange={(e) => setCreateQuizData(prev => ({ ...prev, passPercent: parseInt(e.target.value) || 70 }))}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="passPercent">Pass Percentage (%)</Label>
+                    <Input
+                      id="passPercent"
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={createQuizData.passPercent}
+                      onChange={(e) => setCreateQuizData(prev => ({ ...prev, passPercent: parseInt(e.target.value) || 70 }))}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="estimatedTime">Time Limit (minutes) *</Label>
+                    <Input
+                      id="estimatedTime"
+                      type="number"
+                      min="1"
+                      max="180"
+                      value={createQuizData.estimatedTime}
+                      onChange={(e) => setCreateQuizData(prev => ({ ...prev, estimatedTime: parseInt(e.target.value) || 30 }))}
+                      placeholder="30"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Time limit for users to complete this quiz
+                    </p>
+                  </div>
                 </div>
               </div>
 

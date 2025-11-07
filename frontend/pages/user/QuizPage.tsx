@@ -357,15 +357,22 @@ export const QuizPage: React.FC = () => {
       return;
     }
 
+    // Get quiz time limit (in minutes), convert to seconds
+    // estimatedTime is in minutes, default to 30 minutes if not set
+    const quizTimeMinutes = quiz.estimatedTime || 30;
+    const quizTimeSeconds = quizTimeMinutes * 60;
+
     setSelectedQuiz(quiz);
     setQuizStarted(true);
     setCurrentQuestionIndex(0);
     setSelectedAnswers({});
     setQuizCompleted(false);
     setScore(0);
-    setTimeLeft(30 * 60); // 30 minutes default
+    setTimeLeft(quizTimeSeconds); // Use dynamic quiz time from admin settings
     setShowWarning(false);
     setWarnings(0);
+    
+    console.log(`Quiz started with time limit: ${quizTimeMinutes} minutes (${quizTimeSeconds} seconds)`);
     
     // Automatically enter fullscreen mode immediately
     enterFullscreen();
@@ -404,8 +411,11 @@ export const QuizPage: React.FC = () => {
 
   const submitQuiz = async () => {
     try {
-      // Calculate time spent
-      const timeSpent = (30 * 60) - timeLeft; // in seconds
+      // Calculate time spent using dynamic quiz time
+      // estimatedTime is in minutes, convert to seconds
+      const quizTimeMinutes = selectedQuiz?.estimatedTime || 30;
+      const quizTimeSeconds = quizTimeMinutes * 60;
+      const timeSpent = quizTimeSeconds - timeLeft; // in seconds
       
       // Prepare answers in the format expected by backend
       const answersData = selectedQuiz.questions.map((question: any, index: number) => ({
@@ -568,7 +578,9 @@ export const QuizPage: React.FC = () => {
               </div>
               <div className="bg-gray-50 p-3 rounded-lg">
                 <div className="font-medium">Time Spent</div>
-                <div className="text-gray-600">{formatTime((30 * 60) - timeLeft)}</div>
+                <div className="text-gray-600">
+                  {formatTime((selectedQuiz?.estimatedTime || 30) * 60 - timeLeft)}
+                </div>
               </div>
             </div>
 
@@ -792,6 +804,10 @@ export const QuizPage: React.FC = () => {
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <FileQuestion className="w-4 h-4" />
                   {quiz.questions?.length || 0} Questions
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Clock className="w-4 h-4" />
+                  Time Limit: {quiz.estimatedTime || 30} minutes
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Target className="w-4 h-4" />

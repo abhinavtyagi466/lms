@@ -39,7 +39,11 @@ const quizAttemptSchema = new mongoose.Schema({
   answers: [{
     questionId: {
       type: mongoose.Schema.Types.ObjectId,
-      required: true
+      required: false // Made optional since questions don't have _id in Quiz model
+    },
+    questionIndex: {
+      type: Number,
+      required: true // Use questionIndex to identify questions
     },
     selectedAnswer: {
       type: Number,
