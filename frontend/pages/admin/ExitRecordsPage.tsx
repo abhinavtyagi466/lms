@@ -162,19 +162,29 @@ export const ExitRecordsPage: React.FC = () => {
               <Label htmlFor="search">Search</Label>
               <div className="flex gap-2 mt-1">
                 <div className="relative flex-1">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Search
+                    className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                  />
                   <Input
                     id="search"
                     placeholder="Search by name, email, or employee ID..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                    className="pl-10"
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                    className="pl-10 !text-start"
                   />
                 </div>
-                <Button onClick={handleSearch} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">Search</Button>
+
+                <Button
+                  onClick={handleSearch}
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Search
+                </Button>
               </div>
             </div>
+
 
             {/* Main Category Filter */}
             <div>
@@ -333,13 +343,12 @@ export const ExitRecordsPage: React.FC = () => {
                       </td>
                       <td className="py-3 px-2">
                         <Badge
-                          className={`${
-                            record.exitDetails?.verifiedBy === 'HR'
+                          className={`${record.exitDetails?.verifiedBy === 'HR'
                               ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
                               : record.exitDetails?.verifiedBy === 'Compliance'
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                          }`}
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                            }`}
                         >
                           {record.exitDetails?.verifiedBy || 'Pending'}
                         </Badge>
@@ -386,11 +395,11 @@ export const ExitRecordsPage: React.FC = () => {
               >
                 Previous
               </Button>
-              
+
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 Page {page} of {totalPages} ({totalRecords} total records)
               </span>
-              
+
               <Button
                 variant="outline"
                 onClick={() => setPage(page + 1)}

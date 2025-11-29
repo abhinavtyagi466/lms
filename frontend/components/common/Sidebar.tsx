@@ -49,7 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, onItemClick }) => {
           </div>
           <div className="flex-shrink-0 flex items-center gap-1">
             <NotificationBell />
-            <DarkModeToggle size="sm" />
+            {/* <DarkModeToggle size="sm" /> */}
           </div>
         </div>
       </div>

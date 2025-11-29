@@ -53,7 +53,7 @@
     "postcss-import": "^16.0.0",
     "terser": "^5.44.0",
     "typescript": "^5.2.2",
-    "vite": "^5.0.8"
+    "vite": "^7.2.4"
   },
   "engines": {
     "node": ">=18.0.0"

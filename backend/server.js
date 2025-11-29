@@ -65,10 +65,10 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     const allowedOrigins = [
       'http://localhost:3000',
-      'http://127.0.0.1:3000', 
+      'http://127.0.0.1:3000',
       'http://localhost:5173',
       'http://127.0.0.1:5173',
       'http://localhost:3001',
@@ -86,7 +86,7 @@ const corsOptions = {
       'https://193.203.160.107:3000',
       'https://193.203.160.107:3001'
     ];
-    
+
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -97,11 +97,11 @@ const corsOptions = {
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
   allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With', 
-    'Accept', 
-    'Origin', 
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
     'X-HTTP-Method-Override',
     'Access-Control-Request-Method',
     'Access-Control-Request-Headers'
@@ -137,14 +137,14 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-HTTP-Method-Override, Access-Control-Request-Method, Access-Control-Request-Headers');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Max-Age', '86400'); // 24 hours
-  
+
   // Handle preflight requests explicitly
   if (req.method === 'OPTIONS') {
     console.log('OPTIONS request handled for:', req.originalUrl);
     res.status(200).end();
     return;
   }
-  
+
   next();
 });
 
@@ -184,7 +184,7 @@ app.use((req, res, next) => {
   // Apply fileUpload for other routes
   fileUpload({
     createParentPath: true,
-    limits: { 
+    limits: {
       fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024 // 10MB max
     },
     abortOnLimit: true,
@@ -202,16 +202,16 @@ const cacheMiddleware = (duration = 300) => {
 
     const key = `__express__${req.originalUrl || req.url}`;
     const cachedBody = cache.get(key);
-    
+
     if (cachedBody) {
       console.log(`Cache hit for: ${key}`);
       return res.json(cachedBody);
     } else {
       // Store the original res.json method
       const originalJson = res.json;
-      
+
       // Override res.json to cache the response
-      res.json = function(body) {
+      res.json = function (body) {
         // Cache successful responses
         if (res.statusCode === 200) {
           cache.set(key, body, duration);
@@ -219,15 +219,14 @@ const cacheMiddleware = (duration = 300) => {
         }
         originalJson.call(this, body);
       };
-      
+
       next();
     }
   };
 };
 
 // Database connection
-const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/edutech-pro';
-
+const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/edutech-pro';
 // Initialize session without MongoDB store for development
 app.use(session({
   secret: process.env.SESSION_SECRET || 'devsecretdevsecretdevsecretdevsecret',
@@ -250,13 +249,13 @@ mongoose.connect(mongoUri, {
   socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
   maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
 })
-.then(() => {
-  console.log('✅ Connected to MongoDB with optimized settings');
-})
-.catch((error) => {
-  console.error('❌ MongoDB connection error:', error);
-  console.log('⚠️  Server running without database connection for development...');
-});
+  .then(() => {
+    console.log('✅ Connected to MongoDB with optimized settings');
+  })
+  .catch((error) => {
+    console.error('❌ MongoDB connection error:', error);
+    console.log('⚠️  Server running without database connection for development...');
+  });
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -337,7 +336,7 @@ app.get('/', (req, res) => {
 // Global error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  
+
   if (err.name === 'ValidationError') {
     return res.status(400).json({
       error: 'Validation Error',
@@ -345,21 +344,21 @@ app.use((err, req, res, next) => {
       details: err.errors
     });
   }
-  
+
   if (err.name === 'CastError') {
     return res.status(400).json({
       error: 'Invalid ID format',
       message: 'The provided ID is not valid'
     });
   }
-  
+
   if (err.code === 11000) {
     return res.status(409).json({
       error: 'Duplicate Entry',
       message: 'A record with this information already exists'
     });
   }
-  
+
   res.status(500).json({
     error: 'Internal Server Error',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'

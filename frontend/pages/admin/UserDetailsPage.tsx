@@ -133,12 +133,12 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
     try {
       setLoading(true);
       console.log('UserDetailsPage: Fetching user details for userId:', userId);
-      
+
       const userResponse = await apiService.users.getUserById(userId);
       console.log('UserDetailsPage: User response:', userResponse);
       console.log('UserDetailsPage: Response data:', userResponse?.data);
       console.log('UserDetailsPage: Response structure:', Object.keys(userResponse || {}));
-      
+
       // Check if response has data property or if response itself is the data
       let userData = null;
       if (userResponse && userResponse.data) {
@@ -146,11 +146,11 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
       } else if (userResponse && (userResponse as any)._id) {
         userData = userResponse;
       }
-      
+
       if (userData) {
         console.log('UserDetailsPage: Setting user data:', userData);
         setUser(userData);
-        
+
         if (userData._id) {
           fetchUserData(userData);
         }
@@ -169,10 +169,10 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
 
   const fetchUserData = async (userData: any) => {
     if (!userData || !userData._id) return;
-    
+
     try {
       console.log('UserDetailsPage: Fetching data for user:', userData._id);
-      
+
       // Fetch user's video progress, modules, quiz results, quiz attempts, warnings, and lifecycle events in parallel
       const [progressResponse, modulesResponse, quizResultsResponse, quizStatsResponse, quizAttemptsResponse, warningsResponse, lifecycleResponse] = await Promise.all([
         apiService.progress.getUserProgress(userData._id),
@@ -222,13 +222,13 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
         console.log('Modules found (format 4):', modulesResponse.length);
         modulesList = modulesResponse;
       }
-      
+
       // Map moduleId to _id for consistency
       const mappedModules = modulesList.map((module: any) => ({
         ...module,
         _id: module._id || module.moduleId
       }));
-      
+
       console.log('Final mapped modules:', mappedModules);
       setModules(mappedModules);
 
@@ -339,7 +339,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes}m ${secs}s`;
     } else if (minutes > 0) {
@@ -439,7 +439,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
           <div className="flex items-center gap-4">
             <Button onClick={handleBack} variant="outline" className="flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" /> Back to User Management
-              </Button>
+            </Button>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">User Details</h1>
               <p className="text-gray-600 dark:text-gray-400">Complete information about {user.name}</p>
@@ -451,7 +451,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-6">
         <Card className="w-full min-h-screen rounded-none overflow-auto">
-          
+
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b bg-gray-50">
             <div className="flex items-center gap-3">
@@ -467,11 +467,6 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
               <Badge className={getStatusColor(user.status)}>
                 {user.status}
               </Badge>
-              {user.isActive ? (
-                <Badge className="bg-green-100 text-green-800">Active</Badge>
-              ) : (
-                <Badge className="bg-red-100 text-red-800">Inactive</Badge>
-              )}
             </div>
           </div>
 
@@ -491,11 +486,10 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                 <button
                   key={id}
                   onClick={() => setActiveTab(id as any)}
-                  className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                  className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm ${activeTab === id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                   {label}
@@ -544,8 +538,8 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-600">Manager:</span>
                         <span className="font-medium">{user.manager || 'N/A'}</span>
-        </div>
-      </div>
+                      </div>
+                    </div>
                   </Card>
 
                   <Card className="p-4">
@@ -575,12 +569,12 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-600">PAN Number:</span>
                         <span className="font-medium">{user.panNo || 'N/A'}</span>
-                  </div>
+                      </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-600">Aadhaar Number:</span>
                         <span className="font-medium">{user.aadhaarNo || 'N/A'}</span>
-                  </div>
-                </div>
+                      </div>
+                    </div>
                   </Card>
                 </div>
 
@@ -606,7 +600,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                       <div className="text-sm text-gray-600">Quiz Pass Rate</div>
                     </div>
                   </div>
-            </Card>
+                </Card>
 
                 {/* Account Information */}
                 <Card className="p-4">
@@ -669,7 +663,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                           <span className="text-sm text-gray-600">Exit Reason:</span>
                           <div className="font-medium text-red-800">
                             {user.exitDetails.exitReason.mainCategory}
-                            {user.exitDetails.exitReason.subCategory && 
+                            {user.exitDetails.exitReason.subCategory &&
                               ` - ${user.exitDetails.exitReason.subCategory}`
                             }
                           </div>
@@ -704,11 +698,10 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                         <div>
                           <span className="text-sm text-gray-600">Verification Status:</span>
                           <div className="mt-1">
-                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                              user.exitDetails.verifiedBy === 'HR' ? 'bg-green-100 text-green-800' :
+                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${user.exitDetails.verifiedBy === 'HR' ? 'bg-green-100 text-green-800' :
                               user.exitDetails.verifiedBy === 'Compliance' ? 'bg-blue-100 text-blue-800' :
-                              'bg-yellow-100 text-yellow-800'
-                            }`}>
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
                               {user.exitDetails.verifiedBy}
                             </span>
                             {user.exitDetails.verifiedByUser && (
@@ -727,7 +720,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                           </div>
                         </div>
                       )}
-                      
+
                       {/* Fallback to old fields if exit details don't exist */}
                       {!user.exitDetails && (
                         <>
@@ -750,7 +743,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                     </div>
                   </Card>
                 )}
-                </div>
+              </div>
             )}
 
             {activeTab === 'progress' && (
@@ -759,7 +752,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                   <Play className="w-5 h-5 text-blue-600" />
                   <h3 className="text-lg font-semibold">Video Progress</h3>
                 </div>
-                
+
                 {modules.length === 0 ? (
                   <div className="text-center py-8">
                     <Play className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -773,7 +766,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                       // Map progress using ytVideoId instead of module._id
                       const progress = videoProgress[module.ytVideoId] || { currentTime: 0, duration: 0 };
                       const progressPercentage = progress.duration > 0 ? (progress.currentTime / progress.duration) * 100 : 0;
-                      
+
                       return (
                         <Card key={module._id} className="p-4">
                           <div className="flex items-center gap-3 mb-3">
@@ -783,9 +776,9 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                             <div className="flex-1">
                               <h4 className="font-semibold text-sm">{module.title}</h4>
                               <p className="text-xs text-gray-600">{module.description}</p>
-                  </div>
-                </div>
-                          
+                            </div>
+                          </div>
+
                           <div className="space-y-2">
                             <div className="flex justify-between text-xs">
                               <span>Progress</span>
@@ -796,14 +789,14 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                               <span>{formatTime(progress.currentTime)}</span>
                               <span>{formatTime(progress.duration)}</span>
                             </div>
-                </div>
-            </Card>
+                          </div>
+                        </Card>
                       );
                     })}
                   </div>
                 )}
-          </div>
-        )}
+              </div>
+            )}
 
             {activeTab === 'quiz' && (
               <div className="space-y-6">
@@ -811,15 +804,15 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                   <FileQuestion className="w-5 h-5 text-blue-600" />
                   <h3 className="text-lg font-semibold">Quiz Statistics</h3>
                 </div>
-                
+
                 {quizStats.totalQuizzes === 0 ? (
                   <div className="text-center py-8">
                     <FileQuestion className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500">No quiz attempts found</p>
-              </div>
+                  </div>
                 ) : (
                   <>
-                    
+
                     {/* Overall Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                       <Card className="p-4 text-center">
@@ -838,7 +831,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                         <div className="text-2xl font-bold text-orange-600">{formatTime(quizAttemptStats?.totalTimeSpent || 0)}</div>
                         <div className="text-sm text-gray-600">Total Time</div>
                       </Card>
-            </div>
+                    </div>
 
                     {/* Recent Quiz Results */}
                     <Card className="p-4">
@@ -847,16 +840,15 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                         {quizResults.slice(0, 5).map((result) => (
                           <div key={result._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                             <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                                result.passed ? 'bg-green-100' : 'bg-red-100'
-                              }`}>
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${result.passed ? 'bg-green-100' : 'bg-red-100'
+                                }`}>
                                 {result.passed ? (
                                   <CheckCircle className="w-4 h-4 text-green-600" />
                                 ) : (
                                   <AlertTriangle className="w-4 h-4 text-red-600" />
                                 )}
                               </div>
-              <div>
+                              <div>
                                 <div className="font-medium">{result.moduleId.title}</div>
                                 <div className="text-sm text-gray-600">
                                   {result.correctAnswers}/{result.totalQuestions} correct
@@ -881,22 +873,21 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                 <div className="flex items-center gap-2 mb-4">
                   <Target className="w-5 h-5 text-blue-600" />
                   <h3 className="text-lg font-semibold">Quiz Attempts</h3>
-            </div>
-                
+                </div>
+
                 {quizAttempts.length === 0 ? (
                   <div className="text-center py-8">
                     <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500">No quiz attempts found</p>
-              </div>
-            ) : (
+                  </div>
+                ) : (
                   <div className="space-y-4">
                     {quizAttempts.map((attempt) => (
                       <Card key={attempt._id} className="p-4">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                              attempt.passed ? 'bg-green-100' : 'bg-red-100'
-                            }`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${attempt.passed ? 'bg-green-100' : 'bg-red-100'
+                              }`}>
                               {attempt.passed ? (
                                 <CheckCircle className="w-4 h-4 text-green-600" />
                               ) : (
@@ -915,7 +906,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                             <div className="text-sm text-gray-600">{formatTime(attempt.timeSpent)}</div>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-4 text-sm">
                           <Badge className={getStatusColor(attempt.status)}>
                             {attempt.status}
@@ -929,8 +920,8 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                       </Card>
                     ))}
                   </div>
-                          )}
-                        </div>
+                )}
+              </div>
             )}
 
             {activeTab === 'warnings' && (
@@ -939,7 +930,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                   <AlertTriangle className="w-5 h-5 text-blue-600" />
                   <h3 className="text-lg font-semibold">Warnings & Alerts</h3>
                 </div>
-                
+
                 {warnings.length === 0 ? (
                   <div className="text-center py-8">
                     <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
@@ -952,16 +943,14 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                       <Card key={warning._id} className="p-4">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-start gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                              warning.severity === 'critical' ? 'bg-red-100' :
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${warning.severity === 'critical' ? 'bg-red-100' :
                               warning.severity === 'high' ? 'bg-orange-100' :
-                              warning.severity === 'medium' ? 'bg-yellow-100' : 'bg-blue-100'
-                            }`}>
-                              <AlertTriangle className={`w-4 h-4 ${
-                                warning.severity === 'critical' ? 'text-red-600' :
+                                warning.severity === 'medium' ? 'bg-yellow-100' : 'bg-blue-100'
+                              }`}>
+                              <AlertTriangle className={`w-4 h-4 ${warning.severity === 'critical' ? 'text-red-600' :
                                 warning.severity === 'high' ? 'text-orange-600' :
-                                warning.severity === 'medium' ? 'text-yellow-600' : 'text-blue-600'
-                              }`} />
+                                  warning.severity === 'medium' ? 'text-yellow-600' : 'text-blue-600'
+                                }`} />
                             </div>
                             <div>
                               <div className="font-medium">{warning.title}</div>
@@ -974,7 +963,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                             </Badge>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-4 text-sm text-gray-600">
                           <span>Issued: {formatDate(warning.issuedAt)}</span>
                           {warning.resolvedAt && (
@@ -986,9 +975,9 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                         </div>
                       </Card>
                     ))}
-                                </div>
+                  </div>
                 )}
-                                </div>
+              </div>
             )}
 
             {activeTab === 'kpi' && (
@@ -997,37 +986,37 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                   <div className="flex items-center gap-2">
                     <BarChart3 className="w-5 h-5 text-blue-600" />
                     <h3 className="text-lg font-semibold">KPI Scores</h3>
-                              </div>
-                                <Button
+                  </div>
+                  <Button
                     onClick={() => setCurrentPage(`kpi-scores/${userId}`)}
-                                  variant="outline"
+                    variant="outline"
                     className="flex items-center gap-2"
-                                >
+                  >
                     <BarChart3 className="w-4 h-4" />
                     View Detailed KPI
-                                </Button>
+                  </Button>
                 </div>
-                
+
                 <div className="text-center py-8">
                   <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">KPI Scores</h3>
                   <p className="text-gray-600 mb-4">Click "View Detailed KPI" to see comprehensive performance metrics and analysis.</p>
-                                <Button
+                  <Button
                     onClick={() => setCurrentPage(`kpi-scores/${userId}`)}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     Open KPI Dashboard
-                                </Button>
-                              </div>
-                                        </div>
-                                      )}
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {activeTab === 'lifecycle' && (
               <div className="space-y-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Clock className="w-5 h-5 text-blue-600" />
                   <h3 className="text-lg font-semibold">Lifecycle Events</h3>
-                                  </div>
+                </div>
 
                 {lifecycleEvents.length === 0 ? (
                   <div className="text-center py-8">
@@ -1042,19 +1031,19 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                         <div className="flex items-start gap-3">
                           <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                             <Clock className="w-4 h-4 text-blue-600" />
-                                            </div>
+                          </div>
                           <div className="flex-1">
                             <div className="font-medium">{event.title}</div>
                             <div className="text-sm text-gray-600">{event.description}</div>
                             <div className="text-xs text-gray-500 mt-1">
                               {formatDate(event.createdAt)} • {event.eventType}
-                                    </div>
-                                  </div>
-                                </div>
+                            </div>
+                          </div>
+                        </div>
                       </Card>
                     ))}
                   </div>
-                          )}
+                )}
               </div>
             )}
 
@@ -1079,7 +1068,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                     {personalisedModules.map((module) => {
                       const progressPercent = Math.round((module.progress || 0) * 100);
                       const isCompleted = progressPercent >= 95;
-                      
+
                       return (
                         <Card key={module._id} className={`p-4 ${isCompleted ? 'border-2 border-green-400' : 'border-2 border-purple-300'}`}>
                           <div className="flex items-start gap-3">
@@ -1099,9 +1088,9 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                                   </Badge>
                                 )}
                               </div>
-                              
+
                               <div className="text-sm text-gray-600 mb-2">{module.description}</div>
-                              
+
                               {/* Personalisation Details */}
                               <div className="bg-purple-50 p-3 rounded-lg mb-3">
                                 <div className="grid grid-cols-2 gap-2 text-xs">

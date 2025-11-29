@@ -400,7 +400,7 @@ export const AdminDashboardEnhanced: React.FC = () => {
                   Manage Users
                 </Button>
                 <Button 
-                  onClick={() => setCurrentPage('user-lifecycle')}
+                  onClick={() => setCurrentPage('lifecycle')}
                   variant="outline"
                   className="w-full justify-start border-purple-200 dark:border-purple-500 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
                 >
