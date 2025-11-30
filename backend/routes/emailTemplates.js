@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const EmailTemplateService = require('../services/emailTemplateService');
-const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { authenticateToken, requireAdmin, requireAdminPanel } = require('../middleware/auth');
 
 // Get all email templates
-router.get('/', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/', authenticateToken, requireAdminPanel, async (req, res) => {
   try {
     const templates = await EmailTemplateService.getAllTemplates();
     

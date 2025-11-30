@@ -61,8 +61,49 @@ export const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     // Only fetch data if user is authenticated and is admin
-    if (user && userType === 'admin') {
+    if (user && (userType === 'admin' || userType === 'hr' || userType === 'manager' || userType === 'hod')) {
       fetchDashboardData();
+      
+      // Set up auto-refresh interval for real-time updates from MongoDB Atlas
+      const refreshInterval = setInterval(() => {
+        console.log('🔄 Auto-refreshing dashboard data...');
+        fetchDashboardData();
+      }, 5000); // Refresh every 5 seconds for real-time updates
+
+      // Refresh when page becomes visible
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          console.log('👁️ Page visible, refreshing dashboard...');
+          fetchDashboardData();
+        }
+      };
+
+      // Refresh when window gains focus
+      const handleFocus = () => {
+        console.log('🎯 Window focused, refreshing dashboard...');
+        fetchDashboardData();
+      };
+
+      // Listen for data update events
+      const handleDataUpdate = () => {
+        console.log('📊 Data update event received, refreshing dashboard...');
+        fetchDashboardData();
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleFocus);
+      window.addEventListener('dashboard-refresh', handleDataUpdate);
+      window.addEventListener('user-updated', handleDataUpdate);
+      window.addEventListener('user-created', handleDataUpdate);
+
+      return () => {
+        clearInterval(refreshInterval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleFocus);
+        window.removeEventListener('dashboard-refresh', handleDataUpdate);
+        window.removeEventListener('user-updated', handleDataUpdate);
+        window.removeEventListener('user-created', handleDataUpdate);
+      };
     } else {
       setLoading(false);
     }
@@ -72,13 +113,13 @@ export const AdminDashboard: React.FC = () => {
     try {
       setLoading(true);
       
-      // Fetch dashboard data in parallel
+      // Fetch dashboard data in parallel with pagination (limit to 100 for faster load)
       const [
         statsResponse,
         progressResponse
       ] = await Promise.allSettled([
         apiService.reports.getAdminStats(),
-        apiService.reports.getAllUserProgress()
+        apiService.reports.getAllUserProgress(1, 100) // Only fetch first 100 records for faster load
       ]);
 
       // Handle stats data

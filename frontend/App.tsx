@@ -187,6 +187,44 @@ const AppContent: React.FC = () => {
     };
 
     const renderPage = () => {
+      // Define admin-only pages
+      const adminPages = [
+        'admin-dashboard', 'user-management', 'exit-records', 'user-lifecycle',
+        'module-management', 'score-reports', 'kpi-triggers', 'kpi-audit-dashboard',
+        'kpi-configuration', 'email-templates', 'warnings-audit', 'awards',
+        'lifecycle', 'mail-preview'
+      ];
+
+      // Define user-only pages
+      const userPages = [
+        'user-dashboard', 'user-profile', 'modules', 'training-module',
+        'quiz', 'quizzes', 'notifications', 'kpi-scores'
+      ];
+
+      // Check if trying to access admin page without authentication or wrong user type
+      if (adminPages.includes(currentPage) || currentPage.startsWith('user-details/') || currentPage.startsWith('kpi-scores/')) {
+        if (!user) {
+          setCurrentPage('admin-login');
+          return <AdminLogin />;
+        }
+        if (userType !== 'admin' && userType !== 'hr' && userType !== 'manager' && userType !== 'hod') {
+          setCurrentPage('user-login');
+          return <UserLogin />;
+        }
+      }
+
+      // Check if trying to access user page without authentication or wrong user type
+      if (userPages.includes(currentPage)) {
+        if (!user) {
+          setCurrentPage('user-login');
+          return <UserLogin />;
+        }
+        if (userType !== 'user') {
+          setCurrentPage('admin-login');
+          return <AdminLogin />;
+        }
+      }
+
       // Check for user-details with userId first
       if (currentPage.startsWith('user-details/')) {
         const userDetailsMatch = currentPage.match(/user-details\/([^\/]+)/);

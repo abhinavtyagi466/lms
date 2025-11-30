@@ -12,31 +12,39 @@ const router = express.Router();
 // @desc    Login user
 // @access  Public
 router.post('/login', validateLogin, async (req, res) => {
-      try {
-      const { email, password, userType } = req.body;
+  try {
+    const { email, password, userType } = req.body;
+    
+    console.log('=== LOGIN REQUEST ===');
+    console.log('Email:', email);
+    console.log('UserType requested:', userType);
+    console.log('Password provided:', password ? 'Yes (hidden)' : 'No');
 
-      // Check if database is connected
-      if (mongoose.connection.readyState !== 1) {
-        return res.status(503).json({
-          error: 'Service Unavailable',
-          message: 'Database connection is not available'
-        });
-      }
-
-
+    // Check if database is connected
+    if (mongoose.connection.readyState !== 1) {
+      console.log('❌ Database not connected');
+      return res.status(503).json({
+        error: 'Service Unavailable',
+        message: 'Database connection is not available'
+      });
+    }
 
     // Find user by email
     const user = await User.findOne({ email: email.toLowerCase() });
     
     if (!user) {
+      console.log(`❌ User not found: ${email}`);
       return res.status(401).json({
         error: 'Authentication Failed',
         message: 'Invalid credentials'
       });
     }
 
+    console.log(`✅ User found: ${user.email}, userType: ${user.userType}, isActive: ${user.isActive}`);
+
     // Check if account is active
     if (!user.isActive) {
+      console.log(`❌ Account deactivated: ${user.email}`);
       return res.status(401).json({
         error: 'Account Deactivated',
         message: 'Your account has been deactivated. Please contact support.'
@@ -47,11 +55,12 @@ router.post('/login', validateLogin, async (req, res) => {
     const adminPanelTypes = ['manager', 'hod', 'hr', 'admin'];
     const userPanelTypes = ['user'];
     
-    console.log(`Login attempt: ${email} (${user.userType}) trying to access ${userType} dashboard`);
+    console.log(`Login attempt: ${email} (userType in DB: ${user.userType}) trying to access ${userType} dashboard`);
     
+    // Check if user is trying to access admin dashboard
     if (userType === 'admin' && !adminPanelTypes.includes(user.userType)) {
       console.log(`Access denied: ${user.userType} cannot access admin dashboard`);
-      return res.status(401).json({
+      return res.status(403).json({
         error: 'Access Denied',
         message: `Access denied. ${user.userType.charAt(0).toUpperCase() + user.userType.slice(1)} accounts cannot access the admin dashboard.`,
         userType: user.userType,
@@ -59,9 +68,10 @@ router.post('/login', validateLogin, async (req, res) => {
       });
     }
     
+    // Check if user is trying to access user dashboard
     if (userType === 'user' && !userPanelTypes.includes(user.userType)) {
       console.log(`Access denied: ${user.userType} cannot access user dashboard`);
-      return res.status(401).json({
+      return res.status(403).json({
         error: 'Access Denied',
         message: `Access denied. ${user.userType.charAt(0).toUpperCase() + user.userType.slice(1)} accounts cannot access the user dashboard.`,
         userType: user.userType,
@@ -70,14 +80,18 @@ router.post('/login', validateLogin, async (req, res) => {
     }
 
     // Check password
+    console.log('🔐 Checking password...');
     const isMatch = await bcrypt.compare(password, user.password);
     
     if (!isMatch) {
+      console.log(`❌ Password mismatch for: ${user.email}`);
       return res.status(401).json({
         error: 'Authentication Failed',
         message: 'Invalid credentials'
       });
     }
+    
+    console.log('✅ Password verified');
 
     // Check if user already has an active session
     if (user.sessionId) {
@@ -87,11 +101,12 @@ router.post('/login', validateLogin, async (req, res) => {
     // Generate new session ID and clear any existing session
     const sessionId = user.generateSessionId();
     user.sessionId = sessionId;
+    user.lastLogin = new Date();
     
     console.log(`New session created for user ${user.email} with sessionId: ${sessionId}`);
     
-    // Update last login
-    await user.updateLastLogin();
+    // Save user with sessionId and lastLogin
+    await user.save({ validateModifiedOnly: true });
 
     // Generate JWT token with session ID
     const token = generateToken(user._id, sessionId);
@@ -100,7 +115,9 @@ router.post('/login', validateLogin, async (req, res) => {
     const userResponse = user.toJSON();
     delete userResponse.password;
 
-    res.json({
+    console.log(`Login successful for user: ${user.email}, userType: ${user.userType}, accessing: ${userType} dashboard`);
+
+    return res.json({
       success: true,
       message: 'Login successful',
       user: {
@@ -111,9 +128,11 @@ router.post('/login', validateLogin, async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({
+    console.error('Error stack:', error.stack);
+    return res.status(500).json({
       error: 'Server Error',
-      message: 'An error occurred during login'
+      message: 'An error occurred during login',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

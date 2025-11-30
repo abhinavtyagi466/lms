@@ -5,7 +5,7 @@ const User = require('../models/User');
 const LifecycleEvent = require('../models/LifecycleEvent');
 const KPITriggerService = require('../services/kpiTriggerService');
 const emailService = require('../services/emailService');
-const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { authenticateToken, requireAdmin, requireAdminPanel } = require('../middleware/auth');
 const { validateObjectId, validateUserId, validatePagination, handleValidationErrors } = require('../middleware/validation');
 const { body, param, query } = require('express-validator');
 
@@ -667,7 +667,7 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
 // @desc    Get users grouped by KPI ratings with their audit requirements
 // @access  Private (Admin only)
 // NOTE: This MUST be before /:id route to avoid route matching issues
-router.get('/by-kpi-rating', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/by-kpi-rating', authenticateToken, requireAdminPanel, async (req, res) => {
   try {
     // Get latest KPI scores for all users
     const latestScores = await KPIScore.aggregate([

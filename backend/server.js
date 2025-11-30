@@ -281,10 +281,22 @@ const emailLogRoutes = require('./routes/emailLogs');
 const recipientGroupRoutes = require('./routes/recipientGroups');
 const autoKPIScheduler = require('./services/autoKPIScheduler');
 
-// Apply caching to read-only endpoints
-app.use('/api/users', cacheMiddleware(300)); // 5 minutes
+// Apply caching to read-only endpoints (but skip dashboard endpoints for real-time updates)
+app.use('/api/users', (req, res, next) => {
+  // Skip cache for user profile endpoints that need real-time data
+  if (req.path.includes('/profile') || req.path.includes('/stats')) {
+    return next();
+  }
+  return cacheMiddleware(300)(req, res, next); // 5 minutes
+});
 app.use('/api/modules', cacheMiddleware(600)); // 10 minutes
-app.use('/api/reports', cacheMiddleware(300)); // 5 minutes
+app.use('/api/reports', (req, res, next) => {
+  // Skip cache for dashboard/stats endpoints to enable real-time updates
+  if (req.path.includes('/admin/stats') || req.path.includes('/admin/user-progress')) {
+    return next();
+  }
+  return cacheMiddleware(60)(req, res, next); // 1 minute for other reports
+});
 app.use('/api/awards', cacheMiddleware(300)); // 5 minutes
 
 // Use routes

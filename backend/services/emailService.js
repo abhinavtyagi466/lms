@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const fs = require('fs');
 const EmailLog = require('../models/EmailLog');
 
 
@@ -153,24 +154,27 @@ const emailTemplates = {
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #d32f2f; margin-bottom: 20px;">Performance Warning Notice</h2>
+          <h2 style="color: #d32f2f; margin-bottom: 20px;">⚠️ Performance Warning Notice</h2>
           <p>Dear ${data.userName},</p>
-          <p>This letter serves as a formal warning regarding your recent performance evaluation:</p>
+          <p>This letter serves as a formal warning regarding your recent performance:</p>
           
-          <div style="background-color: #ffebee; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #d32f2f;">
-            <ul style="margin: 0;">
-              <li><strong>Overall KPI Score:</strong> <span style="color: #d32f2f; font-weight: bold;">${data.kpiScore}%</span></li>
-              <li><strong>Rating:</strong> <span style="color: #d32f2f; font-weight: bold;">${data.rating}</span></li>
-              <li><strong>Evaluation Period:</strong> ${data.period}</li>
-            </ul>
+          <div style="background-color: #ffebee; padding: 20px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #d32f2f;">
+            ${data.message ? `<p style="margin: 0; color: #c62828; font-weight: 500;">${data.message}</p>` : ''}
+            ${data.kpiScore ? `<p style="margin: 10px 0 0 0;"><strong>Overall KPI Score:</strong> <span style="color: #d32f2f; font-weight: bold;">${data.kpiScore}%</span></p>` : ''}
+            ${data.rating ? `<p style="margin: 5px 0;"><strong>Rating:</strong> <span style="color: #d32f2f; font-weight: bold;">${data.rating}</span></p>` : ''}
+            ${data.period ? `<p style="margin: 5px 0;"><strong>Evaluation Period:</strong> ${data.period}</p>` : ''}
+            <p style="margin: 10px 0 0 0; color: #c62828;"><strong>Warning Date:</strong> ${new Date().toLocaleDateString()}</p>
           </div>
           
-          <p><strong>Areas requiring immediate improvement:</strong></p>
-          <ul style="background-color: #fff3e0; padding: 15px; border-radius: 5px;">
-            ${data.improvementAreas?.map(area => `<li style="margin: 5px 0;">${area}</li>`).join('') || ''}
-          </ul>
+          ${data.improvementAreas && data.improvementAreas.length > 0 ? `
+            <p><strong>Areas requiring immediate improvement:</strong></p>
+            <ul style="background-color: #fff3e0; padding: 15px; border-radius: 5px;">
+              ${data.improvementAreas.map(area => `<li style="margin: 5px 0;">${area}</li>`).join('')}
+            </ul>
+          ` : ''}
           
-          <p>Please note that immediate improvement is required in these areas. Support and training will be provided to help you meet the expected performance standards.</p>
+          <p>Please note that immediate improvement is required. Support and training will be provided to help you meet the expected performance standards.</p>
+          <p>You can view this warning in your dashboard.</p>
           <p>Best regards,<br>Management Team</p>
         </div>
       </div>
@@ -502,6 +506,30 @@ const emailTemplates = {
     `
   }),
 
+  // Certificate award template
+  certificate: (data) => ({
+    subject: data.title || 'Certificate Awarded',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #2e7d32; margin-bottom: 20px;">🎉 Certificate Awarded</h2>
+          <p>Dear ${data.userName},</p>
+          <p>Congratulations! You have been awarded a certificate for your outstanding performance:</p>
+          
+          <div style="background-color: #e8f5e8; padding: 20px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #2e7d32;">
+            <h3 style="color: #2e7d32; margin: 0 0 10px 0;">${data.title || 'Performance Excellence Certificate'}</h3>
+            ${data.message ? `<p style="margin: 10px 0; color: #1b5e20;">${data.message}</p>` : ''}
+            <p style="margin: 10px 0 0 0; color: #1b5e20;"><strong>Awarded on:</strong> ${new Date().toLocaleDateString()}</p>
+          </div>
+          
+          <p>This certificate recognizes your dedication, hard work, and commitment to excellence. Keep up the great work!</p>
+          <p>You can view this certificate in your dashboard.</p>
+          <p>Best regards,<br>Management Team</p>
+        </div>
+      </div>
+    `
+  }),
+
   // Custom template for email templates
   custom: (data) => ({
     subject: data.subject || 'Email from E-Learning Platform',
@@ -531,6 +559,24 @@ const sendEmail = async (to, template, data, emailLogData = null) => {
       subject,
       html
     };
+
+    // Add attachments if provided in emailLogData
+    if (emailLogData && emailLogData.attachments && Array.isArray(emailLogData.attachments) && emailLogData.attachments.length > 0) {
+      mailOptions.attachments = emailLogData.attachments.map(att => {
+        const attachment = {
+          filename: att.filename,
+          path: att.path
+        };
+        console.log(`📎 Attachment config:`, {
+          filename: attachment.filename,
+          path: attachment.path,
+          pathExists: fs.existsSync(attachment.path)
+        });
+        return attachment;
+      });
+      console.log(`📎 Attaching ${emailLogData.attachments.length} file(s) to email`);
+      console.log(`📎 Mail options attachments:`, JSON.stringify(mailOptions.attachments, null, 2));
+    }
 
     const info = await transporter.sendMail(mailOptions);
     console.log('✅ Email sent successfully:', info.messageId);

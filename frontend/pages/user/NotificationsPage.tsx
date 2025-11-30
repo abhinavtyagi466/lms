@@ -26,6 +26,12 @@ interface Notification {
     actionRequired?: boolean;
     actionUrl?: string;
   };
+  attachments?: Array<{
+    fileName: string;
+    filePath: string;
+    fileSize?: number;
+    mimeType?: string;
+  }>;
 }
 
 interface Award {
@@ -344,6 +350,28 @@ export const NotificationsPage: React.FC = () => {
                                   Rating: {notification.metadata.rating}
                                 </Badge>
                               )}
+                            </div>
+                          )}
+                          {notification.attachments && notification.attachments.length > 0 && (
+                            <div className="mb-4 space-y-2">
+                              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Attachments:</p>
+                              {notification.attachments.map((attachment, idx) => (
+                                <a
+                                  key={idx}
+                                  href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${attachment.filePath}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  <span>{attachment.fileName}</span>
+                                  {attachment.fileSize && (
+                                    <span className="text-xs text-gray-500">
+                                      ({(attachment.fileSize / 1024).toFixed(2)} KB)
+                                    </span>
+                                  )}
+                                </a>
+                              ))}
                             </div>
                           )}
                           <div className="flex items-center gap-3">

@@ -25,6 +25,12 @@ interface Notification {
     actionRequired?: boolean;
     actionUrl?: string;
   };
+  attachments?: Array<{
+    fileName: string;
+    filePath: string;
+    fileSize?: number;
+    mimeType?: string;
+  }>;
 }
 
 export const NotificationBell: React.FC = () => {
@@ -343,6 +349,30 @@ export const NotificationBell: React.FC = () => {
                               📅 {notification.metadata.period}
                             </Badge>
                           )}
+                        </div>
+                      )}
+
+                      {/* Attachments - Enhanced */}
+                      {notification.attachments && notification.attachments.length > 0 && (
+                        <div className="mt-3 space-y-1.5">
+                          {notification.attachments.map((attachment, idx) => (
+                            <a
+                              key={idx}
+                              href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${attachment.filePath}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline bg-blue-50 dark:bg-blue-900/20 px-2 py-1.5 rounded border border-blue-200 dark:border-blue-800 transition-colors"
+                            >
+                              <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span className="truncate">{attachment.fileName}</span>
+                              {attachment.fileSize && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                                  ({(attachment.fileSize / 1024).toFixed(2)} KB)
+                                </span>
+                              )}
+                            </a>
+                          ))}
                         </div>
                       )}
 

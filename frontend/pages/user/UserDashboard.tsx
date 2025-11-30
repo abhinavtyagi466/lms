@@ -144,6 +144,12 @@ interface Notification {
   message: string;
   isRead: boolean;
   createdAt: string;
+  attachments?: Array<{
+    fileName: string;
+    filePath: string;
+    fileSize?: number;
+    mimeType?: string;
+  }>;
 }
 
 interface QuizAttempt {
@@ -1476,6 +1482,22 @@ export const UserDashboard: React.FC = () => {
                           <div className="flex-1">
                             <p className="text-sm font-medium text-gray-900">{notification.title}</p>
                             <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
+                            {notification.attachments && notification.attachments.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {notification.attachments.map((attachment: any, idx: number) => (
+                                  <a
+                                    key={idx}
+                                    href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${attachment.filePath}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                                  >
+                                    <FileText className="w-3 h-3" />
+                                    <span>{attachment.fileName}</span>
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                             <p className="text-xs text-gray-500 mt-1">
                               {new Date(notification.createdAt).toLocaleDateString()}
                             </p>

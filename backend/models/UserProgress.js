@@ -136,6 +136,10 @@ userProgressSchema.index({ userId: 1, moduleId: 1 }, { unique: true });
 userProgressSchema.index({ userId: 1 });
 userProgressSchema.index({ moduleId: 1 });
 userProgressSchema.index({ passed: 1 });
+// Performance indexes for dashboard queries
+userProgressSchema.index({ status: 1 });
+userProgressSchema.index({ lastAccessedAt: -1 });
+userProgressSchema.index({ status: 1, lastAccessedAt: -1 }); // Compound index for common query pattern
 
 // Static method to get user progress
 userProgressSchema.statics.getUserProgress = function(userId, moduleId) {

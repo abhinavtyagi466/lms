@@ -9,7 +9,7 @@ const LifecycleEvent = require('../models/LifecycleEvent');
 const Quiz = require('../models/Quiz'); // Added Quiz import
 const UserProgress = require('../models/UserProgress'); // Added UserProgress import
 const QuizAttempt = require('../models/QuizAttempt'); // NEW: Added QuizAttempt import
-const { authenticateToken, requireAdmin, requireOwnershipOrAdmin } = require('../middleware/auth');
+const { authenticateToken, requireAdmin, requireAdminPanel, requireOwnershipOrAdmin } = require('../middleware/auth');
 const { validateUserId } = require('../middleware/validation');
 
 const router = express.Router();
@@ -241,59 +241,61 @@ router.get('/admin', authenticateToken, requireAdmin, async (req, res) => {
 // @route   GET /api/reports/admin/stats
 // @desc    Get detailed admin statistics
 // @access  Private (Admin only)
-router.get('/admin/stats', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res) => {
   try {
-    // Get basic counts with error handling
-    const [totalUsers, totalModules, totalQuizzes] = await Promise.allSettled([
-      User.countDocuments({ isActive: true }),
-      Module.countDocuments(),
-      Quiz.countDocuments()
-    ]);
-    
-    // Get active users (users who accessed in last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
-    const activeUsers = await User.countDocuments({
-      isActive: true,
-      lastLoginAt: { $gte: thirtyDaysAgo }
-    }).catch(() => 0);
-
-    // Get completion statistics with error handling
-    const completedModules = await UserProgress.countDocuments({
-      status: { $in: ['completed', 'certified'] }
-    }).catch(() => 0);
-
-    // Calculate average progress across all users with error handling
-    const allProgress = await UserProgress.aggregate([
-      {
-        $group: {
-          _id: null,
-          avgProgress: { $avg: '$videoProgress' },
-          totalWatchTime: { $sum: '$totalWatchTime' }
+    // Run all queries in parallel for better performance
+    const [
+      totalUsersResult,
+      totalModulesResult,
+      totalQuizzesResult,
+      activeUsersResult,
+      completedModulesResult,
+      certificatesResult,
+      progressAggregationResult
+    ] = await Promise.allSettled([
+      User.countDocuments({ isActive: true }),
+      Module.countDocuments(),
+      Quiz.countDocuments(),
+      User.countDocuments({
+        isActive: true,
+        lastLoginAt: { $gte: thirtyDaysAgo }
+      }),
+      UserProgress.countDocuments({
+        status: { $in: ['completed', 'certified'] }
+      }),
+      UserProgress.countDocuments({
+        status: 'certified'
+      }),
+      UserProgress.aggregate([
+        {
+          $group: {
+            _id: null,
+            avgProgress: { $avg: '$videoProgress' },
+            totalWatchTime: { $sum: '$totalWatchTime' }
+          }
         }
-      }
-    ]).catch(() => []);
+      ])
+    ]);
 
-    const averageProgress = allProgress.length > 0 ? Math.round(allProgress[0].avgProgress || 0) : 0;
-    const totalWatchTime = allProgress.length > 0 ? allProgress[0].totalWatchTime || 0 : 0;
-
-    // Get certificates issued with error handling
-    const certificatesIssued = await UserProgress.countDocuments({
-      status: 'certified'
-    }).catch(() => 0);
+    const averageProgress = progressAggregationResult.status === 'fulfilled' && progressAggregationResult.value.length > 0
+      ? Math.round(progressAggregationResult.value[0].avgProgress || 0) : 0;
+    const totalWatchTime = progressAggregationResult.status === 'fulfilled' && progressAggregationResult.value.length > 0
+      ? progressAggregationResult.value[0].totalWatchTime || 0 : 0;
 
     res.json({
       success: true,
       data: {
-        totalUsers: totalUsers.status === 'fulfilled' ? totalUsers.value : 0,
-        totalModules: totalModules.status === 'fulfilled' ? totalModules.value : 0,
-        totalQuizzes: totalQuizzes.status === 'fulfilled' ? totalQuizzes.value : 0,
-        activeUsers,
-        completedModules,
+        totalUsers: totalUsersResult.status === 'fulfilled' ? totalUsersResult.value : 0,
+        totalModules: totalModulesResult.status === 'fulfilled' ? totalModulesResult.value : 0,
+        totalQuizzes: totalQuizzesResult.status === 'fulfilled' ? totalQuizzesResult.value : 0,
+        activeUsers: activeUsersResult.status === 'fulfilled' ? activeUsersResult.value : 0,
+        completedModules: completedModulesResult.status === 'fulfilled' ? completedModulesResult.value : 0,
         averageProgress,
         totalWatchTime,
-        certificatesIssued
+        certificatesIssued: certificatesResult.status === 'fulfilled' ? certificatesResult.value : 0
       }
     });
 
@@ -310,8 +312,12 @@ router.get('/admin/stats', authenticateToken, requireAdmin, async (req, res) => 
 // @route   GET /api/reports/admin/user-progress
 // @desc    Get all user progress for admin dashboard
 // @access  Private (Admin only)
-router.get('/admin/user-progress', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/admin/user-progress', authenticateToken, requireAdminPanel, async (req, res) => {
   try {
+    const { limit = 100, page = 1 } = req.query; // Add pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = Math.min(parseInt(limit), 200); // Max 200 records per request
+    
     // First check if UserProgress collection exists and has data
     const progressCount = await UserProgress.countDocuments();
     
@@ -319,15 +325,23 @@ router.get('/admin/user-progress', authenticateToken, requireAdmin, async (req, 
       return res.json({
         success: true,
         data: [],
+        pagination: {
+          total: 0,
+          page: 1,
+          limit: limitNum,
+          totalPages: 0
+        },
         message: 'No user progress data found'
       });
     }
 
-    // Use lean() for better performance and handle populate errors
+    // Use lean() for better performance, add limit and pagination
     const userProgress = await UserProgress.find()
       .populate('userId', 'name email')
       .populate('moduleId', 'title ytVideoId')
       .sort({ lastAccessedAt: -1 })
+      .limit(limitNum)
+      .skip(skip)
       .lean()
       .exec();
 
@@ -338,7 +352,13 @@ router.get('/admin/user-progress', authenticateToken, requireAdmin, async (req, 
 
     res.json({
       success: true,
-      data: validProgress
+      data: validProgress,
+      pagination: {
+        total: progressCount,
+        page: parseInt(page),
+        limit: limitNum,
+        totalPages: Math.ceil(progressCount / limitNum)
+      }
     });
 
   } catch (error) {
@@ -526,7 +546,7 @@ router.get('/export/users', authenticateToken, requireAdmin, async (req, res) =>
 // @route   GET /api/reports/user-scores
 // @desc    Get all user scores for admin dashboard
 // @access  Private (Admin only)
-router.get('/user-scores', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/user-scores', authenticateToken, requireAdminPanel, async (req, res) => {
   try {
     const { searchTerm, selectedUser, sortBy, sortOrder, dateRange } = req.query;
 

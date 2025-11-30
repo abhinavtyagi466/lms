@@ -84,6 +84,27 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
+// Middleware to check if user has admin panel access (admin, hr, manager, hod)
+const requireAdminPanel = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      error: 'Access Denied',
+      message: 'Authentication required'
+    });
+  }
+
+  const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+  
+  if (!adminPanelRoles.includes(req.user.userType)) {
+    return res.status(403).json({
+      error: 'Access Denied',
+      message: 'Admin panel access required'
+    });
+  }
+
+  next();
+};
+
 // Middleware to check if user owns resource or is admin
 const requireOwnershipOrAdmin = (req, res, next) => {
   if (!req.user) {
@@ -102,6 +123,65 @@ const requireOwnershipOrAdmin = (req, res, next) => {
   return res.status(403).json({
     error: 'Access Denied',
     message: 'You can only access your own resources'
+  });
+};
+
+// Middleware to check if user can edit/manage other users
+// Admin and HR can manage all users
+// Manager and HOD cannot manage Field Executives (user role)
+const requireUserManagementAccess = async (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      error: 'Access Denied',
+      message: 'Authentication required'
+    });
+  }
+
+  const currentUserRole = req.user.userType;
+  
+  // Admin and HR have full access to manage all users
+  if (currentUserRole === 'admin' || currentUserRole === 'hr') {
+    return next();
+  }
+
+  // Manager and HOD can access admin panel but need to check target user
+  if (currentUserRole === 'manager' || currentUserRole === 'hod') {
+    const userId = req.params.id || req.params.userId || req.body.userId;
+    
+    if (!userId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'User ID is required'
+      });
+    }
+
+    // Get target user to check their role
+    const User = require('../models/User');
+    const targetUser = await User.findById(userId).select('userType');
+    
+    if (!targetUser) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'User not found'
+      });
+    }
+
+    // Manager and HOD cannot manage Field Executives (user role)
+    if (targetUser.userType === 'user') {
+      return res.status(403).json({
+        error: 'Access Denied',
+        message: 'You do not have permission to manage Field Executives. Only Admin and HR can manage Field Executives.'
+      });
+    }
+
+    // Manager and HOD can manage other roles (manager, hod, hr, admin)
+    return next();
+  }
+
+  // Other roles don't have access
+  return res.status(403).json({
+    error: 'Access Denied',
+    message: 'You do not have permission to manage users'
   });
 };
 
@@ -148,7 +228,9 @@ const decodeToken = (token) => {
 module.exports = {
   authenticateToken,
   requireAdmin,
+  requireAdminPanel,
   requireOwnershipOrAdmin,
+  requireUserManagementAccess,
   optionalAuth,
   generateToken,
   decodeToken

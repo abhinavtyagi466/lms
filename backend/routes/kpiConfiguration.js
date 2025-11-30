@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { authenticateToken, requireAdmin, requireAdminPanel } = require('../middleware/auth');
 
 // In-memory storage for KPI configurations (in production, use database)
 let kpiConfigurations = {
@@ -210,7 +210,7 @@ let kpiConfigurations = {
 // @route   GET /api/kpi-configuration
 // @desc    Get all KPI configurations
 // @access  Private (Admin only)
-router.get('/', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/', authenticateToken, requireAdminPanel, async (req, res) => {
   try {
     res.json({
       success: true,

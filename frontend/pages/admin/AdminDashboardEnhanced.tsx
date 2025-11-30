@@ -60,47 +60,103 @@ export const AdminDashboardEnhanced: React.FC = () => {
 
   useEffect(() => {
     // Only fetch data if user is authenticated and is admin
-    if (user && userType === 'admin') {
+    if (user && (userType === 'admin' || userType === 'hr' || userType === 'manager' || userType === 'hod')) {
       fetchDashboardData();
+      
+      // Set up auto-refresh interval for real-time updates from MongoDB Atlas
+      const refreshInterval = setInterval(() => {
+        console.log('🔄 Auto-refreshing dashboard data...');
+        fetchDashboardData();
+      }, 5000); // Refresh every 5 seconds for real-time updates
+
+      // Refresh when page becomes visible
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          console.log('👁️ Page visible, refreshing dashboard...');
+          fetchDashboardData();
+        }
+      };
+
+      // Refresh when window gains focus
+      const handleFocus = () => {
+        console.log('🎯 Window focused, refreshing dashboard...');
+        fetchDashboardData();
+      };
+
+      // Listen for data update events
+      const handleDataUpdate = () => {
+        console.log('📊 Data update event received, refreshing dashboard...');
+        fetchDashboardData();
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleFocus);
+      window.addEventListener('dashboard-refresh', handleDataUpdate);
+      window.addEventListener('user-updated', handleDataUpdate);
+      window.addEventListener('user-created', handleDataUpdate);
+
+      return () => {
+        clearInterval(refreshInterval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleFocus);
+        window.removeEventListener('dashboard-refresh', handleDataUpdate);
+        window.removeEventListener('user-updated', handleDataUpdate);
+        window.removeEventListener('user-created', handleDataUpdate);
+      };
     } else {
       setLoading(false);
     }
   }, [user, userType]);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
       setError(null);
       
-      // Fetch dashboard data in parallel
+      // Fetch dashboard data in parallel with cache-busting timestamp
+      const timestamp = Date.now();
       const [
         statsResponse,
         progressResponse
       ] = await Promise.allSettled([
         apiService.reports.getAdminStats(),
-        apiService.reports.getAllUserProgress()
+        apiService.reports.getAllUserProgress({ page: 1, limit: 100 }) // Only fetch first 100 records for faster load
       ]);
 
       // Handle stats data
       if (statsResponse.status === 'fulfilled' && statsResponse.value?.data) {
         setStats(statsResponse.value.data);
+        console.log('✅ Dashboard stats updated:', statsResponse.value.data);
+      } else if (statsResponse.status === 'rejected') {
+        console.error('❌ Stats fetch failed:', statsResponse.reason);
       }
 
       // Handle user progress data
       if (progressResponse.status === 'fulfilled' && progressResponse.value?.data) {
         setUserProgress(progressResponse.value.data);
+        console.log('✅ User progress updated:', progressResponse.value.data.length, 'records');
+      } else if (progressResponse.status === 'rejected') {
+        console.error('❌ Progress fetch failed:', progressResponse.reason);
       }
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
       // Don't show error toast for auth failures, let the auth system handle it
       if (!error.message?.includes('Authentication failed')) {
         setError('Failed to load dashboard data');
-        toast.error('Failed to load dashboard data');
+        if (showLoading) {
+          toast.error('Failed to load dashboard data');
+        }
       }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
+
+  // This useEffect is now merged with the main one above
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -179,16 +235,20 @@ export const AdminDashboardEnhanced: React.FC = () => {
                 Real-time Data
               </Badge>
 
-              <Button 
-                onClick={fetchDashboardData}
+              <Button
+                onClick={() => {
+                  console.log('🔄 Manual refresh triggered');
+                  fetchDashboardData(true);
+                }}
                 variant="outline"
                 className="flex items-center border-2 border-blue-600 dark:border-blue-500
                           text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20
                           px-6 py-3 rounded-xl shadow-lg hover:shadow-xl 
                           transition-all duration-300 transform hover:scale-105"
+                disabled={loading}
               >
-                <RefreshCw className="w-5 h-5 mr-2" />
-                Refresh Data
+                <RefreshCw className={`w-5 h-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                {loading ? 'Refreshing...' : 'Refresh Data'}
               </Button>
             </div>
           </div>

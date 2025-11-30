@@ -67,11 +67,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
 
-  // Handle URL hash changes and localStorage persistence
+  // Handle URL hash changes and localStorage persistence with security checks
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
       if (hash && hash !== currentPage) {
+        // Security check: Don't allow accessing protected pages without authentication
+        const adminPages = [
+          'admin-dashboard', 'user-management', 'exit-records', 'user-lifecycle',
+          'module-management', 'score-reports', 'kpi-triggers', 'kpi-audit-dashboard',
+          'kpi-configuration', 'email-templates', 'warnings-audit', 'awards',
+          'lifecycle', 'mail-preview'
+        ];
+        const userPages = [
+          'user-dashboard', 'user-profile', 'modules', 'training-module',
+          'quiz', 'quizzes', 'notifications', 'kpi-scores'
+        ];
+
+        // If trying to access protected page without user, redirect to login
+        if ((adminPages.includes(hash) || hash.startsWith('user-details/') || hash.startsWith('kpi-scores/')) && !user) {
+          setCurrentPage('admin-login');
+          window.location.hash = 'admin-login';
+          return;
+        }
+        if (userPages.includes(hash) && !user) {
+          setCurrentPage('user-login');
+          window.location.hash = 'user-login';
+          return;
+        }
+
+        // If user type doesn't match page type, redirect
+        if (adminPages.includes(hash) && user && userType !== 'admin' && userType !== 'hr' && userType !== 'manager' && userType !== 'hod') {
+          setCurrentPage('user-login');
+          window.location.hash = 'user-login';
+          return;
+        }
+        if (userPages.includes(hash) && user && userType !== 'user') {
+          setCurrentPage('admin-login');
+          window.location.hash = 'admin-login';
+          return;
+        }
+
         setCurrentPage(hash);
         localStorage.setItem('currentPage', hash);
       }
@@ -81,7 +117,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     window.addEventListener('hashchange', handleHashChange);
     
     // Save current page to localStorage whenever it changes
-    if (currentPage && currentPage !== 'user-login') {
+    if (currentPage && currentPage !== 'user-login' && currentPage !== 'admin-login') {
       localStorage.setItem('currentPage', currentPage);
       // Update URL hash
       if (window.location.hash !== `#${currentPage}`) {
@@ -92,7 +128,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, [currentPage]);
+  }, [currentPage, user, userType]);
 
   // Check for existing auth token on app load
   useEffect(() => {

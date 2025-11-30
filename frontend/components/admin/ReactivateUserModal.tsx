@@ -14,6 +14,14 @@ interface ReactivateUserModalProps {
     inactiveReason?: string;
     inactiveRemark?: string;
     inactiveDate?: string;
+    exitDetails?: {
+      exitDate?: string;
+      exitReason?: {
+        mainCategory?: string;
+        subCategory?: string;
+      };
+      exitReasonDescription?: string;
+    };
   };
   isOpen: boolean;
   onClose: () => void;
@@ -78,20 +86,72 @@ export const ReactivateUserModal: React.FC<ReactivateUserModalProps> = ({
               <p><strong>Name:</strong> {user.name}</p>
               <p><strong>Email:</strong> {user.email}</p>
               <p><strong>Current Status:</strong> {user.status}</p>
-              {user.inactiveReason && (
-                <p><strong>Inactive Reason:</strong> {user.inactiveReason}</p>
-              )}
-              {user.inactiveDate && (
-                <p><strong>Inactive Since:</strong> {new Date(user.inactiveDate).toLocaleDateString()}</p>
-              )}
             </div>
           </div>
 
-          {user.inactiveRemark && (
-            <div className="mb-6 p-4 bg-amber-50 rounded-lg">
-              <div className="text-sm">
-                <p className="font-medium text-amber-800 mb-1">Previous Remarks:</p>
-                <p className="text-amber-700">{user.inactiveRemark}</p>
+          {/* Exit Information Section - Similar to UserDetailsPage */}
+          {(user.exitDetails || user.inactiveReason || user.inactiveDate) && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="w-4 h-4 text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-red-800">Exit Information</h3>
+              </div>
+              <div className="space-y-3 text-sm">
+                {user.exitDetails?.exitDate && (
+                  <div>
+                    <span className="text-gray-600">Exit Date:</span>
+                    <div className="font-medium text-red-800">
+                      {new Date(user.exitDetails.exitDate).toLocaleDateString()}
+                    </div>
+                  </div>
+                )}
+                {!user.exitDetails?.exitDate && user.inactiveDate && (
+                  <div>
+                    <span className="text-gray-600">Inactive Date:</span>
+                    <div className="font-medium text-red-800">
+                      {new Date(user.inactiveDate).toLocaleDateString()}
+                    </div>
+                  </div>
+                )}
+                
+                {user.exitDetails?.exitReason?.mainCategory && (
+                  <div>
+                    <span className="text-gray-600">Exit Reason:</span>
+                    <div className="font-medium text-red-800">
+                      {user.exitDetails.exitReason.mainCategory}
+                      {user.exitDetails.exitReason.subCategory &&
+                        ` - ${user.exitDetails.exitReason.subCategory}`
+                      }
+                    </div>
+                  </div>
+                )}
+                {!user.exitDetails?.exitReason?.mainCategory && user.inactiveReason && (
+                  <div>
+                    <span className="text-gray-600">Inactive Reason:</span>
+                    <div className="font-medium text-red-800">
+                      {user.inactiveReason}
+                    </div>
+                  </div>
+                )}
+                
+                {user.exitDetails?.exitReasonDescription && (
+                  <div>
+                    <span className="text-gray-600">Description:</span>
+                    <div className="font-medium text-red-800">
+                      {user.exitDetails.exitReasonDescription}
+                    </div>
+                  </div>
+                )}
+                {!user.exitDetails?.exitReasonDescription && user.inactiveRemark && (
+                  <div>
+                    <span className="text-gray-600">Remarks:</span>
+                    <div className="font-medium text-red-800">
+                      {user.inactiveRemark}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

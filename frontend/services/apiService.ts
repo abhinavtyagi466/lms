@@ -22,6 +22,10 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // If data is FormData, remove Content-Type header to let browser set it with boundary
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
     return config;
   },
   (error) => {
@@ -193,7 +197,11 @@ export const apiService = {
     },
 
     updateUser: async (userId: string, userData: any) => {
-      const response = await apiClient.put(`/users/${userId}`, userData);
+      // If userData is FormData, don't set Content-Type header (let axios handle it)
+      const config = userData instanceof FormData 
+        ? { headers: { 'Content-Type': 'multipart/form-data' } }
+        : {};
+      const response = await apiClient.put(`/users/${userId}`, userData, config);
       return response;
     },
 
@@ -212,13 +220,32 @@ export const apiService = {
       return response;
     },
 
-    sendWarning: async (userId: string, message: string) => {
-      const response = await apiClient.post(`/users/${userId}/warning`, { message });
+    sendWarning: async (userId: string, message: string, attachment?: File) => {
+      const formData = new FormData();
+      formData.append('message', message);
+      if (attachment) {
+        formData.append('attachment', attachment);
+      }
+      const response = await apiClient.post(`/users/${userId}/warning`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
       return response;
     },
 
-    sendCertificate: async (userId: string, title: string, message: string) => {
-      const response = await apiClient.post(`/users/${userId}/certificate`, { title, message });
+    sendCertificate: async (userId: string, title: string, message: string, attachment?: File) => {
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('message', message);
+      if (attachment) {
+        formData.append('attachment', attachment);
+      }
+      const response = await apiClient.post(`/users/${userId}/certificate`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
       return response;
     },
 
@@ -570,8 +597,8 @@ export const apiService = {
       return response;
     },
 
-    getAllUserProgress: async () => {
-      const response = await apiClient.get('/reports/admin/user-progress');
+    getAllUserProgress: async (page: number = 1, limit: number = 100) => {
+      const response = await apiClient.get(`/reports/admin/user-progress?page=${page}&limit=${limit}`);
       return response;
     },
 

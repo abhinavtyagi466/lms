@@ -3,7 +3,7 @@ import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Progress } from '../../components/ui/progress';
-import { ArrowLeft, User, Mail, Phone, Clock, CheckCircle, Play, FileQuestion, Target, TrendingUp, AlertTriangle, BarChart3 } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, Clock, CheckCircle, Play, FileQuestion, Target, TrendingUp, AlertTriangle, BarChart3, Download, FileText, Award, XCircle } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
@@ -120,13 +120,59 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
   const [warnings, setWarnings] = useState<Warning[]>([]);
   const [lifecycleEvents, setLifecycleEvents] = useState<LifecycleEvent[]>([]);
   const [personalisedModules, setPersonalisedModules] = useState<any[]>([]);
+  const [awards, setAwards] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'progress' | 'quiz' | 'attempts' | 'warnings' | 'lifecycle' | 'kpi' | 'personalised'>('details');
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     if (userId) {
       fetchUserDetails();
     }
+  }, [userId]);
+
+  // Debug avatar changes
+  useEffect(() => {
+    if (user?.avatar) {
+      console.log('Avatar value:', user.avatar);
+      const imageUrl = user.avatar.startsWith('http') ? user.avatar : `${window.location.origin}${user.avatar}`;
+      console.log('Constructed image URL:', imageUrl);
+    }
+  }, [user?.avatar]);
+
+  // Refresh user details when page becomes visible or when user is updated
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && userId) {
+        console.log('Page became visible, refreshing user details...');
+        fetchUserDetails();
+      }
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'userUpdated' && e.newValue === userId && userId) {
+        console.log('User updated detected, refreshing user details...');
+        fetchUserDetails();
+        localStorage.removeItem('userUpdated');
+      }
+    };
+
+    const handleFocus = () => {
+      if (userId) {
+        console.log('Window focused, refreshing user details...');
+        fetchUserDetails();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [userId]);
 
   const fetchUserDetails = async () => {
@@ -149,7 +195,10 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
 
       if (userData) {
         console.log('UserDetailsPage: Setting user data:', userData);
+        console.log('UserDetailsPage: Avatar field:', userData.avatar);
+        console.log('UserDetailsPage: Full user object:', JSON.stringify(userData, null, 2));
         setUser(userData);
+        setImageError(false); // Reset image error when user data changes
 
         if (userData._id) {
           fetchUserData(userData);
@@ -173,15 +222,16 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
     try {
       console.log('UserDetailsPage: Fetching data for user:', userData._id);
 
-      // Fetch user's video progress, modules, quiz results, quiz attempts, warnings, and lifecycle events in parallel
-      const [progressResponse, modulesResponse, quizResultsResponse, quizStatsResponse, quizAttemptsResponse, warningsResponse, lifecycleResponse] = await Promise.all([
+      // Fetch user's video progress, modules, quiz results, quiz attempts, warnings, lifecycle events, and awards in parallel
+      const [progressResponse, modulesResponse, quizResultsResponse, quizStatsResponse, quizAttemptsResponse, warningsResponse, lifecycleResponse, awardsResponse] = await Promise.all([
         apiService.progress.getUserProgress(userData._id),
         apiService.modules.getUserModules(userData._id), // Use getUserModules instead of getAllModules
         apiService.quizzes.getQuizResults(userData._id).catch(() => ({ data: { results: [] } })),
         apiService.quizAttempts.getQuizAttemptStats(userData._id).catch(() => ({ data: null })),
         apiService.quizAttempts.getUserQuizAttempts(userData._id, { limit: 20 }).catch(() => ({ data: [] })),
         apiService.users.getUserWarnings(userData._id).catch(() => ({ data: { warnings: [] } })),
-        apiService.lifecycle.getUserLifecycle(userData._id, { limit: 20 }).catch(() => ({ data: { events: [] } }))
+        apiService.lifecycle.getUserLifecycle(userData._id, { limit: 50 }).catch(() => ({ data: { events: [] } })),
+        apiService.awards.getUserAwards(userData._id).catch(() => ({ data: { awards: [] } }))
       ]);
 
       console.log('===== RESPONSE DEBUG =====');
@@ -304,6 +354,17 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
         lifecycleEventsList = lifecycleResponse.data;
       }
       setLifecycleEvents(lifecycleEventsList);
+
+      // Set awards/certificates
+      let awardsList: any[] = [];
+      if (awardsResponse?.success && awardsResponse.awards) {
+        awardsList = awardsResponse.awards;
+      } else if (awardsResponse?.data?.awards) {
+        awardsList = awardsResponse.data.awards;
+      } else if (awardsResponse?.data && Array.isArray(awardsResponse.data)) {
+        awardsList = awardsResponse.data;
+      }
+      setAwards(awardsList);
 
       // Fetch personalised modules
       try {
@@ -440,7 +501,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
             <Button onClick={handleBack} variant="outline" className="flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" /> Back to User Management
             </Button>
-            <div>
+            <div className="flex-1">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">User Details</h1>
               <p className="text-gray-600 dark:text-gray-400">Complete information about {user.name}</p>
             </div>
@@ -452,8 +513,8 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
       <div className="max-w-7xl mx-auto p-6">
         <Card className="w-full min-h-screen rounded-none overflow-auto">
 
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b bg-gray-50">
+          {/* Header with Profile Photo */}
+          <div className="flex items-start justify-between p-6 border-b bg-gray-50">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                 <User className="w-5 h-5 text-blue-600" />
@@ -463,10 +524,45 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                 <p className="text-sm text-gray-600">User Details & Progress</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge className={getStatusColor(user.status)}>
-                {user.status}
-              </Badge>
+            {/* Profile Photo Section (Right Side - Like Resume) */}
+            <div className="flex flex-col items-end gap-3">
+              {/* Single Image Box - Resume Style */}
+              <div className="w-28 h-28 bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center overflow-hidden shadow-md relative">
+                {user.avatar && typeof user.avatar === 'string' && user.avatar.trim() !== '' && !imageError ? (
+                  <img 
+                    key={user.avatar}
+                    src={user.avatar.startsWith('http') ? user.avatar : `${window.location.origin}${user.avatar}`}
+                    alt={user.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      console.error('❌ Image failed to load');
+                      console.error('Avatar path:', user.avatar);
+                      console.error('Full URL:', img.src);
+                      setImageError(true);
+                    }}
+                    onLoad={() => {
+                      console.log('✅ Image loaded successfully');
+                      console.log('Avatar path:', user.avatar);
+                      setImageError(false);
+                    }}
+                  />
+                ) : null}
+                <div 
+                  className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center absolute inset-0"
+                  style={{ display: (user.avatar && typeof user.avatar === 'string' && user.avatar.trim() !== '' && !imageError) ? 'none' : 'flex' }}
+                >
+                  <span className="text-3xl font-bold text-white">
+                    {user.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              {/* Active Badge */}
+              <div className="text-center">
+                <Badge className={user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                  {user.isActive ? 'Active' : 'Inactive'}
+                </Badge>
+              </div>
             </div>
           </div>
 
@@ -638,6 +734,57 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                       </div>
                     </div>
                   </div>
+                </Card>
+
+                {/* Uploaded Documents Section */}
+                <Card className="p-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-orange-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold">Uploaded Documents</h3>
+                  </div>
+                  {user.documents && user.documents.length > 0 ? (
+                    <div className="space-y-3">
+                      {user.documents.map((doc: any, index: number) => (
+                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                          <div className="flex items-center gap-3">
+                            <FileText className="w-5 h-5 text-blue-600" />
+                            <div>
+                              <div className="font-medium text-sm">{doc.name}</div>
+                              <div className="text-xs text-gray-500">
+                                {doc.type} • {doc.uploadedAt ? formatDate(doc.uploadedAt) : 'N/A'}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const fileUrl = doc.filePath.startsWith('http') ? doc.filePath : `${window.location.origin}${doc.filePath}`;
+                              // Create a temporary anchor element to trigger download
+                              const link = document.createElement('a');
+                              link.href = fileUrl;
+                              link.download = doc.name;
+                              link.target = '_blank';
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            }}
+                            className="flex items-center gap-2"
+                          >
+                            <Download className="w-4 h-4" />
+                            Download
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-gray-500">
+                      <FileText className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                      <p>No documents uploaded</p>
+                    </div>
+                  )}
                 </Card>
 
                 {/* Exit Management Information */}
@@ -1015,28 +1162,50 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
               <div className="space-y-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Clock className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold">Lifecycle Events</h3>
+                  <h3 className="text-lg font-semibold">Lifecycle Events & User Information</h3>
                 </div>
 
-                {lifecycleEvents.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">No lifecycle events found</p>
-                    <p className="text-xs text-gray-400 mt-2">Lifecycle events count: {lifecycleEvents.length}</p>
+                {/* User Status Information */}
+                <Card className="p-4 bg-blue-50 border-blue-200">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">{user.isActive ? '✓' : '✗'}</div>
+                      <div className="text-sm text-gray-700 font-medium">Status</div>
+                      <Badge className={user.isActive ? 'bg-green-100 text-green-800 mt-1' : 'bg-red-100 text-red-800 mt-1'}>
+                        {user.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-yellow-600">{warnings.length}</div>
+                      <div className="text-sm text-gray-700 font-medium">Warnings</div>
+                      <div className="text-xs text-gray-500 mt-1">Total warnings issued</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">{awards.length}</div>
+                      <div className="text-sm text-gray-700 font-medium">Certificates</div>
+                      <div className="text-xs text-gray-500 mt-1">Awards & certificates</div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {lifecycleEvents.map((event) => (
-                      <Card key={event._id} className="p-4">
+                </Card>
+
+                {/* Certificates Section */}
+                {awards.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-md font-semibold flex items-center gap-2">
+                      <Award className="w-4 h-4 text-green-600" />
+                      Certificates & Awards
+                    </h4>
+                    {awards.map((award: any) => (
+                      <Card key={award._id} className="p-4 border-green-200 bg-green-50">
                         <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                            <Clock className="w-4 h-4 text-blue-600" />
+                          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                            <Award className="w-4 h-4 text-green-600" />
                           </div>
                           <div className="flex-1">
-                            <div className="font-medium">{event.title}</div>
-                            <div className="text-sm text-gray-600">{event.description}</div>
+                            <div className="font-medium text-green-900">{award.title}</div>
+                            <div className="text-sm text-gray-700">{award.description || award.type}</div>
                             <div className="text-xs text-gray-500 mt-1">
-                              {formatDate(event.createdAt)} • {event.eventType}
+                              {award.awardDate ? formatDate(award.awardDate) : 'N/A'} • Status: {award.status || 'approved'}
                             </div>
                           </div>
                         </div>
@@ -1044,6 +1213,108 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                     ))}
                   </div>
                 )}
+
+                {/* Warnings Section */}
+                {warnings.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-md font-semibold flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-600" />
+                      Warnings
+                    </h4>
+                    {warnings.map((warning: any) => (
+                      <Card key={warning._id} className="p-4 border-red-200 bg-red-50">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                            <AlertTriangle className="w-4 h-4 text-red-600" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-red-900">{warning.title}</div>
+                            <div className="text-sm text-gray-700">{warning.description}</div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge className={getSeverityColor(warning.severity)}>
+                                {warning.severity}
+                              </Badge>
+                              <Badge className={warning.status === 'active' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}>
+                                {warning.status}
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {warning.issuedAt ? formatDate(warning.issuedAt) : formatDate(warning.createdAt)}
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* All Lifecycle Events */}
+                <div className="space-y-3">
+                  <h4 className="text-md font-semibold flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                    All Lifecycle Events
+                  </h4>
+                  {lifecycleEvents.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500">No lifecycle events found</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {lifecycleEvents.map((event) => {
+                        // Determine icon and color based on event type
+                        let Icon = Clock;
+                        let iconColor = 'blue';
+                        let bgColor = 'blue-50';
+                        let borderColor = 'blue-200';
+                        
+                        if (event.type === 'achievement' || event.type === 'award') {
+                          Icon = Award;
+                          iconColor = 'green';
+                          bgColor = 'green-50';
+                          borderColor = 'green-200';
+                        } else if (event.type === 'warning') {
+                          Icon = AlertTriangle;
+                          iconColor = 'red';
+                          bgColor = 'red-50';
+                          borderColor = 'red-200';
+                        } else if (event.type === 'exit') {
+                          Icon = XCircle;
+                          iconColor = 'gray';
+                          bgColor = 'gray-50';
+                          borderColor = 'gray-200';
+                        }
+
+                        return (
+                          <Card key={event._id} className={`p-4 border-${borderColor} bg-${bgColor}`}>
+                            <div className="flex items-start gap-3">
+                              <div className={`w-8 h-8 bg-${iconColor}-100 rounded-full flex items-center justify-center`}>
+                                <Icon className={`w-4 h-4 text-${iconColor}-600`} />
+                              </div>
+                              <div className="flex-1">
+                                <div className="font-medium">{event.title}</div>
+                                <div className="text-sm text-gray-700">{event.description}</div>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <Badge className={`bg-${iconColor}-100 text-${iconColor}-800`}>
+                                    {event.type}
+                                  </Badge>
+                                  {event.category && (
+                                    <Badge variant="outline">
+                                      {event.category}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {formatDate(event.createdAt)}
+                                </div>
+                              </div>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

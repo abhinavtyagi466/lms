@@ -82,6 +82,7 @@ export const ModuleManagement: React.FC = () => {
   const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
   const [isUploadingCSV, setIsUploadingCSV] = useState(false);
   const [csvData, setCsvData] = useState('');
+  const [csvFile, setCsvFile] = useState<File | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState({
     question: '',
     options: ['', '', '', ''],
@@ -342,6 +343,28 @@ export const ModuleManagement: React.FC = () => {
     }
   };
 
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.name.endsWith('.csv') && !file.type.includes('csv') && !file.type.includes('text')) {
+      toast.error('Please upload a CSV file');
+      return;
+    }
+
+    setCsvFile(file);
+
+    try {
+      const text = await file.text();
+      setCsvData(text);
+      toast.success('CSV file loaded successfully');
+    } catch (error) {
+      console.error('Error reading file:', error);
+      toast.error('Failed to read CSV file');
+    }
+  };
+
   const handleUploadCSV = async () => {
     try {
       setIsUploadingCSV(true);
@@ -352,7 +375,7 @@ export const ModuleManagement: React.FC = () => {
       }
       
       if (!csvData.trim()) {
-        toast.error('Please enter CSV data');
+        toast.error('Please upload a CSV file');
         return;
       }
 
@@ -403,6 +426,7 @@ export const ModuleManagement: React.FC = () => {
         toast.success(`Quiz updated with ${questions.length} questions`);
         setShowCSVModal(false);
         setCsvData('');
+        setCsvFile(null);
         setSelectedModuleId('');
         // Refresh both modules and quizzes to ensure UI updates
         await fetchQuizzes();
@@ -1233,14 +1257,28 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
               </div>
               
               <div>
-                <Label htmlFor="csvData">CSV Data</Label>
-                <textarea
-                  id="csvData"
-                  value={csvData}
-                  onChange={(e) => setCsvData(e.target.value)}
-                  placeholder={`question,optionA,optionB,optionC,optionD,correctOption,explanation`} 
-                  className="w-full h-32 p-2 border rounded-md"
-                />
+                <Label htmlFor="csvFile">Upload CSV File</Label>
+                <div className="mt-2">
+                  <input
+                    type="file"
+                    id="csvFile"
+                    accept=".csv,text/csv"
+                    onChange={handleFileChange}
+                    className="block w-full text-sm text-gray-500
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-md file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-blue-50 file:text-blue-700
+                      hover:file:bg-blue-100
+                      file:cursor-pointer
+                      border border-gray-300 rounded-md p-2"
+                  />
+                </div>
+                {csvFile && (
+                  <p className="mt-2 text-sm text-gray-600">
+                    Selected file: <span className="font-medium">{csvFile.name}</span>
+                  </p>
+                )}
               </div>
               
               <div className="text-xs text-gray-600">
@@ -1262,7 +1300,10 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                     Uploading...
                   </>
                 ) : (
-                  'Upload CSV'
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload CSV
+                  </>
                 )}
               </Button>
               <Button
@@ -1270,7 +1311,11 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                 onClick={() => {
                   setShowCSVModal(false);
                   setCsvData('');
+                  setCsvFile(null);
                   setSelectedModuleId('');
+                  // Reset file input
+                  const fileInput = document.getElementById('csvFile') as HTMLInputElement;
+                  if (fileInput) fileInput.value = '';
                 }}
                 className="flex-1"
               >

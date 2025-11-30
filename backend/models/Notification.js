@@ -82,7 +82,28 @@ const notificationSchema = new mongoose.Schema({
   },
   acknowledgedAt: {
     type: Date
-  }
+  },
+  // File attachments for warnings and certificates
+  attachments: [{
+    fileName: {
+      type: String,
+      required: true
+    },
+    filePath: {
+      type: String,
+      required: true
+    },
+    fileSize: {
+      type: Number
+    },
+    mimeType: {
+      type: String
+    },
+    uploadedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 }, {
   timestamps: true
 });
