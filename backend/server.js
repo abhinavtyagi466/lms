@@ -175,10 +175,19 @@ app.use((req, res, next) => {
   express.urlencoded({ extended: true, limit: '10mb' })(req, res, next);
 });
 
-// File upload middleware - SKIP for kpi-triggers routes (uses multer instead)
+// File upload middleware - SKIP for routes that use multer instead
 app.use((req, res, next) => {
-  // Skip fileUpload for kpi-triggers routes (they use multer)
+  // Skip fileUpload for routes that use multer (they handle file uploads themselves)
+  // kpi-triggers routes use multer
   if (req.path.startsWith('/api/kpi-triggers')) {
+    return next();
+  }
+  // Users routes that use multer for file uploads
+  if (req.path.startsWith('/api/users') && (
+    req.path.includes('/set-inactive') ||
+    req.path.includes('/warning') ||
+    req.path.includes('/certificate')
+  )) {
     return next();
   }
   // Apply fileUpload for other routes

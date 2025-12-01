@@ -62,6 +62,13 @@ const handleMulterError = (error, req, res, next) => {
       message: error.message
     });
   } else if (error) {
+    // Handle busboy "Unexpected end of form" error gracefully
+    if (error.message && error.message.includes('Unexpected end of form')) {
+      console.warn('Empty or incomplete multipart form detected, continuing without file');
+      // Clear any partial file data
+      req.file = undefined;
+      return next();
+    }
     console.error('File upload error:', error);
     return res.status(400).json({
       error: 'File Upload Error',
@@ -69,6 +76,73 @@ const handleMulterError = (error, req, res, next) => {
     });
   }
   next();
+};
+
+// Conditional multer middleware - only processes multipart/form-data requests
+const conditionalMulter = (multerMiddleware) => {
+  return (req, res, next) => {
+    const contentType = req.get('Content-Type') || '';
+    const contentTypeLower = contentType.toLowerCase();
+    console.log('🔍 conditionalMulter - Content-Type:', contentType);
+    console.log('🔍 conditionalMulter - Path:', req.path);
+    console.log('🔍 conditionalMulter - Method:', req.method);
+    console.log('🔍 conditionalMulter - Is multipart?', contentTypeLower.includes('multipart/form-data'));
+    
+    if (contentTypeLower.includes('multipart/form-data')) {
+      console.log('✅ Multipart detected, using multer middleware');
+      // Ensure req.body exists
+      if (!req.body) {
+        req.body = {};
+      }
+      console.log('📦 req.body before multer:', Object.keys(req.body));
+      
+      // Wrap in try-catch to handle busboy errors
+      try {
+        multerMiddleware(req, res, (err) => {
+          if (err) {
+            console.error('❌ Multer error:', err.message);
+            // Handle busboy "Unexpected end of form" error gracefully
+            if (err.message && (err.message.includes('Unexpected end of form') || err.message.includes('Unexpected end of multipart stream'))) {
+              console.warn('⚠️ Empty or incomplete multipart form detected, continuing without file');
+              req.file = undefined;
+              // Ensure req.body exists even if parsing failed
+              if (!req.body) {
+                req.body = {};
+              }
+              console.log('📦 req.body after multer (error case):', Object.keys(req.body));
+              return next();
+            }
+            return handleMulterError(err, req, res, next);
+          }
+          // Ensure req.body exists after successful parsing
+          if (!req.body) {
+            req.body = {};
+          }
+          console.log('✅ Multer completed successfully');
+          console.log('📦 req.body after multer:', Object.keys(req.body));
+          console.log('📦 req.body values:', req.body);
+          next();
+        });
+      } catch (error) {
+        console.error('❌ Multer catch error:', error.message);
+        // Catch any synchronous errors
+        if (error.message && (error.message.includes('Unexpected end of form') || error.message.includes('Unexpected end of multipart stream'))) {
+          console.warn('⚠️ Empty or incomplete multipart form detected (sync), continuing without file');
+          req.file = undefined;
+          // Ensure req.body exists
+          if (!req.body) {
+            req.body = {};
+          }
+          return next();
+        }
+        return handleMulterError(error, req, res, next);
+      }
+    } else {
+      // Not multipart, skip multer
+      console.log('⏭️ Not multipart, skipping multer');
+      next();
+    }
+  };
 };
 
 // File upload storage for warnings and certificates
@@ -472,7 +546,7 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
 // @route   POST /api/users/:id/warning
 // @desc    Send warning to user
 // @access  Private (Admin panel only)
-router.post('/:id/warning', authenticateToken, requireAdminPanel, validateObjectId, notificationUpload.single('attachment'), handleMulterError, async (req, res) => {
+router.post('/:id/warning', authenticateToken, requireAdminPanel, validateObjectId, conditionalMulter(notificationUpload.single('attachment')), async (req, res) => {
   try {
     const userId = req.params.id;
     const { message } = req.body;
@@ -623,7 +697,7 @@ router.post('/:id/warning', authenticateToken, requireAdminPanel, validateObject
 // @route   POST /api/users/:id/certificate
 // @desc    Send certificate to user
 // @access  Private (Admin panel only)
-router.post('/:id/certificate', authenticateToken, requireAdminPanel, validateObjectId, notificationUpload.single('attachment'), handleMulterError, async (req, res) => {
+router.post('/:id/certificate', authenticateToken, requireAdminPanel, validateObjectId, conditionalMulter(notificationUpload.single('attachment')), async (req, res) => {
   try {
     const userId = req.params.id;
     const { title, message, certificateType } = req.body;
@@ -1592,9 +1666,76 @@ router.put('/:id/activate', authenticateToken, requireUserManagementAccess, vali
       });
     }
 
+    // Activate user and clear exit details
     user.isActive = true;
     user.status = 'Active';
+    
+    // Clear exit details if they exist
+    if (user.exitDetails) {
+      user.exitDetails = undefined;
+    }
+    
+    // Clear old inactive fields for backward compatibility
+    user.inactiveReason = null;
+    user.inactiveRemark = '';
+    user.inactiveDate = null;
+    user.inactiveBy = null;
+    
     await user.save({ validateModifiedOnly: true });
+
+    // Create notification for dashboard
+    try {
+      const notification = new Notification({
+        userId: user._id,
+        type: 'success',
+        title: 'Account Activated',
+        message: `Your account has been activated. You can now access all features.`,
+        isRead: false,
+        sentBy: req.user._id
+      });
+      await notification.save();
+      console.log('✅ Notification created for user activation');
+    } catch (notificationError) {
+      console.error('⚠️  Error creating notification (non-critical):', notificationError.message);
+    }
+
+    // Send email to user about activation
+    if (user.email) {
+      try {
+        await emailService.sendEmail(
+          user.email,
+          'custom',
+          {
+            userName: user.name,
+            subject: 'Account Activated',
+            customContent: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+                  <h2 style="color: #2e7d32; margin-bottom: 20px;">Account Activated</h2>
+                  <p>Dear ${user.name},</p>
+                  <p>Your account has been activated successfully. You can now access all features of the platform.</p>
+                  <div style="background-color: #e8f5e8; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #2e7d32;">
+                    <p><strong>Status:</strong> Active</p>
+                    <p><strong>Activated Date:</strong> ${new Date().toLocaleDateString()}</p>
+                  </div>
+                  <p>If you have any questions, please contact the HR department.</p>
+                  <p>Best regards,<br>Management Team</p>
+                </div>
+              </div>
+            `
+          },
+          {
+            recipientEmail: user.email,
+            recipientRole: user.userType || 'fe',
+            templateType: 'notification',
+            userId: user._id
+          }
+        );
+        console.log(`✅ Activation email sent to ${user.email}`);
+      } catch (emailError) {
+        console.error('⚠️  Failed to send activation email (non-critical):', emailError.message);
+      }
+    }
 
     res.json({
       success: true,
@@ -1642,7 +1783,65 @@ router.put('/:id/deactivate', authenticateToken, requireUserManagementAccess, va
 
     user.isActive = false;
     user.status = 'Inactive';
+    
+    // Note: This simple deactivate doesn't set exit details
+    // For full exit management, use /set-inactive endpoint
+    
     await user.save({ validateModifiedOnly: true });
+
+    // Create notification for dashboard
+    try {
+      const notification = new Notification({
+        userId: user._id,
+        type: 'info',
+        title: 'Account Deactivated',
+        message: `Your account has been deactivated. Please contact HR for more information.`,
+        isRead: false,
+        sentBy: req.user._id
+      });
+      await notification.save();
+      console.log('✅ Notification created for user deactivation');
+    } catch (notificationError) {
+      console.error('⚠️  Error creating notification (non-critical):', notificationError.message);
+    }
+
+    // Send email to user about deactivation
+    if (user.email) {
+      try {
+        await emailService.sendEmail(
+          user.email,
+          'custom',
+          {
+            userName: user.name,
+            subject: 'Account Deactivated',
+            customContent: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+                  <h2 style="color: #d32f2f; margin-bottom: 20px;">Account Deactivated</h2>
+                  <p>Dear ${user.name},</p>
+                  <p>This is to inform you that your account has been deactivated.</p>
+                  <div style="background-color: #ffebee; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #d32f2f;">
+                    <p><strong>Status:</strong> Inactive</p>
+                    <p><strong>Deactivated Date:</strong> ${new Date().toLocaleDateString()}</p>
+                  </div>
+                  <p>If you have any questions or concerns, please contact the HR department.</p>
+                  <p>Best regards,<br>Management Team</p>
+                </div>
+              </div>
+            `
+          },
+          {
+            recipientEmail: user.email,
+            recipientRole: user.userType || 'fe',
+            templateType: 'notification',
+            userId: user._id
+          }
+        );
+        console.log(`✅ Deactivation email sent to ${user.email}`);
+      } catch (emailError) {
+        console.error('⚠️  Failed to send deactivation email (non-critical):', emailError.message);
+      }
+    }
 
     res.json({
       success: true,
@@ -1767,44 +1966,241 @@ router.get('/:userId/certificates', authenticateToken, validateUserId, requireOw
 // @route   PUT /api/users/:id/set-inactive
 // @desc    Set user as inactive with comprehensive exit management
 // @access  Private (Admin only)
-router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, validateObjectId, exitDocUpload.single('proofDocument'), handleMulterError, async (req, res) => {
+// Use .any() to parse all fields and files, then we'll handle the file separately
+router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, validateObjectId, conditionalMulter(exitDocUpload.any()), async (req, res) => {
   try {
     const userId = req.params.id;
-    const { 
-      exitDate, 
-      mainCategory, 
-      subCategory, 
-      exitReasonDescription, 
-      verifiedBy, 
-      remarks,
-      // Keep backward compatibility
-      inactiveReason,
-      inactiveRemark
-    } = req.body;
+    
+    // Ensure req.body exists
+    if (!req.body) {
+      req.body = {};
+    }
+    
+    // Extract fields from req.body (don't destructure - extract explicitly to handle FormData properly)
+    let exitDate = req.body.exitDate;
+    let mainCategory = req.body.mainCategory;
+    let subCategory = req.body.subCategory;
+    let exitReasonDescription = req.body.exitReasonDescription;
+    let verifiedBy = req.body.verifiedBy;
+    let remarks = req.body.remarks;
+    // Keep backward compatibility
+    let inactiveReason = req.body.inactiveReason;
+    let inactiveRemark = req.body.inactiveRemark;
 
-    console.log('Set inactive request received for user:', userId);
-    console.log('File uploaded:', req.file ? 'Yes - ' + req.file.originalname : 'No');
-
-    // Validate required fields
-    if (!exitDate && !inactiveReason) {
-      // Clean up uploaded file if validation fails
-      if (req.file && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
+    // Extract proofDocument file from req.files (since we're using .any())
+    const proofDocumentFile = req.files && Array.isArray(req.files) 
+      ? req.files.find(f => f.fieldname === 'proofDocument') 
+      : null;
+    
+    console.log('=== Set Inactive Request ===');
+    console.log('User ID:', userId);
+    console.log('Content-Type:', req.get('Content-Type'));
+    console.log('Request body exists:', !!req.body);
+    console.log('Request body type:', typeof req.body);
+    console.log('Request body (raw):', req.body);
+    console.log('Request body keys:', req.body ? Object.keys(req.body) : 'No body');
+    console.log('Request body values:', req.body ? Object.entries(req.body).map(([k, v]) => [k, typeof v, v]) : 'No body');
+    console.log('Files uploaded:', req.files ? `${req.files.length} file(s)` : 'No');
+    console.log('Proof document:', proofDocumentFile ? `Yes - ${proofDocumentFile.originalname} (${(proofDocumentFile.size / 1024).toFixed(2)} KB)` : 'No');
+    
+    console.log('Extracted fields:', {
+      exitDate: exitDate ? `${typeof exitDate} - "${exitDate}"` : 'undefined',
+      mainCategory: mainCategory ? `${typeof mainCategory} - "${mainCategory}"` : 'undefined',
+      subCategory: subCategory ? `${typeof subCategory} - "${subCategory}"` : 'undefined',
+      verifiedBy: verifiedBy ? `${typeof verifiedBy} - "${verifiedBy}"` : 'undefined'
+    });
+    
+    // Clean up uploaded file helper function
+    const cleanupFile = () => {
+      if (proofDocumentFile && fs.existsSync(proofDocumentFile.path)) {
+        try {
+          fs.unlinkSync(proofDocumentFile.path);
+          console.log('🗑️  Cleaned up uploaded file');
+        } catch (cleanupError) {
+          console.error('⚠️  Error cleaning up file:', cleanupError);
+        }
       }
+    };
+
+    // Debug: Log all body fields to see what we're receiving
+    console.log('=== Field Values Before Processing ===');
+    console.log('exitDate type:', typeof exitDate, 'value:', exitDate);
+    console.log('mainCategory type:', typeof mainCategory, 'value:', mainCategory);
+    console.log('All req.body keys:', Object.keys(req.body));
+    console.log('All req.body values:', Object.values(req.body).map(v => typeof v === 'string' ? v.substring(0, 50) : v));
+
+    // Trim string fields - handle all possible cases
+    if (exitDate !== undefined && exitDate !== null) {
+      exitDate = String(exitDate).trim();
+    } else {
+      exitDate = '';
+    }
+    
+    if (mainCategory !== undefined && mainCategory !== null) {
+      mainCategory = String(mainCategory).trim();
+    } else {
+      mainCategory = '';
+    }
+    
+    if (subCategory !== undefined && subCategory !== null) {
+      subCategory = String(subCategory).trim();
+    } else {
+      subCategory = '';
+    }
+    
+    if (exitReasonDescription !== undefined && exitReasonDescription !== null) {
+      exitReasonDescription = String(exitReasonDescription).trim();
+    } else {
+      exitReasonDescription = '';
+    }
+    
+    if (remarks !== undefined && remarks !== null) {
+      remarks = String(remarks).trim();
+    } else {
+      remarks = '';
+    }
+    
+    if (verifiedBy !== undefined && verifiedBy !== null) {
+      verifiedBy = String(verifiedBy).trim();
+    } else {
+      verifiedBy = 'Pending';
+    }
+    
+    if (inactiveReason !== undefined && inactiveReason !== null) {
+      inactiveReason = String(inactiveReason).trim();
+    } else {
+      inactiveReason = '';
+    }
+    
+    if (inactiveRemark !== undefined && inactiveRemark !== null) {
+      inactiveRemark = String(inactiveRemark).trim();
+    } else {
+      inactiveRemark = '';
+    }
+
+    console.log('=== Field Values After Processing ===');
+    console.log('exitDate:', exitDate);
+    console.log('mainCategory:', mainCategory);
+
+    // Validate exitDate (required)
+    // Check if exitDate is provided (either from new form or backward compatibility)
+    let finalExitDate = null;
+    if (exitDate && exitDate !== '') {
+      finalExitDate = exitDate;
+      console.log('✅ Using exitDate from form:', finalExitDate);
+    } else if (inactiveReason && inactiveReason !== '') {
+      // Backward compatibility: if inactiveReason is provided but no exitDate, use today's date
+      finalExitDate = new Date().toISOString().split('T')[0];
+      console.log('✅ Using today\'s date (backward compatibility):', finalExitDate);
+    } else {
+      console.log('❌ No exitDate or inactiveReason found');
+    }
+    
+    if (!finalExitDate || finalExitDate === '') {
+      cleanupFile();
+      console.error('❌ Validation failed: Exit date is required');
+      console.error('Request body keys:', Object.keys(req.body));
+      console.error('Request body:', JSON.stringify(req.body, null, 2));
       return res.status(400).json({
         error: 'Validation Error',
-        message: 'Exit date or inactive reason is required'
+        message: 'Exit date is required. Please select an exit date.',
+        debug: process.env.NODE_ENV === 'development' ? {
+          receivedFields: Object.keys(req.body),
+          exitDate: exitDate,
+          mainCategory: mainCategory
+        } : undefined
       });
     }
 
-    if (!mainCategory && !inactiveReason) {
-      // Clean up uploaded file if validation fails
-      if (req.file && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
+    // Validate date format and ensure it's not in the future
+    const exitDateObj = new Date(finalExitDate);
+    if (isNaN(exitDateObj.getTime())) {
+      cleanupFile();
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Invalid exit date format. Please provide a valid date.'
+      });
+    }
+
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // End of today
+    if (exitDateObj > today) {
+      cleanupFile();
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Exit date cannot be in the future'
+      });
+    }
+
+    // Validate mainCategory (required)
+    const validMainCategories = ['Resignation', 'Termination', 'End of Contract / Project', 'Retirement', 'Death', 'Other'];
+    const finalMainCategory = mainCategory || inactiveReason || null;
+    
+    if (!finalMainCategory) {
+      cleanupFile();
       return res.status(400).json({
         error: 'Validation Error',
         message: 'Exit reason main category is required'
+      });
+    }
+
+    if (!validMainCategories.includes(finalMainCategory)) {
+      cleanupFile();
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: `Invalid exit reason category. Must be one of: ${validMainCategories.join(', ')}`
+      });
+    }
+
+    // Validate subCategory if provided
+    const validSubCategories = {
+      'Resignation': ['Better employment opportunity', 'Higher salary expectation', 'Relocation', 'Career change', 'Personal/family reasons'],
+      'Termination': ['Performance issues', 'Low KPI', 'Repeated warnings', 'Misconduct', 'Bribe', 'Unethical behaviour', 'Bad habits', 'Non compliance with rules', 'Fraudulent activity'],
+      'End of Contract / Project': [],
+      'Retirement': [],
+      'Death': ['Natural death', 'Accidental death'],
+      'Other': ['Health issues', 'Further studies', 'Migration', 'Own business']
+    };
+
+    if (subCategory && subCategory.trim() !== '') {
+      const allowedSubCategories = validSubCategories[finalMainCategory] || [];
+      if (allowedSubCategories.length > 0 && !allowedSubCategories.includes(subCategory)) {
+        cleanupFile();
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: `Invalid sub-category for "${finalMainCategory}". Valid options: ${allowedSubCategories.join(', ')}`
+        });
+      }
+    }
+
+    // Validate exitReasonDescription (max 1000 characters)
+    const finalExitReasonDescription = exitReasonDescription || inactiveRemark || '';
+    if (finalExitReasonDescription.length > 1000) {
+      cleanupFile();
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Exit reason description cannot exceed 1000 characters'
+      });
+    }
+
+    // Validate verifiedBy
+    const validVerifiedBy = ['Pending', 'HR', 'Compliance'];
+    const finalVerifiedBy = verifiedBy || 'Pending';
+    if (!validVerifiedBy.includes(finalVerifiedBy)) {
+      cleanupFile();
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: `Invalid verifiedBy value. Must be one of: ${validVerifiedBy.join(', ')}`
+      });
+    }
+
+    // Validate remarks (max 500 characters)
+    const finalRemarks = remarks || '';
+    if (finalRemarks.length > 500) {
+      cleanupFile();
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Remarks cannot exceed 500 characters'
       });
     }
 
@@ -1812,9 +2208,7 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
     const user = await User.findById(userId);
     if (!user) {
       // Clean up uploaded file if user not found
-      if (req.file && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
+      cleanupFile();
       return res.status(404).json({
         error: 'Not Found',
         message: 'User not found'
@@ -1825,40 +2219,99 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
     user.status = 'Inactive';
     user.isActive = false;
     
-    // Set exit details
+    // Set exit details with validated values
     user.exitDetails = {
-      exitDate: exitDate ? new Date(exitDate) : new Date(),
+      exitDate: exitDateObj,
       exitReason: {
-        mainCategory: mainCategory || inactiveReason || 'Other',
-        subCategory: subCategory || ''
+        mainCategory: finalMainCategory,
+        subCategory: (subCategory && subCategory.trim() !== '') ? subCategory.trim() : ''
       },
-      exitReasonDescription: exitReasonDescription || inactiveRemark || '',
-      verifiedBy: verifiedBy || 'Pending',
-      verifiedByUser: verifiedBy !== 'Pending' ? req.user._id : null,
-      verifiedAt: verifiedBy !== 'Pending' ? new Date() : null,
-      remarks: remarks || ''
+      exitReasonDescription: finalExitReasonDescription,
+      verifiedBy: finalVerifiedBy,
+      verifiedByUser: finalVerifiedBy !== 'Pending' ? req.user._id : null,
+      verifiedAt: finalVerifiedBy !== 'Pending' ? new Date() : null,
+      remarks: finalRemarks
     };
 
     // Handle file upload
-    if (req.file) {
+    if (proofDocumentFile) {
+      // Store relative path for easier access
+      const relativePath = `/uploads/exit-documents/${path.basename(proofDocumentFile.path)}`;
       user.exitDetails.proofDocument = {
-        fileName: req.file.originalname,
-        filePath: req.file.path,
-        fileSize: req.file.size,
-        mimeType: req.file.mimetype,
+        fileName: proofDocumentFile.originalname,
+        filePath: relativePath, // Store relative path
+        absolutePath: proofDocumentFile.path, // Store absolute path for server access
+        fileSize: proofDocumentFile.size,
+        mimeType: proofDocumentFile.mimetype,
         uploadedAt: new Date()
       };
+      console.log(`✅ Proof document uploaded: ${proofDocumentFile.originalname} (${(proofDocumentFile.size / 1024).toFixed(2)} KB)`);
     }
 
     // Keep backward compatibility with old fields
-    user.inactiveReason = mainCategory || inactiveReason || 'Other';
-    user.inactiveRemark = exitReasonDescription || inactiveRemark || '';
-    user.inactiveDate = exitDate ? new Date(exitDate) : new Date();
+    user.inactiveReason = finalMainCategory;
+    user.inactiveRemark = finalExitReasonDescription;
+    user.inactiveDate = exitDateObj;
     user.inactiveBy = req.user._id;
 
     // Save without validating unchanged fields (fixes phone validation for old users)
     await user.save({ validateModifiedOnly: true });
     console.log('✅ User saved successfully as inactive');
+
+    // Create notification for dashboard
+    try {
+      const notification = new Notification({
+        userId: user._id,
+        type: 'info',
+        title: 'Account Deactivated',
+        message: `Your account has been deactivated. Exit reason: ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}. ${user.exitDetails.exitReasonDescription ? 'Details: ' + user.exitDetails.exitReasonDescription : ''}`,
+        isRead: false,
+        sentBy: req.user._id
+      });
+      await notification.save();
+      console.log('✅ Notification created for user deactivation');
+    } catch (notificationError) {
+      console.error('⚠️  Error creating notification (non-critical):', notificationError.message);
+    }
+
+    // Send email to user about deactivation
+    if (user.email) {
+      try {
+        await emailService.sendEmail(
+          user.email,
+          'custom',
+          {
+            userName: user.name,
+            subject: 'Account Deactivation Notice',
+            customContent: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+                  <h2 style="color: #d32f2f; margin-bottom: 20px;">Account Deactivation Notice</h2>
+                  <p>Dear ${user.name},</p>
+                  <p>This is to inform you that your account has been deactivated.</p>
+                  <div style="background-color: #ffebee; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #d32f2f;">
+                    <p><strong>Exit Date:</strong> ${user.exitDetails.exitDate ? new Date(user.exitDetails.exitDate).toLocaleDateString() : 'N/A'}</p>
+                    <p><strong>Exit Reason:</strong> ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}</p>
+                    ${user.exitDetails.exitReasonDescription ? `<p><strong>Details:</strong> ${user.exitDetails.exitReasonDescription}</p>` : ''}
+                  </div>
+                  <p>If you have any questions or concerns, please contact the HR department.</p>
+                  <p>Best regards,<br>Management Team</p>
+                </div>
+              </div>
+            `
+          },
+          {
+            recipientEmail: user.email,
+            recipientRole: user.userType || 'fe',
+            templateType: 'notification',
+            userId: user._id
+          }
+        );
+        console.log(`✅ Deactivation email sent to ${user.email}`);
+      } catch (emailError) {
+        console.error('⚠️  Failed to send deactivation email (non-critical):', emailError.message);
+      }
+    }
 
     // Create audit record (don't block response on this)
     try {
@@ -1907,15 +2360,15 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
       success: true,
       message: 'User set as inactive successfully with exit details',
       user: userResponse,
-      fileUploaded: !!req.file
+      fileUploaded: !!proofDocumentFile
     });
 
   } catch (error) {
     console.error('❌ Set user inactive error:', error);
     // Clean up uploaded file if error occurs
-    if (req.file && fs.existsSync(req.file.path)) {
+    if (proofDocumentFile && fs.existsSync(proofDocumentFile.path)) {
       try {
-        fs.unlinkSync(req.file.path);
+        fs.unlinkSync(proofDocumentFile.path);
         console.log('🗑️  Cleaned up uploaded file after error');
       } catch (cleanupError) {
         console.error('⚠️  Error cleaning up file:', cleanupError);
@@ -1944,9 +2397,16 @@ router.put('/:id/reactivate', authenticateToken, requireUserManagementAccess, va
       });
     }
 
-    // Reactivate user
+    // Reactivate user - clear all exit details
     user.status = 'Active';
     user.isActive = true;
+    
+    // Clear exit details if they exist
+    if (user.exitDetails) {
+      user.exitDetails = undefined;
+    }
+    
+    // Clear old inactive fields for backward compatibility
     user.inactiveReason = null;
     user.inactiveRemark = '';
     user.inactiveDate = null;
@@ -1954,6 +2414,60 @@ router.put('/:id/reactivate', authenticateToken, requireUserManagementAccess, va
 
     // Save without validating unchanged fields (fixes phone validation for old users)
     await user.save({ validateModifiedOnly: true });
+    
+    // Create notification for dashboard
+    try {
+      const notification = new Notification({
+        userId: user._id,
+        type: 'success',
+        title: 'Account Reactivated',
+        message: `Your account has been reactivated. You can now access all features.`,
+        isRead: false,
+        sentBy: req.user._id
+      });
+      await notification.save();
+      console.log('✅ Notification created for user reactivation');
+    } catch (notificationError) {
+      console.error('⚠️  Error creating notification (non-critical):', notificationError.message);
+    }
+
+    // Send email to user about reactivation
+    if (user.email) {
+      try {
+        await emailService.sendEmail(
+          user.email,
+          'custom',
+          {
+            userName: user.name,
+            subject: 'Account Reactivated',
+            customContent: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+                  <h2 style="color: #2e7d32; margin-bottom: 20px;">Account Reactivated</h2>
+                  <p>Dear ${user.name},</p>
+                  <p>Your account has been reactivated successfully. You can now access all features of the platform.</p>
+                  <div style="background-color: #e8f5e8; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #2e7d32;">
+                    <p><strong>Status:</strong> Active</p>
+                    <p><strong>Reactivated Date:</strong> ${new Date().toLocaleDateString()}</p>
+                  </div>
+                  <p>If you have any questions, please contact the HR department.</p>
+                  <p>Best regards,<br>Management Team</p>
+                </div>
+              </div>
+            `
+          },
+          {
+            recipientEmail: user.email,
+            recipientRole: user.userType || 'fe',
+            templateType: 'notification',
+            userId: user._id
+          }
+        );
+        console.log(`✅ Reactivation email sent to ${user.email}`);
+      } catch (emailError) {
+        console.error('⚠️  Failed to send reactivation email (non-critical):', emailError.message);
+      }
+    }
 
     // Create audit record
     const auditRecord = new AuditRecord({
