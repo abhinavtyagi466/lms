@@ -1,0 +1,37 @@
+// Quick fix for UserDetailsPage.tsx - Line 1120-1145
+
+// REPLACE the warning card content with this:
+
+                          <div className="text-right">
+                            <Badge className={getSeverityColor(warning.severity)}>
+                              {warning.severity}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Status and Date Info */}
+                        <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
+                          <span>Issued: {formatDate(warning.issuedAt)}</span>
+                          {warning.resolvedAt && (
+                            <span>Resolved: {formatDate(warning.resolvedAt)}</span>
+                          )}
+                          <Badge className={getStatusColor(warning.status)}>
+                            {warning.status}
+                          </Badge>
+                        </div>
+
+                        {/* Document Attachment */}
+                        {warning.metadata?.attachmentUrl && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <a
+                              href={`http://localhost:3001${warning.metadata.attachmentUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
+                            >
+                              <FileText className="w-4 h-4" />
+                              View Attachment
+                            </a>
+                          </div>
+                        )}
+                      </Card>

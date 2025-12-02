@@ -1,10 +1,10 @@
 import React, { useState, Suspense, lazy } from 'react';
-import { 
-  Users, 
-  BookOpen, 
+import {
+  Users,
+  BookOpen,
   BarChart3,
-  Award, 
-  FileText, 
+  Award,
+  FileText,
   LogOut,
   Home,
   Bell,
@@ -84,7 +84,7 @@ const adminSidebarItems = [
   { key: 'awards', label: 'Awards & Recognition', icon: Award },
   { key: 'lifecycle', label: 'Lifecycle Dashboard', icon: Clock },
   // { key: 'mail-preview', label: 'Mail Preview', icon: Mail },
-  { key: 'logout', label: 'Logout', icon: LogOut }
+  // { key: 'logout', label: 'Logout', icon: LogOut }
 ];
 
 
@@ -114,7 +114,7 @@ class ErrorBoundary extends React.Component<
           <div className="text-center">
             <h1 className="text-2xl font-semibold text-red-600 mb-4">Something went wrong</h1>
             <p className="text-gray-600 mb-4">Please refresh the page to try again</p>
-            <Button 
+            <Button
               onClick={() => window.location.reload()}
               className="bg-blue-600 hover:bg-blue-700"
             >
@@ -256,16 +256,16 @@ const AppContent: React.FC = () => {
         case 'kpi-scores': return <UserKPIScoresPage />;
         // TEMPORARILY HIDDEN: User Email Center
         // case 'user-emails': return <UserEmailCenter />;
-               case 'admin-login': return <AdminLogin />;
-               case 'admin-dashboard': return <AdminDashboardEnhanced />;
-               case 'user-management': return <UserManagement />;
-               case 'exit-records': return <ExitRecordsPage />;
-               case 'user-lifecycle': return <UserLifecycle />;
-               case 'module-management': return <ModuleManagement />;
-               case 'score-reports': return <ScoreReportsPage />;
-               case 'kpi-triggers': return <KPITriggerDashboard />;
-               case 'kpi-audit-dashboard': return <KPIAuditDashboard />;
-               case 'kpi-configuration': return <KPIConfigurationPage />;
+        case 'admin-login': return <AdminLogin />;
+        case 'admin-dashboard': return <AdminDashboardEnhanced />;
+        case 'user-management': return <UserManagement />;
+        case 'exit-records': return <ExitRecordsPage />;
+        case 'user-lifecycle': return <UserLifecycle />;
+        case 'module-management': return <ModuleManagement />;
+        case 'score-reports': return <ScoreReportsPage />;
+        case 'kpi-triggers': return <KPITriggerDashboard />;
+        case 'kpi-audit-dashboard': return <KPIAuditDashboard />;
+        case 'kpi-configuration': return <KPIConfigurationPage />;
         case 'email-templates': return <EmailTemplatesPage />;
         // TEMPORARILY HIDDEN: Email Center and Recipient Groups
         // case 'email-center': return <EmailNotificationCenter />;
@@ -284,7 +284,7 @@ const AppContent: React.FC = () => {
 
         {user ? (
           <div className="flex h-full">
-            <Sidebar 
+            <Sidebar
               items={userType === 'user' ? userSidebarItems : adminSidebarItems}
               onItemClick={handleNavigation}
             />
@@ -298,8 +298,8 @@ const AppContent: React.FC = () => {
           <div>
             {currentPage === 'user-login' && (
               <div className="fixed top-4 right-20 z-10 flex space-x-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setCurrentPage('admin-login')}
                   className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
@@ -309,8 +309,8 @@ const AppContent: React.FC = () => {
             )}
             {currentPage === 'admin-login' && (
               <div className="fixed top-4 right-20 z-10 flex space-x-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setCurrentPage('user-login')}
                   className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
@@ -353,7 +353,7 @@ const AppContent: React.FC = () => {
         <div className="text-center">
           <h1 className="text-2xl font-semibold text-red-600 mb-4">Authentication Error</h1>
           <p className="text-gray-600 mb-4">There was an issue with the authentication system.</p>
-          <Button 
+          <Button
             onClick={() => window.location.reload()}
             className="bg-blue-600 hover:bg-blue-700"
           >

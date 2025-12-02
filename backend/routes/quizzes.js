@@ -15,17 +15,22 @@ const router = express.Router();
 router.get('/', authenticateToken, async (req, res) => {
   try {
     // Admin gets all quizzes, users get only quizzes for published modules
-    let query = { isActive: true };
+    // Always exclude quizzes with null moduleId (orphaned quizzes)
+    let query = {
+      isActive: true,
+      moduleId: { $ne: null, $exists: true }
+    };
+
     if (req.user.userType !== 'admin') {
       // For users, only show quizzes for published modules
       const publishedModules = await Module.find({ status: 'published' }).select('_id');
       const publishedModuleIds = publishedModules.map(m => m._id);
-      query = { ...query, moduleId: { $in: publishedModuleIds } };
+      query = { ...query, moduleId: { $in: publishedModuleIds, $ne: null, $exists: true } };
     }
-    
+
     console.log('Fetching quizzes with query:', query);
     console.log('User type:', req.user.userType);
-    
+
     const quizzes = await Quiz.find(query)
       .populate('moduleId', 'title status')
       .sort({ createdAt: -1 });
@@ -58,9 +63,9 @@ router.get('/', authenticateToken, async (req, res) => {
 // @access  Private (All authenticated users)
 router.get('/:moduleId', authenticateToken, async (req, res) => {
   try {
-    const quiz = await Quiz.findOne({ 
-      moduleId: req.params.moduleId, 
-      isActive: true 
+    const quiz = await Quiz.findOne({
+      moduleId: req.params.moduleId,
+      isActive: true
     }).populate('moduleId', 'title');
 
     if (!quiz) {
@@ -108,13 +113,18 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       });
     }
 
-    // Check if quiz already exists for this module
-    const existingQuiz = await Quiz.findOne({ moduleId });
-    if (existingQuiz) {
-      return res.status(409).json({
-        error: 'Quiz already exists',
-        message: 'A quiz already exists for this module'
+    // Check if quiz already exists for this module (only check valid moduleIds)
+    if (moduleId) {
+      const existingQuiz = await Quiz.findOne({
+        moduleId,
+        moduleId: { $ne: null, $exists: true }
       });
+      if (existingQuiz) {
+        return res.status(409).json({
+          error: 'Quiz already exists',
+          message: 'A quiz already exists for this module'
+        });
+      }
     }
 
     const quiz = new Quiz({
@@ -225,7 +235,7 @@ router.post('/:moduleId/upload-csv', authenticateToken, requireAdmin, async (req
 
     // Handle both parsed questions format and raw CSV format
     let questions;
-    
+
     if (csvData[0] && typeof csvData[0] === 'object' && csvData[0].question) {
       // Frontend has already parsed the CSV - use directly
       questions = csvData.map((row, index) => {
@@ -273,12 +283,18 @@ router.post('/:moduleId/upload-csv', authenticateToken, requireAdmin, async (req
       });
     }
 
+    console.log('=== CSV UPLOAD DEBUG ===');
+    console.log('Module ID:', req.params.moduleId);
+    console.log('Questions parsed:', questions.length);
+
     // Update or create quiz
     let quiz = await Quiz.findOne({ moduleId: req.params.moduleId });
-    
+
     if (quiz) {
+      console.log('Updating existing quiz:', quiz._id);
       quiz.questions = questions;
     } else {
+      console.log('Creating new quiz for module:', req.params.moduleId);
       quiz = new Quiz({
         moduleId: req.params.moduleId,
         questions,
@@ -288,10 +304,12 @@ router.post('/:moduleId/upload-csv', authenticateToken, requireAdmin, async (req
     }
 
     await quiz.save();
+    console.log('Quiz saved successfully:', quiz._id);
+    console.log('Quiz moduleId after save:', quiz.moduleId);
 
     res.json({
       success: true,
-      message: `Quiz updated with ${questions.length} questions`,
+      message: `Quiz ${quiz.isNew ? 'created' : 'updated'} with ${questions.length} questions`,
       quiz: quiz
     });
 
@@ -403,7 +421,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
     // Get the quiz for this module
     console.log('Searching for quiz with moduleId:', moduleId);
     const quiz = await Quiz.findOne({ moduleId, isActive: true });
-    
+
     if (!quiz) {
       console.log('❌ Quiz not found for moduleId:', moduleId);
       return res.status(404).json({
@@ -411,7 +429,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
         message: 'No quiz available for this module'
       });
     }
-    
+
     console.log('✅ Quiz found:', quiz._id);
     console.log('   Questions count:', quiz.questions?.length);
     console.log('   Pass percent:', quiz.passPercent);
@@ -449,14 +467,14 @@ router.post('/submit', authenticateToken, async (req, res) => {
       const selectedOption = answer?.selectedOption !== undefined ? Number(answer.selectedOption) : -1;
       const correctOption = question.correctOption !== undefined ? Number(question.correctOption) : -1;
       const isCorrect = selectedOption === correctOption && selectedOption !== -1;
-      
+
       if (isCorrect) {
         score++;
         console.log(`✅ Question ${index + 1}: Correct (Selected: ${selectedOption}, Correct: ${correctOption})`);
       } else {
         console.log(`❌ Question ${index + 1}: Incorrect (Selected: ${selectedOption}, Correct: ${correctOption})`);
       }
-      
+
       return {
         questionIndex: index,
         selectedOption: selectedOption,
@@ -465,11 +483,11 @@ router.post('/submit', authenticateToken, async (req, res) => {
       };
     });
 
-    const percentage = quiz.questions.length > 0 
-      ? Math.round((score / quiz.questions.length) * 100) 
+    const percentage = quiz.questions.length > 0
+      ? Math.round((score / quiz.questions.length) * 100)
       : 0;
     const passed = percentage >= quiz.passPercent;
-    
+
     console.log('📊 Score Calculation:');
     console.log('   Correct answers:', score, 'out of', quiz.questions.length);
     console.log('   Percentage:', percentage, '%');
@@ -490,7 +508,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
         });
       }
       attemptNumber = quizAttempt.attemptNumber;
-      
+
       // Update the attempt
       quizAttempt.endTime = new Date();
       quizAttempt.timeSpent = timeTaken || 0;
@@ -505,7 +523,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
         weightage: 1
       }));
       quizAttempt.status = 'completed';
-      
+
       try {
         await quizAttempt.save();
         console.log('✅ Quiz attempt updated successfully:', quizAttempt._id);
@@ -518,7 +536,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
       // Create new attempt
       const previousAttempts = await QuizAttempt.countDocuments({ userId, moduleId });
       attemptNumber = previousAttempts + 1;
-      
+
       quizAttempt = new QuizAttempt({
         userId,
         moduleId,
@@ -546,7 +564,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
         personalisedModuleId: quiz.isPersonalised ? moduleId : null,
         personalisedQuizId: quiz.isPersonalised ? quiz._id : null
       });
-      
+
       try {
         await quizAttempt.save();
         console.log('✅ Quiz attempt saved successfully:', quizAttempt._id);
@@ -598,7 +616,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
     // Update UserProgress to track quiz completion
     try {
       let userProgress = await UserProgress.getUserProgress(userId, moduleId);
-      
+
       if (!userProgress) {
         // Create new user progress if it doesn't exist
         userProgress = new UserProgress({
@@ -680,7 +698,7 @@ router.get('/results/:userId', authenticateToken, async (req, res) => {
     // Convert both to ObjectId for proper comparison
     const requestedUserIdObj = new mongoose.Types.ObjectId(userId);
     const currentUserIdObj = new mongoose.Types.ObjectId(requestingUserId);
-    
+
     if (!requestedUserIdObj.equals(currentUserIdObj) && !isAdmin) {
       return res.status(403).json({
         error: 'Forbidden',

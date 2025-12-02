@@ -96,9 +96,10 @@ export const ModuleManagement: React.FC = () => {
     userId: '',
     moduleId: '',
     reason: '',
-    priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent'
+    priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
+    userSearch: '' // For search functionality
   });
-  const [users, setUsers] = useState<Array<{_id: string, name: string, email: string, employeeId: string}>>([]);
+  const [users, setUsers] = useState<Array<{ _id: string, name: string, email: string, employeeId: string }>>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isCreatingPersonalised, setIsCreatingPersonalised] = useState(false);
 
@@ -144,7 +145,7 @@ export const ModuleManagement: React.FC = () => {
       console.log('=== FETCHING QUIZZES ===');
       const response = await apiService.quizzes.getAllQuizzes();
       console.log('Quiz API Response:', response);
-      
+
       if (response && (response as any).data && (response as any).data.quizzes) {
         console.log('Setting quizzes from data.quizzes:', (response as any).data.quizzes);
         setQuizzes((response as any).data.quizzes);
@@ -169,7 +170,7 @@ export const ModuleManagement: React.FC = () => {
       setIsLoadingUsers(true);
       const response = await apiService.users.listSimple();
       console.log('Raw API response:', response);
-      
+
       // Handle different response structures
       let usersData = [];
       if (response && response.users) {
@@ -181,7 +182,7 @@ export const ModuleManagement: React.FC = () => {
       } else if (response && Array.isArray(response.data)) {
         usersData = response.data;
       }
-      
+
       console.log('Processed users data:', usersData);
       setUsers(usersData);
     } catch (error) {
@@ -204,7 +205,7 @@ export const ModuleManagement: React.FC = () => {
     console.log('Looking for quiz with moduleId:', moduleId);
     console.log('Available quizzes:', quizzes);
     console.log('Quiz count:', quizzes.length);
-    
+
     // Handle both string and object moduleId formats
     const foundQuiz = quizzes.find(quiz => {
       if (typeof quiz.moduleId === 'string') {
@@ -214,7 +215,7 @@ export const ModuleManagement: React.FC = () => {
       }
       return false;
     });
-    
+
     console.log('Found quiz:', foundQuiz);
     if (foundQuiz) {
       console.log('Quiz details:', {
@@ -247,14 +248,14 @@ export const ModuleManagement: React.FC = () => {
   const handleCreateQuiz = async () => {
     try {
       setIsCreatingQuiz(true);
-      
+
       if (!createQuizData.moduleId || createQuizData.questions.length === 0) {
         toast.error('Module and at least one question are required');
         return;
       }
 
       const existingQuiz = getModuleQuiz(createQuizData.moduleId);
-      
+
       let response;
 
       if (existingQuiz) {
@@ -368,12 +369,12 @@ export const ModuleManagement: React.FC = () => {
   const handleUploadCSV = async () => {
     try {
       setIsUploadingCSV(true);
-      
+
       if (!selectedModuleId) {
         toast.error('Please select a module first');
         return;
       }
-      
+
       if (!csvData.trim()) {
         toast.error('Please upload a CSV file');
         return;
@@ -397,7 +398,7 @@ export const ModuleManagement: React.FC = () => {
         if (parts.length < 3) continue;
 
         const [question, optionA, optionB, optionC, optionD, correctOption, explanation] = parts;
-        
+
         if (question && optionA && optionB && optionC && optionD) {
           const correctIndex = parseInt(correctOption) || 0;
           if (correctIndex >= 0 && correctIndex <= 3) {
@@ -443,9 +444,9 @@ export const ModuleManagement: React.FC = () => {
   const handleCreatePersonalisedModule = async () => {
     try {
       setIsCreatingPersonalised(true);
-      
-      if (!personalisedModuleData.userId || !personalisedModuleData.moduleId || 
-          personalisedModuleData.userId === 'loading' || personalisedModuleData.userId === 'no-users') {
+
+      if (!personalisedModuleData.userId || !personalisedModuleData.moduleId ||
+        personalisedModuleData.userId === 'loading' || personalisedModuleData.userId === 'no-users') {
         toast.error('Please select both user and module');
         return;
       }
@@ -470,7 +471,8 @@ export const ModuleManagement: React.FC = () => {
           userId: '',
           moduleId: '',
           reason: '',
-          priority: 'medium'
+          priority: 'medium',
+          userSearch: ''
         });
         // Refresh modules to show updated data
         await fetchModules();
@@ -583,16 +585,16 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
       const questionIndex = parseInt(editingQuestion.questionId.replace('temp_', ''));
       setCreateQuizData(prev => ({
         ...prev,
-        questions: prev.questions.map((q, index) => 
-          index === questionIndex 
+        questions: prev.questions.map((q, index) =>
+          index === questionIndex
             ? {
-                ...q,
-                question: editingQuestion.question,
-                options: validOptions,
-                correctOption: Math.min(editingQuestion.correctOption, validOptions.length - 1),
-                explanation: editingQuestion.explanation,
-                marks: editingQuestion.marks
-              }
+              ...q,
+              question: editingQuestion.question,
+              options: validOptions,
+              correctOption: Math.min(editingQuestion.correctOption, validOptions.length - 1),
+              explanation: editingQuestion.explanation,
+              marks: editingQuestion.marks
+            }
             : q
         )
       }));
@@ -620,8 +622,8 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
 
   const filteredModules = modules.filter(module => {
     const matchesSearch = module.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         module.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         module.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+      module.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      module.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesFilter = filterStatus === 'all' || module.status === filterStatus;
 
@@ -639,208 +641,258 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Module Management</h1>
-          <p className="text-gray-600">Manage training modules and videos</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Module Management</h1>
+            <p className="text-gray-600">Manage training modules and videos</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={async () => {
+                console.log('Manual refresh triggered...');
+                await fetchQuizzes();
+                await fetchModules();
+              }}
+              className="text-sm bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Refresh Data
+            </Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => setShowCreateModal(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add New Module
+            </Button>
+            <Button
+              className="bg-purple-600 hover:bg-purple-700"
+              onClick={() => setShowPersonalisedModal(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Personalised Module
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            onClick={async () => {
-              console.log('Manual refresh triggered...');
-              await fetchQuizzes();
-              await fetchModules();
-            }}
-            className="text-sm bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            Refresh Data
-          </Button>
-          <Button 
-            className="bg-blue-600 hover:bg-blue-700"
-            onClick={() => setShowCreateModal(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add New Module
-          </Button>
-          <Button 
-            className="bg-purple-600 hover:bg-purple-700"
-            onClick={() => setShowPersonalisedModal(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Personalised Module
-          </Button>
-        </div>
-      </div>
 
-      {/* Search and Filters */}
-      <Card className="p-4">
-        <div className="flex gap-4">
-          <div className="flex-1 relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="Search modules..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+        {/* Search and Filters */}
+        <Card className="p-4">
+          <div className="flex gap-4">
+            <div className="flex-1 relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Input
+                placeholder="Search modules..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="all">All Status</option>
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+            </select>
           </div>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md"
-          >
-            <option value="all">All Status</option>
-            <option value="draft">Draft</option>
-            <option value="published">Published</option>
-          </select>
-        </div>
-      </Card>
+        </Card>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Modules</p>
-              <p className="text-2xl font-bold">{modules.length}</p>
-            </div>
-            <BookOpen className="w-8 h-8 text-blue-600" />
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Published</p>
-              <p className="text-2xl font-bold text-green-600">
-                {modules.filter(m => m.status === 'published').length}
-              </p>
-            </div>
-            <CheckCircle className="w-8 h-8 text-green-600" />
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Draft</p>
-              <p className="text-2xl font-bold text-yellow-600">
-                {modules.filter(m => m.status === 'draft').length}
-              </p>
-            </div>
-            <Clock className="w-8 h-8 text-yellow-600" />
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Quizzes</p>
-              <p className="text-2xl font-bold text-purple-600">
-                {quizzes.length}
-              </p>
-            </div>
-            <FileQuestion className="w-8 h-8 text-purple-600" />
-          </div>
-        </Card>
-      </div>
-
-      {/* Modules Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredModules.map((module) => {
-          const moduleQuiz = getModuleQuiz(module._id);
-          console.log(`Module ${module._id} (${module.title}) - Quiz found:`, moduleQuiz);
-          console.log('Module ID type:', typeof module._id, 'Value:', module._id);
-          
-          return (
-            <Card key={module._id} className="overflow-hidden">
-              <div className="aspect-video bg-gray-200 relative">
-                {getThumbnailUrl(module.ytVideoId) ? (
-                  <img
-                    src={getThumbnailUrl(module.ytVideoId)!}
-                    alt={module.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <Eye className="w-12 h-12 text-gray-400" />
-                  </div>
-                )}
-                <div className="absolute top-2 right-2">
-                  <Badge variant={module.status === 'published' ? 'default' : 'secondary'}>
-                    {module.status}
-                  </Badge>
-                </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Modules</p>
+                <p className="text-2xl font-bold">{modules.length}</p>
               </div>
-              
-              <div className="p-4">
-                <h3 className="font-semibold text-lg mb-2">{module.title}</h3>
-                <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                  {module.description}
+              <BookOpen className="w-8 h-8 text-blue-600" />
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Published</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {modules.filter(m => m.status === 'published').length}
                 </p>
-                
-                {module.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {module.tags.slice(0, 3).map((tag, index) => (
-                      <Badge key={index} variant="outline" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                    {module.tags.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{module.tags.length - 3}
-                      </Badge>
-                    )}
-                  </div>
-                )}
+              </div>
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Draft</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {modules.filter(m => m.status === 'draft').length}
+                </p>
+              </div>
+              <Clock className="w-8 h-8 text-yellow-600" />
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Quizzes</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {quizzes.length}
+                </p>
+              </div>
+              <FileQuestion className="w-8 h-8 text-purple-600" />
+            </div>
+          </Card>
+        </div>
 
-                {/* Quiz Management Section */}
-                <div className="mb-3 border rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-3 py-2 border-b">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <FileQuestion className="w-4 h-4 text-purple-600" />
-                        <span className="text-sm font-medium text-gray-700">Quiz Management</span>
-                      </div>
-                      {!moduleQuiz && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setCreateQuizData(prev => ({ ...prev, moduleId: module._id }));
-                            setShowQuizModal(true);
-                          }}
-                          className="text-xs h-6 px-2"
-                        >
-                          <Plus className="w-3 h-3 mr-1" />
-                          Add Quiz
-                        </Button>
+        {/* Modules Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredModules.map((module) => {
+            const moduleQuiz = getModuleQuiz(module._id);
+            console.log(`Module ${module._id} (${module.title}) - Quiz found:`, moduleQuiz);
+            console.log('Module ID type:', typeof module._id, 'Value:', module._id);
+
+            return (
+              <Card key={module._id} className="overflow-hidden">
+                <div className="aspect-video bg-gray-200 relative">
+                  {getThumbnailUrl(module.ytVideoId) ? (
+                    <img
+                      src={getThumbnailUrl(module.ytVideoId)!}
+                      alt={module.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <Eye className="w-12 h-12 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="absolute top-2 right-2">
+                    <Badge variant={module.status === 'published' ? 'default' : 'secondary'}>
+                      {module.status}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="p-4">
+                  <h3 className="font-semibold text-lg mb-2">{module.title}</h3>
+                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                    {module.description}
+                  </p>
+
+                  {module.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {module.tags.slice(0, 3).map((tag, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                      {module.tags.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{module.tags.length - 3}
+                        </Badge>
                       )}
                     </div>
-                  </div>
-                  
-                  {moduleQuiz ? (
-                    <div className="p-3 space-y-3">
-                      {/* Quiz Status and Info */}
+                  )}
+
+                  {/* Quiz Management Section */}
+                  <div className="mb-3 border rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 px-3 py-2 border-b">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Badge variant={moduleQuiz.isActive ? 'default' : 'secondary'} className={moduleQuiz.isActive ? 'bg-green-600 text-white' : 'bg-gray-500 text-white'}>
-                            {moduleQuiz.isActive ? 'Active' : 'Inactive'}
-                          </Badge>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {moduleQuiz.questions.length} questions
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            Pass: {moduleQuiz.passPercent}%
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            Time: {moduleQuiz.estimatedTime}min
-                          </span>
+                          <FileQuestion className="w-4 h-4 text-purple-600" />
+                          <span className="text-sm font-medium text-gray-700">Quiz Management</span>
                         </div>
-                        <div className="flex gap-1">
+                        {!moduleQuiz && (
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              setCreateQuizData(prev => ({ 
-                                ...prev, 
+                              setCreateQuizData(prev => ({ ...prev, moduleId: module._id }));
+                              setShowQuizModal(true);
+                            }}
+                            className="text-xs h-6 px-2"
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Add Quiz
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {moduleQuiz ? (
+                      <div className="p-3 space-y-3">
+                        {/* Quiz Status and Info */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge variant={moduleQuiz.isActive ? 'default' : 'secondary'} className={moduleQuiz.isActive ? 'bg-green-600 text-white' : 'bg-gray-500 text-white'}>
+                              {moduleQuiz.isActive ? 'Active' : 'Inactive'}
+                            </Badge>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                              {moduleQuiz.questions.length} questions
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              Pass: {moduleQuiz.passPercent}%
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              Time: {moduleQuiz.estimatedTime}min
+                            </span>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setCreateQuizData(prev => ({
+                                  ...prev,
+                                  moduleId: module._id,
+                                  passPercent: moduleQuiz.passPercent,
+                                  questions: moduleQuiz.questions
+                                }));
+                                setShowQuizModal(true);
+                              }}
+                              className="text-xs h-6 px-2"
+                            >
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleToggleQuizStatus(module._id, !moduleQuiz.isActive)}
+                              className={`text-xs h-6 px-2 ${moduleQuiz.isActive ? 'text-orange-600 hover:text-orange-700 border-orange-300 hover:bg-orange-50' : 'text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50'
+                                }`}
+                            >
+                              {moduleQuiz.isActive ? 'Deactivate' : 'Activate'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDeleteQuiz(module._id)}
+                              className="text-red-600 hover:text-red-700 text-xs h-6 px-2"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Enhanced Quiz Actions */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedModuleId(module._id);
+                              setShowCSVModal(true);
+                            }}
+                            className="text-xs h-6 px-2"
+                          >
+                            <Upload className="w-3 h-3 mr-1" />
+                            CSV Upload
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setCreateQuizData(prev => ({
+                                ...prev,
                                 moduleId: module._id,
                                 passPercent: moduleQuiz.passPercent,
                                 questions: moduleQuiz.questions
@@ -849,188 +901,348 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                             }}
                             className="text-xs h-6 px-2"
                           >
-                            <Eye className="w-3 h-3" />
+                            <FileText className="w-3 h-3 mr-1" />
+                            Edit Quiz
                           </Button>
+                        </div>
+
+                        {/* CSV Template Download */}
+                        <div className="text-center">
                           <Button
                             size="sm"
-                            variant="outline"
-                            onClick={() => handleToggleQuizStatus(module._id, !moduleQuiz.isActive)}
-                            className={`text-xs h-6 px-2 ${
-                              moduleQuiz.isActive ? 'text-orange-600 hover:text-orange-700 border-orange-300 hover:bg-orange-50' : 'text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50'
-                            }`}
+                            variant="ghost"
+                            onClick={downloadCSVTemplate}
+                            className="text-xs h-6 px-2 text-blue-600 hover:text-blue-700"
                           >
-                            {moduleQuiz.isActive ? 'Deactivate' : 'Activate'}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeleteQuiz(module._id)}
-                            className="text-red-600 hover:text-red-700 text-xs h-6 px-2"
-                          >
-                            <Trash2 className="w-3 h-3" />
+                            <FileText className="w-3 h-3 mr-1" />
+                            Download CSV Template
                           </Button>
                         </div>
                       </div>
-                      
-                      {/* Enhanced Quiz Actions */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedModuleId(module._id);
-                            setShowCSVModal(true);
-                          }}
-                          className="text-xs h-6 px-2"
-                        >
-                          <Upload className="w-3 h-3 mr-1" />
-                          CSV Upload
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setCreateQuizData(prev => ({ 
-                              ...prev, 
-                              moduleId: module._id,
-                              passPercent: moduleQuiz.passPercent,
-                              questions: moduleQuiz.questions
-                            }));
-                            setShowQuizModal(true);
-                          }}
-                          className="text-xs h-6 px-2"
-                        >
-                          <FileText className="w-3 h-3 mr-1" />
-                          Edit Quiz
-                        </Button>
+                    ) : (
+                      <div className="p-3 space-y-2">
+                        <p className="text-sm text-gray-500 text-center">No quiz available for this module</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setCreateQuizData(prev => ({ ...prev, moduleId: module._id }));
+                              setShowQuizModal(true);
+                            }}
+                            className="text-xs h-6 px-2"
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Create Quiz
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedModuleId(module._id);
+                              setShowCSVModal(true);
+                            }}
+                            className="text-xs h-6 px-2"
+                          >
+                            <Upload className="w-3 h-3 mr-1" />
+                            CSV Upload
+                          </Button>
+                        </div>
+
+                        {/* CSV Template Download */}
+                        <div className="text-center">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={downloadCSVTemplate}
+                            className="text-xs h-6 px-2 text-blue-600 hover:text-blue-700"
+                          >
+                            <FileText className="w-3 h-3 mr-1" />
+                            Download CSV Template
+                          </Button>
+                        </div>
                       </div>
-                      
-                      {/* CSV Template Download */}
-                      <div className="text-center">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={downloadCSVTemplate}
-                          className="text-xs h-6 px-2 text-blue-600 hover:text-blue-700"
-                        >
-                          <FileText className="w-3 h-3 mr-1" />
-                          Download CSV Template
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-3 space-y-2">
-                      <p className="text-sm text-gray-500 text-center">No quiz available for this module</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setCreateQuizData(prev => ({ ...prev, moduleId: module._id }));
-                            setShowQuizModal(true);
-                          }}
-                          className="text-xs h-6 px-2"
-                        >
-                          <Plus className="w-3 h-3 mr-1" />
-                          Create Quiz
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedModuleId(module._id);
-                            setShowCSVModal(true);
-                          }}
-                          className="text-xs h-6 px-2"
-                        >
-                          <Upload className="w-3 h-3 mr-1" />
-                          CSV Upload
-                        </Button>
-                      </div>
-                      
-                      {/* CSV Template Download */}
-                      <div className="text-center">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={downloadCSVTemplate}
-                          className="text-xs h-6 px-2 text-blue-600 hover:text-blue-700"
-                        >
-                          <FileText className="w-3 h-3 mr-1" />
-                          Download CSV Template
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-gray-500">
-                    Created by {module.createdBy?.name || 'Unknown'}
+                    )}
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => window.open(`https://www.youtube.com/watch?v=${module.ytVideoId}`, '_blank')}
+
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-gray-500">
+                      Created by {module.createdBy?.name || 'Unknown'}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(`https://www.youtube.com/watch?v=${module.ytVideoId}`, '_blank')}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDeleteModule(module._id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Create Module Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Create New YouTube Module</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCreateModal(false)}
+                >
+                  ✕
+                </Button>
+              </div>
+
+              <AdminModuleForm
+                onModuleCreated={() => {
+                  setShowCreateModal(false);
+                  fetchModules();
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Create/Edit Quiz Modal */}
+        {showQuizModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <h2 className="text-xl font-semibold mb-4">
+                {createQuizData.moduleId && getModuleQuiz(createQuizData.moduleId) ? 'Edit Quiz' : 'Create New Quiz'} for Module: {modules.find(m => m._id === createQuizData.moduleId)?.title || 'Unknown'}
+              </h2>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="moduleId">Module *</Label>
+                    <Select
+                      value={createQuizData.moduleId}
+                      onValueChange={(value) => setCreateQuizData(prev => ({ ...prev, moduleId: value }))}
                     >
-                      <Eye className="w-4 h-4" />
-                    </Button>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a module" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {modules.map(module => (
+                          <SelectItem key={module._id} value={module._id}>
+                            {module.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="passPercent">Pass Percentage (%)</Label>
+                    <Input
+                      id="passPercent"
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={createQuizData.passPercent}
+                      onChange={(e) => setCreateQuizData(prev => ({ ...prev, passPercent: parseInt(e.target.value) || 70 }))}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="estimatedTime">Estimated Time (minutes)</Label>
+                    <Input
+                      id="estimatedTime"
+                      type="number"
+                      min="1"
+                      max="120"
+                      value={createQuizData.estimatedTime}
+                      onChange={(e) => setCreateQuizData(prev => ({ ...prev, estimatedTime: parseInt(e.target.value) || 10 }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Add Questions</h3>
+
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <div>
+                      <Label htmlFor="questionPrompt">Question *</Label>
+                      <Input
+                        id="questionPrompt"
+                        value={currentQuestion.question}
+                        onChange={(e) => setCurrentQuestion(prev => ({ ...prev, question: e.target.value }))}
+                        placeholder="Enter your question"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Options</Label>
+                      {currentQuestion.options.map((option, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Input
+                            value={option}
+                            onChange={(e) => {
+                              const newOptions = [...currentQuestion.options];
+                              newOptions[index] = e.target.value;
+                              setCurrentQuestion(prev => ({ ...prev, options: newOptions }));
+                            }}
+                            placeholder={`Option ${index + 1}`}
+                          />
+                          <input
+                            type="radio"
+                            name="correctAnswer"
+                            checked={currentQuestion.correctOption === index}
+                            onChange={() => setCurrentQuestion(prev => ({ ...prev, correctOption: index }))}
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="explanation">Explanation (Optional)</Label>
+                      <Input
+                        id="explanation"
+                        value={currentQuestion.explanation}
+                        onChange={(e) => setCurrentQuestion(prev => ({ ...prev, explanation: e.target.value }))}
+                        placeholder="Explanation for the correct answer"
+                      />
+                    </div>
+
                     <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDeleteModule(module._id)}
+                      onClick={addQuestion}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={!currentQuestion.question.trim() || currentQuestion.options.filter(opt => opt.trim()).length < 2}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      Add Question
                     </Button>
+                  </div>
+                </div>
+
+                {createQuizData.questions.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-3">Added Questions ({createQuizData.questions.length})</h3>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {createQuizData.questions.map((question, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div className="flex-1">
+                            <div className="text-sm font-medium">
+                              {index + 1}. {question.question}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Options: {question.options.join(', ')} | Correct: {question.options[question.correctOption]}
+                            </div>
+                          </div>
+                          <div className="flex gap-1">
+                            {/* NEW: Edit Button (ADDED WITHOUT TOUCHING EXISTING) */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditQuestion(question, index)}
+                              className="text-blue-600 hover:text-blue-700"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDeleteQuestion(index)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quiz Summary */}
+                <div className="border-t pt-4">
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">Quiz Summary</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm text-blue-800">
+                      <div>
+                        <span className="font-medium">Module:</span> {modules.find(m => m._id === createQuizData.moduleId)?.title || 'Not selected'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Questions:</span> {createQuizData.questions.length}
+                      </div>
+                      <div>
+                        <span className="font-medium">Pass Percentage:</span> {createQuizData.passPercent}%
+                      </div>
+                      <div>
+                        <span className="font-medium">Estimated Time:</span> {createQuizData.estimatedTime} minutes
+                      </div>
+                      <div>
+                        <span className="font-medium">Status:</span> {createQuizData.questions.length > 0 ? 'Ready to create' : 'Add questions first'}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </Card>
-          );
-        })}
-      </div>
 
-      {/* Create Module Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Create New YouTube Module</h2>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowCreateModal(false)}
-              >
-                ✕
-              </Button>
+              <div className="flex gap-3 mt-6">
+                <Button
+                  onClick={handleCreateQuiz}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={createQuizData.questions.length === 0 || !createQuizData.moduleId || isCreatingQuiz}
+                >
+                  {isCreatingQuiz ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      {createQuizData.moduleId && getModuleQuiz(createQuizData.moduleId) ? 'Updating...' : 'Creating...'}
+                    </>
+                  ) : (
+                    createQuizData.moduleId && getModuleQuiz(createQuizData.moduleId) ? 'Update Quiz' : 'Create Quiz'
+                  )}
+                </Button>
+
+
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowQuizModal(false);
+                    setCreateQuizData({
+                      moduleId: '',
+                      passPercent: 70,
+                      estimatedTime: 10,
+                      questions: []
+                    });
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
-            
-            <AdminModuleForm 
-              onModuleCreated={() => {
-                setShowCreateModal(false);
-                fetchModules();
-              }}
-            />
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Create/Edit Quiz Modal */}
-      {showQuizModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-semibold mb-4">
-              {createQuizData.moduleId && getModuleQuiz(createQuizData.moduleId) ? 'Edit Quiz' : 'Create New Quiz'} for Module: {modules.find(m => m._id === createQuizData.moduleId)?.title || 'Unknown'}
-            </h2>
-            
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+        {/* CSV Upload Modal */}
+        {showCSVModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
+              <h2 className="text-xl font-semibold mb-4">
+                Upload Questions via CSV for Module: {modules.find(m => m._id === selectedModuleId)?.title || 'Unknown'}
+              </h2>
+
+              <div className="space-y-4">
                 <div>
-                  <Label htmlFor="moduleId">Module *</Label>
+                  <Label htmlFor="csvModuleId">Module</Label>
                   <Select
-                    value={createQuizData.moduleId}
-                    onValueChange={(value) => setCreateQuizData(prev => ({ ...prev, moduleId: value }))}
+                    value={selectedModuleId}
+                    onValueChange={setSelectedModuleId}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select a module" />
@@ -1044,227 +1256,16 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div>
-                  <Label htmlFor="passPercent">Pass Percentage (%)</Label>
-                  <Input
-                    id="passPercent"
-                    type="number"
-                    min="1"
-                    max="100"
-                    value={createQuizData.passPercent}
-                    onChange={(e) => setCreateQuizData(prev => ({ ...prev, passPercent: parseInt(e.target.value) || 70 }))}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="estimatedTime">Estimated Time (minutes)</Label>
-                  <Input
-                    id="estimatedTime"
-                    type="number"
-                    min="1"
-                    max="120"
-                    value={createQuizData.estimatedTime}
-                    onChange={(e) => setCreateQuizData(prev => ({ ...prev, estimatedTime: parseInt(e.target.value) || 10 }))}
-                  />
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <h3 className="font-semibold mb-3">Add Questions</h3>
-                
-                <div className="space-y-4 p-4 border rounded-lg">
-                  <div>
-                    <Label htmlFor="questionPrompt">Question *</Label>
-                    <Input
-                      id="questionPrompt"
-                      value={currentQuestion.question}
-                      onChange={(e) => setCurrentQuestion(prev => ({ ...prev, question: e.target.value }))}
-                      placeholder="Enter your question"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Options</Label>
-                    {currentQuestion.options.map((option, index) => (
-                      <div key={index} className="flex gap-2">
-                        <Input
-                          value={option}
-                          onChange={(e) => {
-                            const newOptions = [...currentQuestion.options];
-                            newOptions[index] = e.target.value;
-                            setCurrentQuestion(prev => ({ ...prev, options: newOptions }));
-                          }}
-                          placeholder={`Option ${index + 1}`}
-                        />
-                        <input
-                          type="radio"
-                          name="correctAnswer"
-                          checked={currentQuestion.correctOption === index}
-                          onChange={() => setCurrentQuestion(prev => ({ ...prev, correctOption: index }))}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="explanation">Explanation (Optional)</Label>
-                    <Input
-                      id="explanation"
-                      value={currentQuestion.explanation}
-                      onChange={(e) => setCurrentQuestion(prev => ({ ...prev, explanation: e.target.value }))}
-                      placeholder="Explanation for the correct answer"
-                    />
-                  </div>
-                  
-                  <Button 
-                    onClick={addQuestion} 
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                    disabled={!currentQuestion.question.trim() || currentQuestion.options.filter(opt => opt.trim()).length < 2}
-                  >
-                    Add Question
-                  </Button>
-                </div>
-              </div>
-
-              {createQuizData.questions.length > 0 && (
-                <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-3">Added Questions ({createQuizData.questions.length})</h3>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {createQuizData.questions.map((question, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <div className="flex-1">
-                          <div className="text-sm font-medium">
-                            {index + 1}. {question.question}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            Options: {question.options.join(', ')} | Correct: {question.options[question.correctOption]}
-                          </div>
-                        </div>
-                        <div className="flex gap-1">
-                          {/* NEW: Edit Button (ADDED WITHOUT TOUCHING EXISTING) */}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditQuestion(question, index)}
-                            className="text-blue-600 hover:text-blue-700"
-                          >
-                            <Edit className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeleteQuestion(index)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Quiz Summary */}
-              <div className="border-t pt-4">
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <h4 className="font-medium text-blue-900 mb-2">Quiz Summary</h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm text-blue-800">
-                    <div>
-                      <span className="font-medium">Module:</span> {modules.find(m => m._id === createQuizData.moduleId)?.title || 'Not selected'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Questions:</span> {createQuizData.questions.length}
-                    </div>
-                    <div>
-                      <span className="font-medium">Pass Percentage:</span> {createQuizData.passPercent}%
-                    </div>
-                    <div>
-                      <span className="font-medium">Estimated Time:</span> {createQuizData.estimatedTime} minutes
-                    </div>
-                    <div>
-                      <span className="font-medium">Status:</span> {createQuizData.questions.length > 0 ? 'Ready to create' : 'Add questions first'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <Button
-                onClick={handleCreateQuiz}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                disabled={createQuizData.questions.length === 0 || !createQuizData.moduleId || isCreatingQuiz}
-              >
-                {isCreatingQuiz ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    {createQuizData.moduleId && getModuleQuiz(createQuizData.moduleId) ? 'Updating...' : 'Creating...'}
-                  </>
-                ) : (
-                  createQuizData.moduleId && getModuleQuiz(createQuizData.moduleId) ? 'Update Quiz' : 'Create Quiz'
-                )}
-              </Button>
-              
-
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowQuizModal(false);
-                  setCreateQuizData({
-                    moduleId: '',
-                    passPercent: 70,
-                    estimatedTime: 10,
-                    questions: []
-                  });
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CSV Upload Modal */}
-      {showCSVModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
-            <h2 className="text-xl font-semibold mb-4">
-              Upload Questions via CSV for Module: {modules.find(m => m._id === selectedModuleId)?.title || 'Unknown'}
-            </h2>
-            
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="csvModuleId">Module</Label>
-                <Select
-                  value={selectedModuleId}
-                  onValueChange={setSelectedModuleId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a module" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {modules.map(module => (
-                      <SelectItem key={module._id} value={module._id}>
-                        {module.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="csvFile">Upload CSV File</Label>
-                <div className="mt-2">
-                  <input
-                    type="file"
-                    id="csvFile"
-                    accept=".csv,text/csv"
-                    onChange={handleFileChange}
-                    className="block w-full text-sm text-gray-500
+                  <Label htmlFor="csvFile">Upload CSV File</Label>
+                  <div className="mt-2">
+                    <input
+                      type="file"
+                      id="csvFile"
+                      accept=".csv,text/csv"
+                      onChange={handleFileChange}
+                      className="block w-full text-sm text-gray-500
                       file:mr-4 file:py-2 file:px-4
                       file:rounded-md file:border-0
                       file:text-sm file:font-semibold
@@ -1272,322 +1273,389 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                       hover:file:bg-blue-100
                       file:cursor-pointer
                       border border-gray-300 rounded-md p-2"
+                    />
+                  </div>
+                  {csvFile && (
+                    <p className="mt-2 text-sm text-gray-600">
+                      Selected file: <span className="font-medium">{csvFile.name}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div className="text-xs text-gray-600">
+                  <p><strong>CSV Format:</strong></p>
+                  <p>question,optionA,optionB,optionC,optionD,correctOption,explanation</p>
+                  <p>First row should be headers. correctOption: 0=A, 1=B, 2=C, 3=D</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <Button
+                  onClick={handleUploadCSV}
+                  className="flex-1"
+                  disabled={isUploadingCSV || !selectedModuleId || !csvData.trim()}
+                >
+                  {isUploadingCSV ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload CSV
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowCSVModal(false);
+                    setCsvData('');
+                    setCsvFile(null);
+                    setSelectedModuleId('');
+                    // Reset file input
+                    const fileInput = document.getElementById('csvFile') as HTMLInputElement;
+                    if (fileInput) fileInput.value = '';
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Personalised Module Modal */}
+        {showPersonalisedModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Plus className="w-5 h-5 text-purple-600" />
+                Assign Personalised Module
+              </h2>
+
+              <div className="space-y-4">
+                {/* Debug info - remove this after fixing */}
+                <div className="bg-gray-100 p-2 rounded text-xs">
+                  <strong>Debug Info:</strong> Users loaded: {users.length}, Loading: {isLoadingUsers ? 'Yes' : 'No'}
+                  {users.length > 0 && (
+                    <div className="mt-1">
+                      First user: {users[0]?.name} ({users[0]?._id})
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="personalisedUser">Search User</Label>
+                  <div className="relative">
+                    <Input
+                      id="personalisedUser"
+                      type="text"
+                      placeholder="Type to search by name, employee ID, or email..."
+                      value={personalisedModuleData.userSearch || ''}
+                      onChange={(e) => {
+                        const searchValue = e.target.value;
+                        setPersonalisedModuleData(prev => ({
+                          ...prev,
+                          userSearch: searchValue,
+                          userId: '' // Clear selection when searching
+                        }));
+                      }}
+                      className="pr-10"
+                    />
+                    <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  </div>
+
+                  {/* Filtered Users List */}
+                  {personalisedModuleData.userSearch && personalisedModuleData.userSearch.length > 0 && (
+                    <div className="mt-2 max-h-60 overflow-y-auto border rounded-lg bg-white dark:bg-gray-900">
+                      {isLoadingUsers ? (
+                        <div className="p-3 text-sm text-gray-500 text-center">
+                          Loading users...
+                        </div>
+                      ) : (() => {
+                        const searchTerm = personalisedModuleData.userSearch.toLowerCase();
+                        const filteredUsers = users.filter(user =>
+                          user.name?.toLowerCase().includes(searchTerm) ||
+                          user.employeeId?.toLowerCase().includes(searchTerm) ||
+                          user.email?.toLowerCase().includes(searchTerm)
+                        );
+
+                        return filteredUsers.length === 0 ? (
+                          <div className="p-3 text-sm text-gray-500 text-center">
+                            No users found matching "{personalisedModuleData.userSearch}"
+                          </div>
+                        ) : (
+                          filteredUsers.map((user) => (
+                            <div
+                              key={user._id}
+                              onClick={() => {
+                                setPersonalisedModuleData(prev => ({
+                                  ...prev,
+                                  userId: user._id,
+                                  userSearch: '' // Clear search to hide dropdown
+                                }));
+                              }}
+                              className={`p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 border-b last:border-b-0 transition-colors ${personalisedModuleData.userId === user._id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                                }`}
+                            >
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                {user.name || 'Unknown'}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {user.employeeId || 'No ID'} - {user.email || 'No email'}
+                              </div>
+                            </div>
+                          ))
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Selected User Display */}
+                  {personalisedModuleData.userId && (
+                    <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                            Selected: {users.find(u => u._id === personalisedModuleData.userId)?.name || 'Unknown'}
+                          </div>
+                          <div className="text-xs text-blue-700 dark:text-blue-300">
+                            {users.find(u => u._id === personalisedModuleData.userId)?.employeeId || 'No ID'} - {users.find(u => u._id === personalisedModuleData.userId)?.email || 'No email'}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setPersonalisedModuleData(prev => ({
+                              ...prev,
+                              userId: '',
+                              userSearch: ''
+                            }));
+                          }}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                        >
+                          ✕
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="personalisedModule">Select Module</Label>
+                  <Select
+                    value={personalisedModuleData.moduleId}
+                    onValueChange={(value) => setPersonalisedModuleData(prev => ({ ...prev, moduleId: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a module..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {modules.filter(m => m.status === 'published').map((module) => (
+                        <SelectItem key={module._id} value={module._id}>
+                          {module.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="personalisedPriority">Priority</Label>
+                  <Select
+                    value={personalisedModuleData.priority}
+                    onValueChange={(value: 'low' | 'medium' | 'high' | 'urgent') =>
+                      setPersonalisedModuleData(prev => ({ ...prev, priority: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="personalisedReason">Reason for Personalisation</Label>
+                  <Input
+                    id="personalisedReason"
+                    placeholder="e.g., Performance improvement, Special training requirement..."
+                    value={personalisedModuleData.reason}
+                    onChange={(e) => setPersonalisedModuleData(prev => ({ ...prev, reason: e.target.value }))}
                   />
                 </div>
-                {csvFile && (
-                  <p className="mt-2 text-sm text-gray-600">
-                    Selected file: <span className="font-medium">{csvFile.name}</span>
-                  </p>
-                )}
               </div>
-              
-              <div className="text-xs text-gray-600">
-                <p><strong>CSV Format:</strong></p>
-                <p>question,optionA,optionB,optionC,optionD,correctOption,explanation</p>
-                <p>First row should be headers. correctOption: 0=A, 1=B, 2=C, 3=D</p>
+
+              <div className="flex gap-3 mt-6">
+                <Button
+                  onClick={handleCreatePersonalisedModule}
+                  disabled={isCreatingPersonalised}
+                  className="bg-purple-600 hover:bg-purple-700 flex-1"
+                >
+                  {isCreatingPersonalised ? 'Assigning...' : 'Assign Personalised Module'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowPersonalisedModal(false);
+                    setPersonalisedModuleData({
+                      userId: '',
+                      moduleId: '',
+                      reason: '',
+                      priority: 'medium',
+                      userSearch: ''
+                    });
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
               </div>
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <Button
-                onClick={handleUploadCSV}
-                className="flex-1"
-                disabled={isUploadingCSV || !selectedModuleId || !csvData.trim()}
-              >
-                {isUploadingCSV ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload CSV
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowCSVModal(false);
-                  setCsvData('');
-                  setCsvFile(null);
-                  setSelectedModuleId('');
-                  // Reset file input
-                  const fileInput = document.getElementById('csvFile') as HTMLInputElement;
-                  if (fileInput) fileInput.value = '';
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Personalised Module Modal */}
-      {showPersonalisedModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <Plus className="w-5 h-5 text-purple-600" />
-              Assign Personalised Module
-            </h2>
-            
-            <div className="space-y-4">
-              {/* Debug info - remove this after fixing */}
-              <div className="bg-gray-100 p-2 rounded text-xs">
-                <strong>Debug Info:</strong> Users loaded: {users.length}, Loading: {isLoadingUsers ? 'Yes' : 'No'}
-                {users.length > 0 && (
-                  <div className="mt-1">
-                    First user: {users[0]?.name} ({users[0]?._id})
-                  </div>
-                )}
-              </div>
-              
-              <div>
-                <Label htmlFor="personalisedUser">Select User</Label>
-                <Select
-                  value={personalisedModuleData.userId}
-                  onValueChange={(value) => setPersonalisedModuleData(prev => ({ ...prev, userId: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a user..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {isLoadingUsers ? (
-                      <SelectItem value="loading" disabled>
-                        Loading users...
-                      </SelectItem>
-                    ) : users.length === 0 ? (
-                      <SelectItem value="no-users" disabled>
-                        No users found (Total: {users.length})
-                      </SelectItem>
-                    ) : (
-                      users.map((user) => {
-                        console.log('Rendering user:', user);
-                        return (
-                          <SelectItem key={user._id} value={user._id}>
-                            {user.name || 'Unknown'} ({user.employeeId || 'No ID'}) - {user.email || 'No email'}
-                          </SelectItem>
-                        );
-                      })
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+        {/* NEW: Edit Question Modal (ADDED WITHOUT TOUCHING EXISTING) */}
+        {showEditQuestionModal && editingQuestion && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+                Edit Question
+              </h3>
 
-              <div>
-                <Label htmlFor="personalisedModule">Select Module</Label>
-                <Select
-                  value={personalisedModuleData.moduleId}
-                  onValueChange={(value) => setPersonalisedModuleData(prev => ({ ...prev, moduleId: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a module..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {modules.filter(m => m.status === 'published').map((module) => (
-                      <SelectItem key={module._id} value={module._id}>
-                        {module.title}
-                      </SelectItem>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="editQuestion">Question</Label>
+                  <Input
+                    id="editQuestion"
+                    placeholder="Enter your question..."
+                    value={editingQuestion.question}
+                    onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, question: e.target.value } : null)}
+                  />
+                </div>
+
+                <div>
+                  <Label>Options</Label>
+                  <div className="space-y-2">
+                    {editingQuestion.options.map((option, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          placeholder={`Option ${index + 1}`}
+                          value={option}
+                          onChange={(e) => {
+                            const newOptions = [...editingQuestion.options];
+                            newOptions[index] = e.target.value;
+                            setEditingQuestion(prev => prev ? { ...prev, options: newOptions } : null);
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const newOptions = editingQuestion.options.filter((_, i) => i !== index);
+                            setEditingQuestion(prev => prev ? { ...prev, options: newOptions } : null);
+                          }}
+                          disabled={editingQuestion.options.length <= 2}
+                        >
+                          Remove
+                        </Button>
+                      </div>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditingQuestion(prev => prev ? {
+                          ...prev,
+                          options: [...prev.options, '']
+                        } : null);
+                      }}
+                      disabled={editingQuestion.options.length >= 6}
+                    >
+                      Add Option
+                    </Button>
+                  </div>
+                </div>
 
-              <div>
-                <Label htmlFor="personalisedPriority">Priority</Label>
-                <Select
-                  value={personalisedModuleData.priority}
-                  onValueChange={(value: 'low' | 'medium' | 'high' | 'urgent') => 
-                    setPersonalisedModuleData(prev => ({ ...prev, priority: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select priority..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="personalisedReason">Reason for Personalisation</Label>
-                <Input
-                  id="personalisedReason"
-                  placeholder="e.g., Performance improvement, Special training requirement..."
-                  value={personalisedModuleData.reason}
-                  onChange={(e) => setPersonalisedModuleData(prev => ({ ...prev, reason: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <Button
-                onClick={handleCreatePersonalisedModule}
-                disabled={isCreatingPersonalised}
-                className="bg-purple-600 hover:bg-purple-700 flex-1"
-              >
-                {isCreatingPersonalised ? 'Assigning...' : 'Assign Personalised Module'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowPersonalisedModal(false);
-                  setPersonalisedModuleData({
-                    userId: '',
-                    moduleId: '',
-                    reason: '',
-                    priority: 'medium'
-                  });
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* NEW: Edit Question Modal (ADDED WITHOUT TOUCHING EXISTING) */}
-      {showEditQuestionModal && editingQuestion && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-              Edit Question
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="editQuestion">Question</Label>
-                <Input
-                  id="editQuestion"
-                  placeholder="Enter your question..."
-                  value={editingQuestion.question}
-                  onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, question: e.target.value } : null)}
-                />
-              </div>
-
-              <div>
-                <Label>Options</Label>
-                <div className="space-y-2">
-                  {editingQuestion.options.map((option, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Input
-                        placeholder={`Option ${index + 1}`}
-                        value={option}
-                        onChange={(e) => {
-                          const newOptions = [...editingQuestion.options];
-                          newOptions[index] = e.target.value;
-                          setEditingQuestion(prev => prev ? { ...prev, options: newOptions } : null);
-                        }}
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const newOptions = editingQuestion.options.filter((_, i) => i !== index);
-                          setEditingQuestion(prev => prev ? { ...prev, options: newOptions } : null);
-                        }}
-                        disabled={editingQuestion.options.length <= 2}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingQuestion(prev => prev ? { 
-                        ...prev, 
-                        options: [...prev.options, ''] 
-                      } : null);
-                    }}
-                    disabled={editingQuestion.options.length >= 6}
+                <div>
+                  <Label htmlFor="editCorrectOption">Correct Option</Label>
+                  <Select
+                    value={editingQuestion.correctOption.toString()}
+                    onValueChange={(value) => setEditingQuestion(prev => prev ? {
+                      ...prev,
+                      correctOption: parseInt(value)
+                    } : null)}
                   >
-                    Add Option
-                  </Button>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select correct option..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {editingQuestion.options.map((option, index) => (
+                        <SelectItem key={index} value={index.toString()}>
+                          Option {index + 1}: {option || 'Empty'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="editExplanation">Explanation (Optional)</Label>
+                  <Input
+                    id="editExplanation"
+                    placeholder="Explain why this is the correct answer..."
+                    value={editingQuestion.explanation}
+                    onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, explanation: e.target.value } : null)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="editMarks">Marks</Label>
+                  <Input
+                    id="editMarks"
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={editingQuestion.marks}
+                    onChange={(e) => setEditingQuestion(prev => prev ? {
+                      ...prev,
+                      marks: parseInt(e.target.value) || 1
+                    } : null)}
+                  />
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="editCorrectOption">Correct Option</Label>
-                <Select
-                  value={editingQuestion.correctOption.toString()}
-                  onValueChange={(value) => setEditingQuestion(prev => prev ? { 
-                    ...prev, 
-                    correctOption: parseInt(value) 
-                  } : null)}
+              <div className="flex gap-3 mt-6">
+                <Button
+                  onClick={handleUpdateQuestion}
+                  disabled={isUpdatingQuestion}
+                  className="bg-blue-600 hover:bg-blue-700 flex-1"
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select correct option..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {editingQuestion.options.map((option, index) => (
-                      <SelectItem key={index} value={index.toString()}>
-                        Option {index + 1}: {option || 'Empty'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {isUpdatingQuestion ? 'Updating...' : 'Update Question'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowEditQuestionModal(false);
+                    setEditingQuestion(null);
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
               </div>
-
-              <div>
-                <Label htmlFor="editExplanation">Explanation (Optional)</Label>
-                <Input
-                  id="editExplanation"
-                  placeholder="Explain why this is the correct answer..."
-                  value={editingQuestion.explanation}
-                  onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, explanation: e.target.value } : null)}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="editMarks">Marks</Label>
-                <Input
-                  id="editMarks"
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={editingQuestion.marks}
-                  onChange={(e) => setEditingQuestion(prev => prev ? { 
-                    ...prev, 
-                    marks: parseInt(e.target.value) || 1 
-                  } : null)}
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <Button
-                onClick={handleUpdateQuestion}
-                disabled={isUpdatingQuestion}
-                className="bg-blue-600 hover:bg-blue-700 flex-1"
-              >
-                {isUpdatingQuestion ? 'Updating...' : 'Update Question'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowEditQuestionModal(false);
-                  setEditingQuestion(null);
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
     </div>
   );

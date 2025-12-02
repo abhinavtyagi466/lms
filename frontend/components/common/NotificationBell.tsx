@@ -54,11 +54,11 @@ export const NotificationBell: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside (handled by backdrop in portal, but kept for safety)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+        // setIsOpen(false); // Handled by backdrop
       }
     };
 
@@ -214,237 +214,232 @@ export const NotificationBell: React.FC = () => {
       {isOpen && createPortal(
         <>
           {/* Backdrop */}
-          <div 
-            className="fixed inset-0 z-[9998]"
+          <div
+            className="fixed inset-0 z-[9998] bg-black/20"
             onClick={() => setIsOpen(false)}
           />
-          
-          {/* Dropdown Card - Properly Positioned at Top Right */}
-          <Card 
-            className="fixed top-20 right-4 w-[420px] max-h-[calc(100vh-100px)] overflow-hidden shadow-2xl border-2 border-gray-300 dark:border-gray-600 animate-in fade-in slide-in-from-top-2 duration-200 z-[9999]"
+
+          {/* Dropdown Card - Properly Positioned */}
+          <Card
+            className="fixed top-4 right-4 w-full max-w-[95vw] sm:max-w-[420px] max-h-[calc(100vh-32px)] overflow-hidden shadow-2xl border-2 border-gray-300 dark:border-gray-600 animate-in fade-in slide-in-from-top-2 duration-200 z-[9999] flex flex-col"
           >
-          {/* Header - Enhanced */}
-          <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white p-5 border-b-2 border-blue-800">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                  <Bell className="w-6 h-6 text-white" />
+            {/* Header - Fixed and Clean */}
+            <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white p-4 border-b-2 border-blue-800 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm flex-shrink-0">
+                    <Bell className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base sm:text-lg font-bold truncate">Notifications</h3>
+                    <p className="text-xs sm:text-sm text-blue-100 font-medium truncate">
+                      {unreadCount > 0 ? `${unreadCount} unread message${unreadCount > 1 ? 's' : ''}` : '✨ All caught up!'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold">Notifications</h3>
-                  <p className="text-sm text-blue-100 font-medium">
-                    {unreadCount > 0 ? `${unreadCount} unread message${unreadCount > 1 ? 's' : ''}` : '✨ All caught up!'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                {unreadCount > 0 && (
+                <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                  {unreadCount > 0 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-white hover:bg-white/20 h-8 w-8 p-0 flex-shrink-0"
+                      onClick={handleMarkAllAsRead}
+                      title="Mark all as read"
+                    >
+                      <CheckCheck className="w-4 h-4" />
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="text-white hover:bg-white/20 h-8 w-8 p-0"
-                    onClick={handleMarkAllAsRead}
-                    title="Mark all as read"
+                    className="text-white hover:bg-white/20 h-8 w-8 p-0 flex-shrink-0"
+                    onClick={handleToggleDropdown}
+                    title="Close"
                   >
-                    <CheckCheck className="w-4 h-4" />
+                    <X className="w-5 h-5" />
                   </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-white hover:bg-white/20 h-8 w-8 p-0"
-                  onClick={handleToggleDropdown}
-                  title="Close"
-                >
-                  <X className="w-5 h-5" />
-                </Button>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Notifications List - Enhanced */}
-          <div className="overflow-y-auto max-h-[480px] bg-gray-50 dark:bg-gray-900">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center p-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">Loading notifications...</p>
-              </div>
-            ) : notifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-12 text-center">
-                <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900 dark:to-indigo-900 rounded-full flex items-center justify-center mb-4 shadow-lg">
-                  <Bell className="w-10 h-10 text-blue-400" />
+            {/* Notifications List - Scrollable */}
+            <div className="overflow-y-auto flex-1 bg-gray-50 dark:bg-gray-900">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center p-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">Loading notifications...</p>
                 </div>
-                <h4 className="text-gray-700 dark:text-gray-300 font-semibold mb-2">No notifications yet</h4>
-                <p className="text-gray-500 dark:text-gray-400 text-sm">We'll notify you when something important arrives</p>
-              </div>
-            ) : (
-              notifications.map((notification) => (
-                <div
-                  key={notification._id}
-                  className={`border-b border-gray-200 dark:border-gray-700 p-4 transition-all duration-200 cursor-pointer ${
-                    !notification.read 
-                      ? 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950 dark:to-indigo-950 border-l-4 border-l-blue-500 hover:shadow-md' 
-                      : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750'
-                  }`}
-                  onClick={() => {
-                    if (!notification.read) {
-                      handleMarkAsRead(notification._id);
-                    }
-                    if (notification.metadata?.actionUrl) {
-                      setIsOpen(false);
-                      window.location.hash = notification.metadata.actionUrl;
-                    }
-                  }}
-                >
-                  <div className="flex items-start gap-3">
-                    {/* Icon - Enhanced */}
-                    <div className={`flex-shrink-0 mt-1 p-2.5 rounded-lg shadow-md ${
-                      !notification.read 
-                        ? 'bg-white dark:bg-gray-800 ring-2 ring-blue-200 dark:ring-blue-800' 
-                        : 'bg-gray-100 dark:bg-gray-700'
-                    }`}>
-                      {getNotificationIcon(notification.type)}
-                    </div>
-
-                    {/* Content - Enhanced */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <h4 className={`text-sm font-bold ${
-                          !notification.read 
-                            ? 'text-blue-900 dark:text-blue-100' 
-                            : 'text-gray-700 dark:text-gray-300'
+              ) : notifications.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-12 text-center">
+                  <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900 dark:to-indigo-900 rounded-full flex items-center justify-center mb-4 shadow-lg">
+                    <Bell className="w-10 h-10 text-blue-400" />
+                  </div>
+                  <h4 className="text-gray-700 dark:text-gray-300 font-semibold mb-2">No notifications yet</h4>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">We'll notify you when something important arrives</p>
+                </div>
+              ) : (
+                notifications.map((notification) => (
+                  <div
+                    key={notification._id}
+                    className={`border-b border-gray-200 dark:border-gray-700 p-4 transition-all duration-200 cursor-pointer ${!notification.read
+                        ? 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950 dark:to-indigo-950 border-l-4 border-l-blue-500 hover:shadow-md'
+                        : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750'
+                      }`}
+                    onClick={() => {
+                      if (!notification.read) {
+                        handleMarkAsRead(notification._id);
+                      }
+                      if (notification.metadata?.actionUrl) {
+                        setIsOpen(false);
+                        window.location.hash = notification.metadata.actionUrl;
+                      }
+                    }}
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* Icon */}
+                      <div className={`flex-shrink-0 mt-1 p-2.5 rounded-lg shadow-md ${!notification.read
+                          ? 'bg-white dark:bg-gray-800 ring-2 ring-blue-200 dark:ring-blue-800'
+                          : 'bg-gray-100 dark:bg-gray-700'
                         }`}>
-                          {notification.title}
-                        </h4>
-                        {!notification.read && (
-                          <div className="w-2.5 h-2.5 bg-blue-600 rounded-full flex-shrink-0 mt-1 animate-pulse shadow-lg shadow-blue-500/50"></div>
-                        )}
+                        {getNotificationIcon(notification.type)}
                       </div>
-                      
-                      <p className={`text-xs mt-1 line-clamp-2 ${
-                        !notification.read 
-                          ? 'text-gray-700 dark:text-blue-200 font-medium' 
-                          : 'text-gray-600 dark:text-gray-400'
-                      }`}>
-                        {notification.message}
-                      </p>
 
-                      {/* Metadata - Enhanced */}
-                      {notification.metadata && (
-                        <div className="flex flex-wrap gap-2 mt-3">
-                          {notification.metadata.kpiScore !== undefined && (
-                            <div className="bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/50 dark:to-orange-900/50 border border-amber-300 dark:border-amber-700 rounded-md px-2.5 py-1 shadow-sm">
-                              <span className="text-xs text-amber-900 dark:text-amber-100 font-bold">
-                                📊 {notification.metadata.kpiScore}%
-                              </span>
-                            </div>
-                          )}
-                          {notification.metadata.rating && (
-                            <Badge variant="outline" className="text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300">
-                              {notification.metadata.rating}
-                            </Badge>
-                          )}
-                          {notification.metadata.period && (
-                            <Badge variant="outline" className="text-xs bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600">
-                              📅 {notification.metadata.period}
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Attachments - Enhanced */}
-                      {notification.attachments && notification.attachments.length > 0 && (
-                        <div className="mt-3 space-y-1.5">
-                          {notification.attachments.map((attachment, idx) => (
-                            <a
-                              key={idx}
-                              href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${attachment.filePath}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline bg-blue-50 dark:bg-blue-900/20 px-2 py-1.5 rounded border border-blue-200 dark:border-blue-800 transition-colors"
-                            >
-                              <FileText className="w-3.5 h-3.5 flex-shrink-0" />
-                              <span className="truncate">{attachment.fileName}</span>
-                              {attachment.fileSize && (
-                                <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-                                  ({(attachment.fileSize / 1024).toFixed(2)} KB)
-                                </span>
-                              )}
-                            </a>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Actions - Enhanced */}
-                      <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-200 dark:border-gray-600">
-                        <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5 font-medium">
-                          <Clock className="w-3.5 h-3.5" />
-                          {formatDate(notification.sentAt)}
-                        </span>
-                        
-                        <div className="flex items-center gap-2">
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <h4 className={`text-sm font-bold ${!notification.read
+                              ? 'text-blue-900 dark:text-blue-100'
+                              : 'text-gray-700 dark:text-gray-300'
+                            }`}>
+                            {notification.title}
+                          </h4>
                           {!notification.read && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900 px-3"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMarkAsRead(notification._id);
-                              }}
-                            >
-                              <Eye className="w-3.5 h-3.5 mr-1" />
-                              Read
-                            </Button>
+                            <div className="w-2.5 h-2.5 bg-blue-600 rounded-full flex-shrink-0 mt-1 animate-pulse shadow-lg shadow-blue-500/50"></div>
                           )}
-                          {notification.metadata?.actionRequired && !notification.acknowledged && (
-                            <Button
-                              size="sm"
-                              variant="default"
-                              className="h-7 text-xs font-semibold bg-green-600 hover:bg-green-700 px-3"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAcknowledge(notification._id);
-                              }}
-                            >
-                              <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                              Acknowledge
-                            </Button>
-                          )}
+                        </div>
+
+                        <p className={`text-xs mt-1 line-clamp-2 ${!notification.read
+                            ? 'text-gray-700 dark:text-blue-200 font-medium'
+                            : 'text-gray-600 dark:text-gray-400'
+                          }`}>
+                          {notification.message}
+                        </p>
+
+                        {/* Metadata */}
+                        {notification.metadata && (
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            {notification.metadata.kpiScore !== undefined && (
+                              <div className="bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/50 dark:to-orange-900/50 border border-amber-300 dark:border-amber-700 rounded-md px-2.5 py-1 shadow-sm">
+                                <span className="text-xs text-amber-900 dark:text-amber-100 font-bold">
+                                  📊 {notification.metadata.kpiScore}%
+                                </span>
+                              </div>
+                            )}
+                            {notification.metadata.rating && (
+                              <Badge variant="outline" className="text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300">
+                                {notification.metadata.rating}
+                              </Badge>
+                            )}
+                            {notification.metadata.period && (
+                              <Badge variant="outline" className="text-xs bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600">
+                                📅 {notification.metadata.period}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Attachments */}
+                        {notification.attachments && notification.attachments.length > 0 && (
+                          <div className="mt-3 space-y-1.5">
+                            {notification.attachments.map((attachment, idx) => (
+                              <a
+                                key={idx}
+                                href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${attachment.filePath}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline bg-blue-50 dark:bg-blue-900/20 px-2 py-1.5 rounded border border-blue-200 dark:border-blue-800 transition-colors"
+                              >
+                                <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                                <span className="truncate">{attachment.fileName}</span>
+                                {attachment.fileSize && (
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                                    ({(attachment.fileSize / 1024).toFixed(2)} KB)
+                                  </span>
+                                )}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Actions */}
+                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-200 dark:border-gray-600">
+                          <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5 font-medium">
+                            <Clock className="w-3.5 h-3.5" />
+                            {formatDate(notification.sentAt)}
+                          </span>
+
+                          <div className="flex items-center gap-2">
+                            {!notification.read && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900 px-3"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMarkAsRead(notification._id);
+                                }}
+                              >
+                                <Eye className="w-3.5 h-3.5 mr-1" />
+                                Read
+                              </Button>
+                            )}
+                            {notification.metadata?.actionRequired && !notification.acknowledged && (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="h-7 text-xs font-semibold bg-green-600 hover:bg-green-700 px-3"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAcknowledge(notification._id);
+                                }}
+                              >
+                                <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                                Acknowledge
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Footer - Enhanced */}
-          {notifications.length > 0 && (
-            <div className="border-t-2 border-gray-300 dark:border-gray-700 p-4 bg-gradient-to-r from-gray-100 to-blue-50 dark:from-gray-800 dark:to-blue-900">
-              <Button
-                variant="ghost"
-                className="w-full text-sm font-semibold text-blue-700 hover:text-blue-900 hover:bg-blue-100 dark:text-blue-300 dark:hover:bg-blue-800 h-10 shadow-sm border border-blue-200 dark:border-blue-700"
-                onClick={() => {
-                  setIsOpen(false);
-                  window.location.hash = '#/notifications';
-                }}
-              >
-                <Bell className="w-4 h-4 mr-2" />
-                View All Notifications
-                <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
-                  {notifications.length}
-                </span>
-              </Button>
+                ))
+              )}
             </div>
-          )}
-        </Card>
+
+            {/* Footer - Fixed at bottom */}
+            {notifications.length > 0 && (
+              <div className="border-t-2 border-gray-300 dark:border-gray-700 p-4 bg-gradient-to-r from-gray-100 to-blue-50 dark:from-gray-800 dark:to-blue-900 flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  className="w-full text-sm font-semibold text-blue-700 hover:text-blue-900 hover:bg-blue-100 dark:text-blue-300 dark:hover:bg-blue-800 h-10 shadow-sm border border-blue-200 dark:border-blue-700"
+                  onClick={() => {
+                    setIsOpen(false);
+                    window.location.hash = '#/notifications';
+                  }}
+                >
+                  <Bell className="w-4 h-4 mr-2" />
+                  View All Notifications
+                  <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                    {notifications.length}
+                  </span>
+                </Button>
+              </div>
+            )}
+          </Card>
         </>,
         document.body
       )}
     </div>
   );
 };
-

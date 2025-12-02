@@ -15,7 +15,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  userType: 'user' | 'admin';
+  userType: 'user' | 'admin' | 'hr' | 'manager' | 'hod';
   employeeId?: string;
   department?: string;
   status?: string;
@@ -25,7 +25,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  userType: 'user' | 'admin' | null;
+  userType: 'user' | 'admin' | 'hr' | 'manager' | 'hod' | null;
   loading: boolean;
   login: (email: string, password: string, type: 'user' | 'admin') => Promise<void>;
   logout: () => void;
@@ -54,9 +54,9 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   console.log('AuthProvider: Starting initialization');
-  
+
   const [user, setUser] = useState<User | null>(null);
-  const [userType, setUserType] = useState<'user' | 'admin' | null>(null);
+  const [userType, setUserType] = useState<'user' | 'admin' | 'hr' | 'manager' | 'hod' | null>(null);
   const [currentPage, setCurrentPage] = useState(() => {
     // Get page from URL hash or localStorage, default to user-login
     const hash = window.location.hash.replace('#', '');
@@ -115,7 +115,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Listen for hash changes
     window.addEventListener('hashchange', handleHashChange);
-    
+
     // Save current page to localStorage whenever it changes
     if (currentPage && currentPage !== 'user-login' && currentPage !== 'admin-login') {
       localStorage.setItem('currentPage', currentPage);
@@ -150,7 +150,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               // Set default page based on user type
               const currentHash = window.location.hash.replace('#', '');
               const savedPage = localStorage.getItem('currentPage');
-              
+
               // If no hash and no saved page, set default
               if (!currentHash && !savedPage) {
                 const defaultPage = response.user.userType === 'user' ? 'user-dashboard' : 'admin-dashboard';
@@ -185,14 +185,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       } catch (error) {
         console.error('AuthProvider: Token validation failed:', error);
-        
+
         // Check if it's a network error (backend not running)
         if (error instanceof Error && error.message.includes('Backend server is not running')) {
           console.log('AuthProvider: Backend server is not running, keeping token for when server comes back online');
           // Don't clear token for network errors, just log the issue
           return;
         }
-        
+
         // For other errors (invalid token, etc.), clear the token
         localStorage.removeItem('authToken');
         setUser(null);
@@ -227,24 +227,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('AuthProvider: Starting login for:', email, type);
       const response = await apiService.auth.login(email, password, type) as unknown as AuthResponse;
       console.log('AuthProvider: Login response:', response);
-      
+
       if (response && response.success && response.user) {
         console.log('AuthProvider: Login successful, setting user state');
         setUser(response.user);
         setUserType(type);
-        
+
         // Store auth token first
         if (response.user.token) {
           localStorage.setItem('authToken', response.user.token);
           console.log('AuthProvider: Token stored in localStorage');
         }
-        
+
         // Set current page based on user type
         const targetPage = type === 'user' ? 'user-dashboard' : 'admin-dashboard';
         setCurrentPage(targetPage);
         localStorage.setItem('currentPage', targetPage);
         console.log('AuthProvider: Current page set to:', targetPage);
-        
+
         toast.success(`Welcome back, ${response.user.name}!`);
         console.log('AuthProvider: Login completed successfully');
       } else {
@@ -278,7 +278,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refreshUser = async () => {
     if (!user) return;
-    
+
     try {
       const response = await apiService.auth.getMe() as unknown as AuthResponse;
       if (response && response.success && response.user) {

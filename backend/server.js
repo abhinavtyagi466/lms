@@ -81,10 +81,10 @@ const corsOptions = {
       'https://feportal.foxivision.net:3001',
       'http://feportal.foxivision.net:3000',
       'http://feportal.foxivision.net:3001',
-      'http://193.203.160.107:3000',
-      'http://193.203.160.107:3001',
-      'https://193.203.160.107:3000',
-      'https://193.203.160.107:3001'
+      'http://72.60.99.209:3000',
+      'http://72.60.99.209:3001',
+      'https://72.60.99.209:3000',
+      'https://72.60.99.209:3001'
     ];
 
     if (allowedOrigins.indexOf(origin) !== -1) {
@@ -248,8 +248,14 @@ app.use(session({
   }
 }));
 
-// Static files
-app.use('/uploads', express.static(uploadsDir));
+// Static files - with debug logging
+console.log('📁 Uploads directory path:', uploadsDir);
+console.log('📁 Uploads directory exists:', fs.existsSync(uploadsDir));
+app.use('/uploads', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(uploadsDir));
 
 // Try to connect to MongoDB with optimized settings
 mongoose.connect(mongoUri, {

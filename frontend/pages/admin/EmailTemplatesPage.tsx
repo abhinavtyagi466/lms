@@ -4,7 +4,7 @@ import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Label } from '../../components/ui/label';
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -69,7 +69,7 @@ export const EmailTemplatesPage: React.FC = () => {
       // Call the preview API with sample data
       const sampleData = getSampleData();
       const response: any = await apiService.emailTemplates.preview(template._id, sampleData);
-      
+
       const previewData = response?.data || response;
       setPreviewContent(previewData);
       setSelectedTemplate(template);
@@ -118,9 +118,9 @@ export const EmailTemplatesPage: React.FC = () => {
     try {
       setIsUpdating(true);
       const response = await apiService.emailTemplates.update(editingTemplate._id, editingTemplate);
-      
+
       if (response && (response as any).success) {
-        setTemplates(prev => prev.map(t => 
+        setTemplates(prev => prev.map(t =>
           t._id === editingTemplate._id ? editingTemplate : t
         ));
         setIsEditModalOpen(false);
@@ -149,9 +149,9 @@ export const EmailTemplatesPage: React.FC = () => {
         name: `${template.name} (Copy)`,
         _id: undefined
       };
-      
+
       const response = await apiService.emailTemplates.create(duplicateTemplate);
-      
+
       if (response && (response as any).success) {
         await fetchTemplates(); // Refresh the list
         toast({
@@ -260,7 +260,7 @@ export const EmailTemplatesPage: React.FC = () => {
               <p className="text-3xl font-bold text-blue-900 dark:text-blue-100 mt-1">{templates.length}</p>
             </div>
             <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Mail className="w-7 h-7 text-white" />
+              <Mail className="w-7 h-7 text-black" />
             </div>
           </div>
         </Card>
@@ -271,7 +271,7 @@ export const EmailTemplatesPage: React.FC = () => {
               <p className="text-3xl font-bold text-green-900 dark:text-green-100 mt-1">{templates.filter(t => t.isActive).length}</p>
             </div>
             <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center shadow-lg">
-              <BarChart3 className="w-7 h-7 text-white" />
+              <BarChart3 className="w-7 h-7 text-black" />
             </div>
           </div>
         </Card>
@@ -284,7 +284,7 @@ export const EmailTemplatesPage: React.FC = () => {
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Send className="w-7 h-7 text-white" />
+              <Send className="w-7 h-7 text-black" />
             </div>
           </div>
         </Card>
@@ -297,7 +297,7 @@ export const EmailTemplatesPage: React.FC = () => {
               </p>
             </div>
             <div className="w-12 h-12 bg-orange-600 rounded-xl flex items-center justify-center shadow-lg">
-              <BarChart3 className="w-7 h-7 text-white" />
+              <BarChart3 className="w-7 h-7 text-black" />
             </div>
           </div>
         </Card>
@@ -334,7 +334,7 @@ export const EmailTemplatesPage: React.FC = () => {
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-start gap-3 flex-1">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0 shadow-md">
-                        <Mail className="w-5 h-5 text-white" />
+                        <Mail className="w-5 h-5 text-black" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-gray-900 dark:text-white mb-1 line-clamp-1">
@@ -456,7 +456,7 @@ export const EmailTemplatesPage: React.FC = () => {
                 {/* Email Content */}
                 <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                   <div className="p-6">
-                    <div 
+                    <div
                       className="prose max-w-none dark:prose-invert prose-sm
                                 prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-relaxed
                                 prose-strong:text-gray-900 dark:prose-strong:text-white
@@ -493,20 +493,20 @@ export const EmailTemplatesPage: React.FC = () => {
 
           <DialogFooter className="px-8 py-6 border-t border-gray-200 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-800">
             <div className="flex gap-4 w-full justify-end">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setIsPreviewModalOpen(false)}
                 className="px-8 py-3 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Close
               </Button>
-              <Button 
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+              <Button
+                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-black shadow-lg hover:shadow-xl transition-all duration-300"
                 onClick={async () => {
                   try {
                     const testEmail = prompt('Enter test email address:');
                     if (!testEmail) return;
-                    
+
                     if (!testEmail.includes('@')) {
                       toast({
                         title: 'Invalid Email',
@@ -517,7 +517,7 @@ export const EmailTemplatesPage: React.FC = () => {
                     }
 
                     await apiService.emailTemplates.sendTest(selectedTemplate?._id || '', testEmail);
-                    
+
                     toast({
                       title: 'Test Email Sent!',
                       description: `Test email sent to ${testEmail}. Check your inbox.`,
@@ -549,7 +549,7 @@ export const EmailTemplatesPage: React.FC = () => {
               Create a new email template for automated notifications
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="text-center py-8 text-gray-500">
             <Mail className="w-16 h-16 mx-auto mb-4 text-gray-300" />
             <p>Template creation form coming soon!</p>
@@ -576,127 +576,127 @@ export const EmailTemplatesPage: React.FC = () => {
               Customize the email template content and settings
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="overflow-y-auto flex-1 px-6 py-6">
-          {editingTemplate && (
-            <div className="space-y-6 max-w-3xl mx-auto">
-              {/* Basic Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {editingTemplate && (
+              <div className="space-y-6 max-w-3xl mx-auto">
+                {/* Basic Information */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="editName">Template Name</Label>
+                    <input
+                      id="editName"
+                      type="text"
+                      value={editingTemplate.name}
+                      onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, name: e.target.value } : null)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editType">Template Type</Label>
+                    <input
+                      id="editType"
+                      type="text"
+                      value={editingTemplate.type}
+                      onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, type: e.target.value } : null)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="editCategory">Category</Label>
+                    <select
+                      id="editCategory"
+                      value={editingTemplate.category}
+                      onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, category: e.target.value } : null)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="kpi">KPI</option>
+                      <option value="training">Training</option>
+                      <option value="audit">Audit</option>
+                      <option value="warning">Warning</option>
+                      <option value="general">General</option>
+                      <option value="achievement">Achievement</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="editActive"
+                      type="checkbox"
+                      checked={editingTemplate.isActive}
+                      onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, isActive: e.target.checked } : null)}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <Label htmlFor="editActive">Active</Label>
+                  </div>
+                </div>
+
+                {/* Subject */}
                 <div>
-                  <Label htmlFor="editName">Template Name</Label>
+                  <Label htmlFor="editSubject">Email Subject</Label>
                   <input
-                    id="editName"
+                    id="editSubject"
                     type="text"
-                    value={editingTemplate.name}
-                    onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, name: e.target.value } : null)}
+                    value={editingTemplate.subject}
+                    onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, subject: e.target.value } : null)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter email subject..."
                   />
                 </div>
+
+                {/* Variables */}
                 <div>
-                  <Label htmlFor="editType">Template Type</Label>
+                  <Label htmlFor="editVariables">Variables (comma-separated)</Label>
                   <input
-                    id="editType"
+                    id="editVariables"
                     type="text"
-                    value={editingTemplate.type}
-                    onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, type: e.target.value } : null)}
+                    value={editingTemplate.variables.join(', ')}
+                    onChange={(e) => setEditingTemplate(prev => prev ? {
+                      ...prev,
+                      variables: e.target.value.split(',').map(v => v.trim()).filter(v => v)
+                    } : null)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="userName, employeeId, kpiScore..."
                   />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Use these variables in your content with double curly braces: {`{{userName}}`}
+                  </p>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Content */}
                 <div>
-                  <Label htmlFor="editCategory">Category</Label>
-                  <select
-                    id="editCategory"
-                    value={editingTemplate.category}
-                    onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, category: e.target.value } : null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="kpi">KPI</option>
-                    <option value="training">Training</option>
-                    <option value="audit">Audit</option>
-                    <option value="warning">Warning</option>
-                    <option value="general">General</option>
-                    <option value="achievement">Achievement</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="editActive"
-                    type="checkbox"
-                    checked={editingTemplate.isActive}
-                    onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, isActive: e.target.checked } : null)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <Label htmlFor="editActive">Active</Label>
-                </div>
-              </div>
-
-              {/* Subject */}
-              <div>
-                <Label htmlFor="editSubject">Email Subject</Label>
-                <input
-                  id="editSubject"
-                  type="text"
-                  value={editingTemplate.subject}
-                  onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, subject: e.target.value } : null)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter email subject..."
-                />
-              </div>
-
-              {/* Variables */}
-              <div>
-                <Label htmlFor="editVariables">Variables (comma-separated)</Label>
-                <input
-                  id="editVariables"
-                  type="text"
-                  value={editingTemplate.variables.join(', ')}
-                  onChange={(e) => setEditingTemplate(prev => prev ? { 
-                    ...prev, 
-                    variables: e.target.value.split(',').map(v => v.trim()).filter(v => v) 
-                  } : null)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="userName, employeeId, kpiScore..."
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Use these variables in your content with double curly braces: {`{{userName}}`}
-                </p>
-              </div>
-
-              {/* Content */}
-              <div>
-                <Label htmlFor="editContent">Email Content (HTML)</Label>
-                <textarea
-                  id="editContent"
-                  value={editingTemplate.content}
-                  onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, content: e.target.value } : null)}
-                  rows={12}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                  placeholder="Enter HTML content..."
-                />
-              </div>
-
-              {/* Preview */}
-              <div>
-                <Label>Preview</Label>
-                <div className="border border-gray-300 rounded-md p-4 bg-gray-50 max-h-64 overflow-y-auto">
-                  <div 
-                    dangerouslySetInnerHTML={{ __html: editingTemplate.content }}
-                    className="text-sm"
+                  <Label htmlFor="editContent">Email Content (HTML)</Label>
+                  <textarea
+                    id="editContent"
+                    value={editingTemplate.content}
+                    onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, content: e.target.value } : null)}
+                    rows={12}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                    placeholder="Enter HTML content..."
                   />
                 </div>
+
+                {/* Preview */}
+                <div>
+                  <Label>Preview</Label>
+                  <div className="border border-gray-300 rounded-md p-4 bg-gray-50 max-h-64 overflow-y-auto">
+                    <div
+                      dangerouslySetInnerHTML={{ __html: editingTemplate.content }}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
           </div>
 
           <DialogFooter className="px-6 py-4 border-t flex-shrink-0">
             <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleUpdateTemplate}
               disabled={isUpdating}
               className="bg-green-600 hover:bg-green-700 text-white"

@@ -28,7 +28,7 @@ router.get('/', authenticateToken, async (req, res) => {
     if (req.user.userType !== 'admin') {
       query = { status: 'published' };
     }
-    
+
     const modules = await Module.find(query)
       .sort({ createdAt: -1 })
       .populate('createdBy', 'name email');
@@ -86,21 +86,40 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     }
 
     // Get all regular modules for the user (published only)
-    const regularModules = await Module.find({ 
+    const regularModules = await Module.find({
       status: 'published',
       isPersonalised: { $ne: true } // Exclude personalised modules
     })
       .sort({ createdAt: 1 }) // Sort by creation date (oldest first) for sequential processing
       .select('title description ytVideoId tags status createdBy');
 
-    // Get personalised modules assigned to this user
-    const personalisedModules = await Module.find({
-      status: 'published',
-      isPersonalised: true,
-      assignedTo: userId
+    // Get personalised assignments for this user
+    const TrainingAssignment = require('../models/TrainingAssignment');
+    const assignments = await TrainingAssignment.find({
+      userId: userId,
+      // We want all assignments, even completed ones, to show up in the list
+      // status: { $ne: 'completed' } 
     })
-      .sort({ personalisedAt: 1 }) // Sort by personalisation date
-      .select('title description ytVideoId tags status createdBy isPersonalised personalisedReason personalisedPriority personalisedBy personalisedAt');
+      .populate('trainingModuleId', 'title description ytVideoId tags status createdBy')
+      .populate('assignedByUser', 'name email')
+      .sort({ assignedAt: 1 });
+
+    // Map assignments to module format
+    const personalisedModules = assignments.map(assignment => {
+      if (!assignment.trainingModuleId) return null; // Skip if module deleted
+
+      const module = assignment.trainingModuleId.toObject();
+      return {
+        ...module,
+        _id: module._id, // Keep original module ID
+        isPersonalised: true,
+        personalisedReason: assignment.reason,
+        personalisedPriority: assignment.notes?.split('.')[0]?.replace('Priority: ', '').trim() || 'medium',
+        personalisedBy: assignment.assignedByUser?._id,
+        personalisedAt: assignment.assignedAt,
+        assignmentId: assignment._id // Useful for tracking
+      };
+    }).filter(m => m !== null);
 
     // Combine regular and personalised modules
     const modules = [...regularModules, ...personalisedModules];
@@ -110,9 +129,9 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
 
     // Get all quizzes for the modules
     const moduleIds = modules.map(module => module._id);
-    const quizzes = await Quiz.find({ 
-      moduleId: { $in: moduleIds }, 
-      isActive: true 
+    const quizzes = await Quiz.find({
+      moduleId: { $in: moduleIds },
+      isActive: true
     });
 
     // Get quiz results for the user (to check which quizzes are passed)
@@ -154,22 +173,22 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     // SEQUENTIAL UNLOCK LOGIC: User must complete previous module to unlock next
     let previousModuleCompleted = true; // First module is always unlocked
     let regularModuleIndex = 0; // Track regular module index for sequential unlock
-    
+
     const modulesWithProgress = modules.map((module, index) => {
       const progress = progressMap[module.ytVideoId] || { currentTime: 0, duration: 0 };
       const progressPercent = progress.duration > 0 ? (progress.currentTime / progress.duration) : 0;
       const quiz = quizMap[module._id.toString()];
       const quizPassed = passedModulesMap[module._id.toString()];
-      
+
       // Check if this module is completed (video watched 95% + quiz passed with 70%+)
       const videoCompleted = progressPercent >= 0.95;
       const quizCompleted = quiz ? (quizPassed?.passed || false) : videoCompleted;
       const moduleCompleted = videoCompleted && quizCompleted;
-      
+
       // Determine if module is locked
       let isLocked = false;
       let unlockMessage = null;
-      
+
       if (module.isPersonalised) {
         // Personalised modules are always unlocked (no sequential requirement)
         isLocked = false;
@@ -178,14 +197,14 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
         // Regular modules follow sequential unlock logic
         isLocked = regularModuleIndex > 0 && !previousModuleCompleted;
         unlockMessage = isLocked ? 'Complete the previous module (video + quiz) to unlock' : null;
-        
+
         // Update for next regular module iteration
         if (!isLocked) {
           previousModuleCompleted = moduleCompleted;
         }
         regularModuleIndex++;
       }
-      
+
       return {
         moduleId: module._id,
         title: module.title,
@@ -330,7 +349,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // @route   DELETE /api/modules/:id
-// @desc    Delete module (Admin only)
+// @desc    Delete module (Admin only) - Also deletes associated quiz
 // @access  Private (Admin only)
 router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -343,15 +362,21 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
       });
     }
 
+    // Delete the module
     await Module.findByIdAndDelete(req.params.id);
+
+    // CASCADE DELETE: Also delete associated quiz
+    const deletedQuiz = await Quiz.deleteMany({ moduleId: req.params.id });
+    console.log(`🗑️  Deleted ${deletedQuiz.deletedCount} quiz(es) associated with module ${req.params.id}`);
 
     // Clear module cache immediately
     clearModuleCache();
-    console.log('✅ Module deleted and cache cleared');
+    console.log('✅ Module and associated quiz deleted, cache cleared');
 
     res.json({
       success: true,
-      message: 'Module deleted successfully'
+      message: 'Module and associated quiz deleted successfully',
+      deletedQuizCount: deletedQuiz.deletedCount
     });
 
   } catch (error) {
@@ -396,52 +421,55 @@ router.post('/personalised', authenticateToken, requireAdmin, async (req, res) =
       });
     }
 
-    // Create a copy of the module for personalised assignment
-    const personalisedModule = new Module({
-      ...module.toObject(),
-      _id: new mongoose.Types.ObjectId(), // Generate new ID
-      isPersonalised: true,
-      assignedTo: [userId],
-      personalisedBy: req.user._id,
-      personalisedAt: new Date(),
-      personalisedReason: reason,
-      personalisedPriority: priority || 'medium',
-      status: 'published' // Make it immediately available to the user
+    // Check if assignment already exists
+    const TrainingAssignment = require('../models/TrainingAssignment');
+    const existingAssignment = await TrainingAssignment.findOne({
+      userId: userId,
+      trainingModuleId: moduleId,
+      status: { $ne: 'completed' } // Don't check completed assignments
     });
 
-    await personalisedModule.save();
-
-    // Also create personalised quiz if original module has one
-    const originalQuiz = await Quiz.findOne({ moduleId: moduleId });
-    if (originalQuiz) {
-      const personalisedQuiz = new Quiz({
-        ...originalQuiz.toObject(),
-        _id: new mongoose.Types.ObjectId(), // Generate new ID
-        moduleId: personalisedModule._id,
-        isPersonalised: true,
-        assignedTo: [userId],
-        personalisedBy: req.user._id,
-        personalisedAt: new Date(),
-        personalisedReason: reason,
-        personalisedPriority: priority || 'medium'
+    if (existingAssignment) {
+      return res.status(409).json({
+        success: false,
+        message: 'This module is already assigned to this user'
       });
-
-      await personalisedQuiz.save();
     }
+
+    // Calculate due date (7 days from now as default)
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+
+    // Create training assignment (instead of duplicating module)
+    const assignment = new TrainingAssignment({
+      userId: userId,
+      trainingModuleId: moduleId, // Use trainingModuleId as per schema
+      trainingType: 'basic', // Required field - default to 'basic'
+      assignedBy: 'manual', // Required field - manual assignment
+      assignedByUser: req.user._id,
+      assignedAt: new Date(),
+      dueDate: dueDate, // Required field - 7 days from now
+      status: 'assigned',
+      reason: reason, // Store reason in reason field
+      notes: `Priority: ${priority || 'medium'}. ${reason}` // Store priority in notes
+    });
+
+    await assignment.save();
 
     // Clear module cache
     clearModuleCache();
-    console.log('✅ Personalised module created and cache cleared');
+    console.log('✅ Personalised module assigned via TrainingAssignment');
 
     res.json({
       success: true,
       message: 'Personalised module assigned successfully',
       data: {
-        personalisedModuleId: personalisedModule._id,
-        originalModuleId: moduleId,
+        assignmentId: assignment._id,
+        moduleId: moduleId,
         assignedTo: userId,
         reason: reason,
-        priority: priority
+        priority: priority,
+        dueDate: dueDate
       }
     });
 
@@ -449,7 +477,7 @@ router.post('/personalised', authenticateToken, requireAdmin, async (req, res) =
     console.error('Create personalised module error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error creating personalised module',
+      message: 'Error creating personalised module assignment',
       error: error.message
     });
   }
@@ -470,14 +498,49 @@ router.get('/personalised/:userId', authenticateToken, async (req, res) => {
       });
     }
 
-    const personalisedModules = await Module.find({
-      isPersonalised: true,
-      assignedTo: userId,
-      status: 'published'
+    // Get personalised assignments for this user
+    const TrainingAssignment = require('../models/TrainingAssignment');
+    const assignments = await TrainingAssignment.find({
+      userId: userId,
+      // We want all assignments, even completed ones, to show up in the list
     })
-    .sort({ personalisedAt: -1 })
-    .populate('personalisedBy', 'name email')
-    .populate('createdBy', 'name email');
+      .populate('trainingModuleId', 'title description ytVideoId tags status createdBy')
+      .populate('assignedByUser', 'name email')
+      .sort({ assignedAt: -1 });
+
+    // Get user's progress for these modules
+    const Progress = require('../models/Progress');
+    const userProgress = await Progress.find({ userId });
+
+    // Create a map of video progress
+    const progressMap = {};
+    userProgress.forEach(progress => {
+      progressMap[progress.videoId] = {
+        currentTime: progress.currentTime,
+        duration: progress.duration
+      };
+    });
+
+    // Map assignments to module format
+    const personalisedModules = assignments.map(assignment => {
+      if (!assignment.trainingModuleId) return null; // Skip if module deleted
+
+      const module = assignment.trainingModuleId.toObject();
+      const progress = progressMap[module.ytVideoId] || { currentTime: 0, duration: 0 };
+      const progressPercent = progress.duration > 0 ? (progress.currentTime / progress.duration) : 0;
+
+      return {
+        ...module,
+        _id: module._id, // Keep original module ID
+        isPersonalised: true,
+        personalisedReason: assignment.reason,
+        personalisedPriority: assignment.notes?.split('.')[0]?.replace('Priority: ', '').trim() || 'medium',
+        personalisedBy: assignment.assignedByUser,
+        personalisedAt: assignment.assignedAt,
+        assignmentId: assignment._id, // Useful for tracking
+        progress: progressPercent
+      };
+    }).filter(m => m !== null);
 
     res.json({
       success: true,

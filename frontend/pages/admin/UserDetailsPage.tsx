@@ -164,14 +164,23 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
       }
     };
 
+    const handleWarningCreated = (e: any) => {
+      if (e.detail?.userId === userId) {
+        console.log('Warning created for this user, refreshing data...');
+        fetchUserDetails();
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('warningCreated', handleWarningCreated);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('warningCreated', handleWarningCreated);
     };
   }, [userId]);
 
@@ -529,7 +538,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
               {/* Single Image Box - Resume Style */}
               <div className="w-28 h-28 bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center overflow-hidden shadow-md relative">
                 {user.avatar && typeof user.avatar === 'string' && user.avatar.trim() !== '' && !imageError ? (
-                  <img 
+                  <img
                     key={user.avatar}
                     src={user.avatar.startsWith('http') ? user.avatar : `${window.location.origin}${user.avatar}`}
                     alt={user.name}
@@ -548,7 +557,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                     }}
                   />
                 ) : null}
-                <div 
+                <div
                   className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center absolute inset-0"
                   style={{ display: (user.avatar && typeof user.avatar === 'string' && user.avatar.trim() !== '' && !imageError) ? 'none' : 'flex' }}
                 >
@@ -1120,6 +1129,29 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                             {warning.status}
                           </Badge>
                         </div>
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                          <span>Issued: {formatDate(warning.issuedAt)}</span>
+                          {warning.resolvedAt && (
+                            <span>Resolved: {formatDate(warning.resolvedAt)}</span>
+                          )}
+                          <Badge className={getStatusColor(warning.status)}>
+                            {warning.status}
+                          </Badge>
+                        </div>
+
+                        {warning.metadata?.attachmentUrl && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <a
+                              href={warning.metadata.attachmentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 text-blue-600 hover:text-blue-800 hover:underline text-sm"
+                            >
+                              <FileText className="w-4 h-4" />
+                              View Attachment
+                            </a>
+                          </div>
+                        )}
                       </Card>
                     ))}
                   </div>
@@ -1267,7 +1299,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                         let iconColor = 'blue';
                         let bgColor = 'blue-50';
                         let borderColor = 'blue-200';
-                        
+
                         if (event.type === 'achievement' || event.type === 'award') {
                           Icon = Award;
                           iconColor = 'green';
@@ -1421,7 +1453,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
             )}
           </div>
         </Card>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 };

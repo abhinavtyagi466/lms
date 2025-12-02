@@ -1,8 +1,6 @@
 {
     "github.copilot.enable": {
-        "scminput": true,
-        "markdown": true,
-        "workspace": true
+        "*": false
     },
     "git.ignoreLimitWarning": true
 }

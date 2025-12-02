@@ -48,6 +48,12 @@ export default defineConfig({
         secure: false,
         ws: true,
       },
+      // Proxy uploads (static files) to backend server
+      '/uploads': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   // Enable CSS code splitting

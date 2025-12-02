@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Search, 
-  Download, 
+import {
+  Search,
+  Download,
   Award,
   CheckCircle,
   BarChart3,
-  FileText,
+  // FileText,
   Users
 } from 'lucide-react';
 import { Card } from '../../components/ui/card';
@@ -23,18 +23,18 @@ export const ScoreReportsPage: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [userScores, setUserScores] = useState<any[]>([]);
   const [loadingScores, setLoadingScores] = useState(false);
-  
+
   // Filter and search state
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState('all');
   const [sortBy, setSortBy] = useState('averageScore');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   // const [dateRange, setDateRange] = useState('all'); // Removed unused variable
-  
+
   // Pagination state
   const [pageNumber, setPageNumber] = useState(1);
   const [itemsPerPage] = useState(10);
-  
+
   // Export state
   const [isExporting, setIsExporting] = useState(false);
 
@@ -58,13 +58,13 @@ export const ScoreReportsPage: React.FC = () => {
   const fetchUserScores = async () => {
     try {
       setLoadingScores(true);
-      
+
       // Use the dedicated user scores API endpoint
       const response = await apiService.reports.getAllUserScores();
-      
+
       if (response && typeof response === 'object' && 'success' in response && response.success) {
         const userScoresData = response.data || [];
-        
+
         // Transform the data to match our component's expected format
         const transformedData = userScoresData.map((score: any) => ({
           userId: score.userId,
@@ -76,7 +76,7 @@ export const ScoreReportsPage: React.FC = () => {
           averageScore: Math.round(score.averageScore || 0),
           lastActivity: score.lastActivity
         }));
-        
+
         setUserScores(transformedData);
       } else {
         setUserScores([]);
@@ -93,17 +93,17 @@ export const ScoreReportsPage: React.FC = () => {
   const handleExportCSV = async () => {
     try {
       setIsExporting(true);
-      
+
       // Use local filtered data for export
       const dataToExport = filteredAndSortedScores;
-      
+
       // Generate CSV content
       const csvHeader = 'User Name,Email,Employee ID,Total Modules,Completed Modules,Average Score,Completion Rate,Last Activity,Status\n';
       const csvRows = dataToExport.map(score => {
         const completionRate = score.totalModules > 0 ? Math.round((score.completedModules / score.totalModules) * 100) : 0;
         const status = score.averageScore >= 85 ? 'Outstanding' : score.averageScore >= 70 ? 'Excellent' : score.averageScore >= 50 ? 'Satisfactory' : 'Needs Improvement';
         const lastActivity = score.lastActivity ? new Date(score.lastActivity).toLocaleDateString() : 'Never';
-        
+
         return `"${score.userName || 'Unknown'}","${score.userEmail || ''}","${score.employeeId || ''}",${score.totalModules},${score.completedModules},${score.averageScore}%,${completionRate}%,"${lastActivity}","${status}"`;
       }).join('\n');
 
@@ -129,10 +129,10 @@ export const ScoreReportsPage: React.FC = () => {
   const handleExportPDF = async () => {
     try {
       setIsExporting(true);
-      
+
       // Use local filtered data for export
       const dataToExport = filteredAndSortedScores;
-      
+
       // Generate PDF content (simplified - in real implementation, use a PDF library)
       const pdfContent = `
         User Score Report
@@ -175,24 +175,24 @@ export const ScoreReportsPage: React.FC = () => {
   // Filter and sort logic
   const filteredAndSortedScores = userScores
     .filter(score => {
-      const matchesSearch = !searchTerm || 
+      const matchesSearch = !searchTerm ||
         score.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         score.userEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         score.employeeId?.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       const matchesUser = selectedUser === 'all' || score.userId === selectedUser;
-      
+
       return matchesSearch && matchesUser;
     })
     .sort((a, b) => {
       let aValue = a[sortBy] || 0;
       let bValue = b[sortBy] || 0;
-      
+
       if (sortBy === 'userName' || sortBy === 'userEmail') {
         aValue = String(aValue).toLowerCase();
         bValue = String(bValue).toLowerCase();
       }
-      
+
       if (sortOrder === 'asc') {
         return aValue > bValue ? 1 : -1;
       } else {
@@ -243,14 +243,14 @@ export const ScoreReportsPage: React.FC = () => {
                 <Download className="w-4 h-4" />
                 {isExporting ? 'Exporting...' : 'Export CSV'}
               </Button>
-              <Button
+              {/* <Button
                 onClick={handleExportPDF}
                 disabled={isExporting}
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
               >
                 <FileText className="w-4 h-4" />
                 {isExporting ? 'Exporting...' : 'Export PDF'}
-              </Button>
+              </Button> */}
             </div>
           </div>
         </div>
@@ -266,7 +266,7 @@ export const ScoreReportsPage: React.FC = () => {
               <Users className="h-8 w-8 text-blue-600" />
             </div>
           </Card>
-          
+
           <Card className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -278,21 +278,21 @@ export const ScoreReportsPage: React.FC = () => {
               <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
           </Card>
-          
+
           <Card className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Average Score</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {userScores.length > 0 
-                    ? Math.round(userScores.reduce((sum, s) => sum + (s.averageScore || 0), 0) / userScores.length) 
+                  {userScores.length > 0
+                    ? Math.round(userScores.reduce((sum, s) => sum + (s.averageScore || 0), 0) / userScores.length)
                     : 0}%
                 </p>
               </div>
               <BarChart3 className="h-8 w-8 text-purple-600" />
             </div>
           </Card>
-          
+
           <Card className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -369,8 +369,8 @@ export const ScoreReportsPage: React.FC = () => {
             </div>
 
             <div className="flex items-end">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full"
                 onClick={() => {
                   setSearchTerm('');
@@ -457,8 +457,8 @@ export const ScoreReportsPage: React.FC = () => {
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                              <div 
-                                className="bg-blue-600 h-2 rounded-full" 
+                              <div
+                                className="bg-blue-600 h-2 rounded-full"
                                 style={{ width: `${getCompletionRate(score.completedModules, score.totalModules)}%` }}
                               />
                             </div>
@@ -468,8 +468,8 @@ export const ScoreReportsPage: React.FC = () => {
                           </div>
                         </td>
                         <td className="py-4 px-4 text-sm text-gray-500 dark:text-gray-400">
-                          {score.lastActivity 
-                            ? new Date(score.lastActivity).toLocaleDateString() 
+                          {score.lastActivity
+                            ? new Date(score.lastActivity).toLocaleDateString()
                             : 'Never'}
                         </td>
                         <td className="py-4 px-4">

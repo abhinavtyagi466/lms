@@ -31,20 +31,20 @@ const exitDocStorage = multer.diskStorage({
 
 const exitDocUpload = multer({
   storage: exitDocStorage,
-  limits: { 
+  limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
     files: 1 // Only one file at a time
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
-      'application/pdf', 
-      'image/jpeg', 
-      'image/jpg', 
-      'image/png', 
-      'application/msword', 
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
-    
+
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -87,7 +87,7 @@ const conditionalMulter = (multerMiddleware) => {
     console.log('🔍 conditionalMulter - Path:', req.path);
     console.log('🔍 conditionalMulter - Method:', req.method);
     console.log('🔍 conditionalMulter - Is multipart?', contentTypeLower.includes('multipart/form-data'));
-    
+
     if (contentTypeLower.includes('multipart/form-data')) {
       console.log('✅ Multipart detected, using multer middleware');
       // Ensure req.body exists
@@ -95,7 +95,7 @@ const conditionalMulter = (multerMiddleware) => {
         req.body = {};
       }
       console.log('📦 req.body before multer:', Object.keys(req.body));
-      
+
       // Wrap in try-catch to handle busboy errors
       try {
         multerMiddleware(req, res, (err) => {
@@ -162,7 +162,7 @@ const notificationStorage = multer.diskStorage({
 
 const notificationUpload = multer({
   storage: notificationStorage,
-  limits: { 
+  limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   },
   fileFilter: (req, file, cb) => {
@@ -193,7 +193,7 @@ router.get('/:id/profile', authenticateToken, validateObjectId, requireOwnership
 
     const user = await User.findById(userId).select('-password');
     console.log('Users route: Found user:', user ? 'Yes' : 'No');
-    
+
     if (!user) {
       console.log('Users route: User not found for userId:', userId);
       return res.status(404).json({
@@ -231,7 +231,7 @@ router.get('/', authenticateToken, requireAdminPanel, async (req, res) => {
   try {
     const { filter, search, page = 1, limit = 50 } = req.query;
     let query = {};
-    
+
     // Apply status filter
     if (filter && filter !== 'all') {
       if (filter === 'active') {
@@ -247,7 +247,7 @@ router.get('/', authenticateToken, requireAdminPanel, async (req, res) => {
         query.status = filter;
       }
     }
-    
+
     // Apply search filter
     if (search) {
       query.$or = [
@@ -258,19 +258,19 @@ router.get('/', authenticateToken, requireAdminPanel, async (req, res) => {
         { panNo: { $regex: search, $options: 'i' } }
       ];
     }
-    
+
     const users = await User.find(query)
       .select('-password')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit));
-    
+
     console.log('=== USERS API DEBUG ===');
     console.log('Users found:', users.length);
     console.log('First user userType:', users[0]?.userType);
     console.log('All userTypes:', users.map(u => u.userType));
     console.log('========================');
-    
+
     res.json({ success: true, users });
   } catch (error) {
     console.error('List users error:', error);
@@ -288,7 +288,7 @@ router.get('/stats', authenticateToken, requireAdminPanel, async (req, res) => {
     const warningUsers = await User.countDocuments({ status: 'Warning' });
     const auditedUsers = await User.countDocuments({ status: 'Audited' });
     const inactiveUsers = await User.countDocuments({ isActive: false });
-    
+
     const stats = {
       total: totalUsers,
       active: activeUsers,
@@ -296,7 +296,7 @@ router.get('/stats', authenticateToken, requireAdminPanel, async (req, res) => {
       audited: auditedUsers,
       inactive: inactiveUsers
     };
-    
+
     res.json({ success: true, stats });
   } catch (error) {
     console.error('Get user stats error:', error);
@@ -311,7 +311,7 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
   try {
     console.log('Create user request received:', req.body);
     console.log('Files received:', req.files ? Object.keys(req.files) : 'No files');
-    
+
     // Clean req.body - remove empty objects that might come from FormData
     if (req.files || req.headers['content-type']?.includes('multipart/form-data')) {
       Object.keys(req.body).forEach(key => {
@@ -326,7 +326,7 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
         }
       });
     }
-    
+
     const {
       name, email, password, phone, userType,
       dateOfBirth, fathersName,
@@ -354,7 +354,7 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
     }
 
     console.log('Creating new user...');
-    
+
     // Custom validation: Reporting manager required for users only
     if (userType === 'user' && (!reportingManager || reportingManager.trim() === '')) {
       return res.status(400).json({
@@ -367,7 +367,7 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
         }]
       });
     }
-    
+
     // Handle avatar file upload before creating user
     let avatarPath = null;
     if (req.files && req.files.avatar) {
@@ -377,12 +377,12 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
         if (!fs.existsSync(uploadsDir)) {
           fs.mkdirSync(uploadsDir, { recursive: true });
         }
-        
+
         const avatarExt = path.extname(avatarFile.name);
         const uniqueId = Date.now() + '-' + Math.random().toString(36).slice(2);
         const avatarFileName = `avatar-${uniqueId}${avatarExt}`;
         const avatarFilePath = path.join(uploadsDir, avatarFileName);
-        
+
         await avatarFile.mv(avatarFilePath);
         avatarPath = `/uploads/avatars/${avatarFileName}`;
         console.log('✅ Avatar uploaded successfully:', avatarPath);
@@ -401,15 +401,15 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
         if (!fs.existsSync(documentsDir)) {
           fs.mkdirSync(documentsDir, { recursive: true });
         }
-        
+
         const docFiles = Array.isArray(req.files.documents) ? req.files.documents : [req.files.documents];
-        
+
         for (const docFile of docFiles) {
           const docExt = path.extname(docFile.name);
           const uniqueId = Date.now() + '-' + Math.random().toString(36).slice(2);
           const docFileName = `doc-${uniqueId}${docExt}`;
           const docPath = path.join(documentsDir, docFileName);
-          
+
           await docFile.mv(docPath);
           uploadedDocs.push({
             name: docFile.name,
@@ -432,18 +432,18 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
       password: password,
       phone: phone?.trim(),
       userType: userType || 'user',
-      
+
       // Personal Information
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
       fathersName: fathersName?.trim(),
-      
+
       // Employment Information
       dateOfJoining: dateOfJoining ? new Date(dateOfJoining) : undefined,
       designation: designation?.trim(),
       department: department?.trim() || 'General',
       reportingManager: reportingManager?.trim(),
       highestEducation: highestEducation?.trim(),
-      
+
       // Address Information
       currentAddress: currentAddress?.trim(),
       nativeAddress: nativeAddress?.trim(),
@@ -451,15 +451,15 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
       city: city?.trim(),
       state: state?.trim(),
       region: region?.trim(),
-      
+
       // Identification Documents
       aadhaarNo: aadhaarNo?.trim(),
       panNo: panNo?.trim(),
-      
+
       // Avatar and Documents
       avatar: avatarPath,
       documents: uploadedDocs.length > 0 ? uploadedDocs : undefined,
-      
+
       status: 'Active',
       isActive: true
     });
@@ -468,9 +468,9 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
     console.log('📝 Data being saved:');
     console.log('  - Avatar path:', avatarPath);
     console.log('  - Documents array:', JSON.stringify(uploadedDocs, null, 2));
-    
+
     await user.save();
-    
+
     // Verify data was saved to database
     const savedUser = await User.findById(user._id).select('avatar documents');
     console.log('✅ User saved successfully with Employee ID:', user.employeeId);
@@ -622,6 +622,24 @@ router.post('/:id/warning', authenticateToken, requireAdminPanel, validateObject
     });
     await notification.save();
 
+    // Create Warning record for User Details page
+    const Warning = require('../models/Warning');
+    const warning = new Warning({
+      userId: user._id,
+      type: 'warning',
+      title: 'Warning Notice',
+      description: warningMessage,
+      severity: 'medium',
+      status: 'active',
+      issuedBy: req.user._id,
+      issuedAt: new Date(),
+      metadata: {
+        attachmentUrl: req.file ? `/uploads/notifications/${req.file.filename}` : null
+      }
+    });
+    await warning.save();
+    console.log('✅ Warning document created:', warning._id);
+
     // Send email via SMTP to user's registered email
     try {
       // Prepare attachments with absolute path
@@ -690,6 +708,50 @@ router.post('/:id/warning', authenticateToken, requireAdminPanel, validateObject
     res.status(500).json({
       error: 'Server Error',
       message: 'Error sending warning'
+    });
+  }
+});
+
+// @route   GET /api/users/:id/warnings
+// @desc    Get all warnings for a user
+// @access  Private (Admin or same user)
+router.get('/:id/warnings', authenticateToken, validateObjectId, async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Check if user can access this data (admin or same user)
+    if (req.user.userType !== 'admin' && req.user._id.toString() !== userId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Access denied'
+      });
+    }
+
+    const Warning = require('../models/Warning');
+
+    const warnings = await Warning.find({ userId: userId })
+      .populate('issuedBy', 'name email')
+      .sort({ issuedAt: -1 })
+      .lean();
+
+    console.log(`📋 Found ${warnings.length} warnings for user ${userId}`);
+
+    // Log first warning to check structure
+    if (warnings.length > 0) {
+      console.log('Sample warning:', JSON.stringify(warnings[0], null, 2));
+    }
+
+    res.json({
+      success: true,
+      warnings: warnings
+    });
+
+  } catch (error) {
+    console.error('Get warnings error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching warnings',
+      details: error.message
     });
   }
 });
@@ -1021,7 +1083,7 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
 
     // Find user first
     const user = await User.findById(userId);
-    
+
     if (!user) {
       return res.status(404).json({
         error: 'Not Found',
@@ -1030,16 +1092,16 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
     }
 
     // Check if this is a FormData request
-    const isFormData = req.files || 
-                       req.headers['content-type']?.includes('multipart/form-data') ||
-                       (req.body && Object.keys(req.body).some(key => req.body[key] === '[object File]' || req.body[key] === ''));
-    
+    const isFormData = req.files ||
+      req.headers['content-type']?.includes('multipart/form-data') ||
+      (req.body && Object.keys(req.body).some(key => req.body[key] === '[object File]' || req.body[key] === ''));
+
     if (isFormData) {
       console.log('📦 FormData request detected');
       console.log('  - Content-Type:', req.headers['content-type']);
       console.log('  - Files received:', req.files ? Object.keys(req.files) : 'None');
       console.log('  - Body keys before cleaning:', Object.keys(req.body));
-      
+
       // Clean req.body - remove empty objects that might come from FormData
       Object.keys(req.body).forEach(key => {
         const value = req.body[key];
@@ -1064,9 +1126,9 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
           delete req.body[key];
         }
       });
-      
+
       console.log('  - Body keys after cleaning:', Object.keys(req.body));
-      
+
       // Parse FormData fields from req.body
       // Note: FormData sends all fields as strings, so we need to parse dates
       const {
@@ -1076,7 +1138,7 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
         currentAddress, location, city, state, region,
         aadhaarNo, panNo
       } = req.body;
-      
+
       // Convert date strings to Date objects if they exist
       const dateOfBirth = dateOfBirthStr ? (dateOfBirthStr instanceof Date ? dateOfBirthStr : new Date(dateOfBirthStr)) : undefined;
       const dateOfJoining = dateOfJoiningStr ? (dateOfJoiningStr instanceof Date ? dateOfJoiningStr : new Date(dateOfJoiningStr)) : undefined;
@@ -1134,19 +1196,19 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
         try {
           const avatarFile = req.files.avatar;
           console.log('📸 Avatar upload detected:', avatarFile.name, 'Size:', avatarFile.size, 'bytes');
-          
+
           const uploadsDir = path.join(__dirname, '..', process.env.LOCAL_UPLOAD_DIR || './uploads', 'avatars');
           if (!fs.existsSync(uploadsDir)) {
             fs.mkdirSync(uploadsDir, { recursive: true });
           }
-          
+
           const avatarExt = path.extname(avatarFile.name);
           const avatarFileName = `avatar-${userId}-${Date.now()}${avatarExt}`;
           const avatarPath = path.join(uploadsDir, avatarFileName);
-          
+
           console.log('💾 Saving avatar file to:', avatarPath);
           await avatarFile.mv(avatarPath);
-          
+
           // Verify file was saved
           if (fs.existsSync(avatarPath)) {
             const stats = fs.statSync(avatarPath);
@@ -1156,10 +1218,10 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
           } else {
             console.error('❌ Avatar file NOT found after save!');
           }
-          
+
           updateData.avatar = `/uploads/avatars/${avatarFileName}`;
           console.log('📝 Avatar path to save in DB:', updateData.avatar);
-          
+
           // Delete old avatar if exists
           if (user.avatar && user.avatar.startsWith('/uploads/avatars/')) {
             const oldAvatarPath = path.join(__dirname, '..', user.avatar);
@@ -1185,22 +1247,22 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
           if (!fs.existsSync(documentsDir)) {
             fs.mkdirSync(documentsDir, { recursive: true });
           }
-          
+
           const docFiles = Array.isArray(req.files.documents) ? req.files.documents : [req.files.documents];
           console.log('📄 Documents upload detected:', docFiles.length, 'file(s)');
-          
+
           const uploadedDocs = [];
-          
+
           for (const docFile of docFiles) {
             console.log('  - Processing document:', docFile.name, 'Size:', docFile.size, 'bytes');
-            
+
             const docExt = path.extname(docFile.name);
             const docFileName = `doc-${userId}-${Date.now()}-${Math.random().toString(36).slice(2)}${docExt}`;
             const docPath = path.join(documentsDir, docFileName);
-            
+
             console.log('💾 Saving document to:', docPath);
             await docFile.mv(docPath);
-            
+
             // Verify file was saved
             if (fs.existsSync(docPath)) {
               const stats = fs.statSync(docPath);
@@ -1209,7 +1271,7 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
             } else {
               console.error('❌ Document file NOT found after save!');
             }
-            
+
             uploadedDocs.push({
               name: docFile.name,
               type: 'other', // Default type, can be enhanced later
@@ -1217,9 +1279,9 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
               uploadedAt: new Date()
             });
           }
-          
+
           console.log('📝 Documents to save in DB:', JSON.stringify(uploadedDocs, null, 2));
-          
+
           // Get existing documents and append new ones
           const existingDocs = user.documents || [];
           updateData.documents = [...existingDocs, ...uploadedDocs];
@@ -1229,19 +1291,19 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
           throw docError; // Re-throw to fail the update
         }
       }
-      
+
     } else {
       // Handle JSON data (for simple updates without files)
       updateData = { ...req.body };
-      
+
       console.log('📝 JSON update request, original body keys:', Object.keys(req.body));
-      
+
       // Remove sensitive fields that shouldn't be updated via this route
       delete updateData.password; // JSON route doesn't support password update for security
       delete updateData.userType;
       delete updateData.isActive;
       delete updateData.employeeId; // Employee ID cannot be changed
-      
+
       // Remove empty objects for avatar and documents
       if (updateData.avatar) {
         if (typeof updateData.avatar === 'object' && !Array.isArray(updateData.avatar) && Object.keys(updateData.avatar).length === 0) {
@@ -1259,12 +1321,12 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
         } else {
           // Filter out invalid document entries
           const validDocs = updateData.documents.filter(doc => {
-            return doc && 
-                   typeof doc === 'object' && 
-                   !Array.isArray(doc) &&
-                   doc.name && 
-                   doc.type && 
-                   doc.filePath;
+            return doc &&
+              typeof doc === 'object' &&
+              !Array.isArray(doc) &&
+              doc.name &&
+              doc.type &&
+              doc.filePath;
           });
           if (validDocs.length === 0) {
             console.log('🗑️ Removing documents array (no valid entries)');
@@ -1275,12 +1337,12 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
           }
         }
       }
-      
+
       // Clean up the data
       if (updateData.email) updateData.email = updateData.email.toLowerCase().trim();
       if (updateData.name) updateData.name = updateData.name.trim();
       if (updateData.panNo) updateData.panNo = updateData.panNo.trim().toUpperCase();
-      
+
       // Handle date fields
       if (updateData.dateOfBirth && typeof updateData.dateOfBirth === 'string') {
         updateData.dateOfBirth = new Date(updateData.dateOfBirth);
@@ -1288,17 +1350,17 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
       if (updateData.dateOfJoining && typeof updateData.dateOfJoining === 'string') {
         updateData.dateOfJoining = new Date(updateData.dateOfJoining);
       }
-      
+
       console.log('📝 JSON updateData after cleaning:', Object.keys(updateData));
     }
 
     // Check for email uniqueness if email is being updated
     if (updateData.email && updateData.email !== user.email) {
-      const existingUser = await User.findOne({ 
+      const existingUser = await User.findOne({
         email: updateData.email.toLowerCase(),
         _id: { $ne: userId }
       });
-      
+
       if (existingUser) {
         return res.status(409).json({
           error: 'Email Exists',
@@ -1310,18 +1372,18 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
     // Clean updateData - remove empty objects and invalid data
     const cleanedUpdateData = {};
     console.log('🧹 Cleaning updateData, original keys:', Object.keys(updateData));
-    
+
     Object.keys(updateData).forEach(key => {
       const value = updateData[key];
-      
+
       console.log(`  - Processing key "${key}":`, typeof value, value);
-      
+
       // Skip undefined, null, or empty strings
       if (value === undefined || value === null || value === '') {
         console.log(`    ⏭️ Skipping ${key}: undefined/null/empty`);
         return;
       }
-      
+
       // Skip empty objects (but not File objects or Date objects)
       if (typeof value === 'object' && !Array.isArray(value) && value !== null) {
         // Date objects are valid - convert them properly
@@ -1341,7 +1403,7 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
           return;
         }
       }
-      
+
       // For avatar, ensure it's a string
       if (key === 'avatar') {
         if (typeof value === 'string' && value.trim() !== '') {
@@ -1352,21 +1414,21 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
         }
         return;
       }
-      
+
       // For documents, ensure it's a valid array with required fields
       if (key === 'documents') {
         if (Array.isArray(value) && value.length > 0) {
           // Filter out invalid documents
           const validDocs = value.filter(doc => {
-            const isValid = doc && 
-                   typeof doc === 'object' && 
-                   !Array.isArray(doc) &&
-                   doc.name && 
-                   typeof doc.name === 'string' &&
-                   doc.type && 
-                   typeof doc.type === 'string' &&
-                   doc.filePath &&
-                   typeof doc.filePath === 'string';
+            const isValid = doc &&
+              typeof doc === 'object' &&
+              !Array.isArray(doc) &&
+              doc.name &&
+              typeof doc.name === 'string' &&
+              doc.type &&
+              typeof doc.type === 'string' &&
+              doc.filePath &&
+              typeof doc.filePath === 'string';
             if (!isValid) {
               console.log(`    ⚠️ Invalid document entry:`, doc);
             }
@@ -1383,7 +1445,7 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
         }
         return;
       }
-      
+
       // For all other fields, add them
       cleanedUpdateData[key] = value;
       console.log(`    ✅ Adding ${key}:`, value);
@@ -1396,7 +1458,7 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
     // Double-check before setting to prevent validation errors
     Object.keys(cleanedUpdateData).forEach(key => {
       const value = cleanedUpdateData[key];
-      
+
       // Final safety check before setting
       if (key === 'avatar') {
         if (typeof value === 'string' && value.trim() !== '') {
@@ -1409,15 +1471,15 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
         if (Array.isArray(value) && value.length > 0) {
           // Final validation of documents
           const validDocs = value.filter(doc => {
-            return doc && 
-                   typeof doc === 'object' && 
-                   !Array.isArray(doc) &&
-                   doc.name && 
-                   typeof doc.name === 'string' &&
-                   doc.type && 
-                   typeof doc.type === 'string' &&
-                   doc.filePath &&
-                   typeof doc.filePath === 'string';
+            return doc &&
+              typeof doc === 'object' &&
+              !Array.isArray(doc) &&
+              doc.name &&
+              typeof doc.name === 'string' &&
+              doc.type &&
+              typeof doc.type === 'string' &&
+              doc.filePath &&
+              typeof doc.filePath === 'string';
           });
           if (validDocs.length > 0) {
             console.log(`  ✅ Setting user.${key} =`, validDocs.length, 'document(s)');
@@ -1440,9 +1502,9 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
     console.log('📝 Update data being saved:');
     console.log('  - Avatar:', updateData.avatar || 'Not updating');
     console.log('  - Documents:', updateData.documents ? `${updateData.documents.length} document(s)` : 'Not updating');
-    
+
     await user.save({ validateModifiedOnly: true });
-    
+
     // Verify data was saved to database
     const savedUser = await User.findById(userId).select('avatar documents');
     console.log('✅ User updated successfully in database:', userId);
@@ -1518,7 +1580,7 @@ router.delete('/:id', authenticateToken, requireAdmin, validateObjectId, async (
     }
 
     const user = await User.findById(userId);
-    
+
     if (!user) {
       return res.status(404).json({
         error: 'Not Found',
@@ -1564,7 +1626,7 @@ router.post('/:id/activate', authenticateToken, requireUserManagementAccess, val
     const userId = req.params.id;
 
     const user = await User.findById(userId);
-    
+
     if (!user) {
       return res.status(404).json({
         error: 'Not Found',
@@ -1669,18 +1731,18 @@ router.put('/:id/activate', authenticateToken, requireUserManagementAccess, vali
     // Activate user and clear exit details
     user.isActive = true;
     user.status = 'Active';
-    
+
     // Clear exit details if they exist
     if (user.exitDetails) {
       user.exitDetails = undefined;
     }
-    
+
     // Clear old inactive fields for backward compatibility
     user.inactiveReason = null;
     user.inactiveRemark = '';
     user.inactiveDate = null;
     user.inactiveBy = null;
-    
+
     await user.save({ validateModifiedOnly: true });
 
     // Create notification for dashboard
@@ -1783,10 +1845,10 @@ router.put('/:id/deactivate', authenticateToken, requireUserManagementAccess, va
 
     user.isActive = false;
     user.status = 'Inactive';
-    
+
     // Note: This simple deactivate doesn't set exit details
     // For full exit management, use /set-inactive endpoint
-    
+
     await user.save({ validateModifiedOnly: true });
 
     // Create notification for dashboard
@@ -1909,15 +1971,15 @@ router.delete('/:id', authenticateToken, requireAdmin, validateObjectId, async (
 router.get('/:userId/warnings', authenticateToken, validateUserId, requireOwnershipOrAdmin, async (req, res) => {
   try {
     const userId = req.params.userId;
-    
+
     // Get audit records that are warnings
-    const warnings = await AuditRecord.find({ 
-      userId, 
+    const warnings = await AuditRecord.find({
+      userId,
       type: 'warning',
       status: 'active'
     })
-    .sort({ createdAt: -1 })
-    .select('reason description severity createdAt');
+      .sort({ createdAt: -1 })
+      .select('reason description severity createdAt');
 
     res.json({
       success: true,
@@ -1939,15 +2001,15 @@ router.get('/:userId/warnings', authenticateToken, validateUserId, requireOwners
 router.get('/:userId/certificates', authenticateToken, validateUserId, requireOwnershipOrAdmin, async (req, res) => {
   try {
     const userId = req.params.userId;
-    
+
     // Get awards that are certificates
-    const certificates = await Award.find({ 
-      userId, 
+    const certificates = await Award.find({
+      userId,
       type: 'certificate',
       status: 'approved'
     })
-    .sort({ awardDate: -1 })
-    .select('title description awardDate type');
+      .sort({ awardDate: -1 })
+      .select('title description awardDate type');
 
     res.json({
       success: true,
@@ -1970,12 +2032,12 @@ router.get('/:userId/certificates', authenticateToken, validateUserId, requireOw
 router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, validateObjectId, conditionalMulter(exitDocUpload.any()), async (req, res) => {
   try {
     const userId = req.params.id;
-    
+
     // Ensure req.body exists
     if (!req.body) {
       req.body = {};
     }
-    
+
     // Extract fields from req.body (don't destructure - extract explicitly to handle FormData properly)
     let exitDate = req.body.exitDate;
     let mainCategory = req.body.mainCategory;
@@ -1988,10 +2050,10 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
     let inactiveRemark = req.body.inactiveRemark;
 
     // Extract proofDocument file from req.files (since we're using .any())
-    const proofDocumentFile = req.files && Array.isArray(req.files) 
-      ? req.files.find(f => f.fieldname === 'proofDocument') 
+    const proofDocumentFile = req.files && Array.isArray(req.files)
+      ? req.files.find(f => f.fieldname === 'proofDocument')
       : null;
-    
+
     console.log('=== Set Inactive Request ===');
     console.log('User ID:', userId);
     console.log('Content-Type:', req.get('Content-Type'));
@@ -2002,14 +2064,14 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
     console.log('Request body values:', req.body ? Object.entries(req.body).map(([k, v]) => [k, typeof v, v]) : 'No body');
     console.log('Files uploaded:', req.files ? `${req.files.length} file(s)` : 'No');
     console.log('Proof document:', proofDocumentFile ? `Yes - ${proofDocumentFile.originalname} (${(proofDocumentFile.size / 1024).toFixed(2)} KB)` : 'No');
-    
+
     console.log('Extracted fields:', {
       exitDate: exitDate ? `${typeof exitDate} - "${exitDate}"` : 'undefined',
       mainCategory: mainCategory ? `${typeof mainCategory} - "${mainCategory}"` : 'undefined',
       subCategory: subCategory ? `${typeof subCategory} - "${subCategory}"` : 'undefined',
       verifiedBy: verifiedBy ? `${typeof verifiedBy} - "${verifiedBy}"` : 'undefined'
     });
-    
+
     // Clean up uploaded file helper function
     const cleanupFile = () => {
       if (proofDocumentFile && fs.existsSync(proofDocumentFile.path)) {
@@ -2035,43 +2097,43 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
     } else {
       exitDate = '';
     }
-    
+
     if (mainCategory !== undefined && mainCategory !== null) {
       mainCategory = String(mainCategory).trim();
     } else {
       mainCategory = '';
     }
-    
+
     if (subCategory !== undefined && subCategory !== null) {
       subCategory = String(subCategory).trim();
     } else {
       subCategory = '';
     }
-    
+
     if (exitReasonDescription !== undefined && exitReasonDescription !== null) {
       exitReasonDescription = String(exitReasonDescription).trim();
     } else {
       exitReasonDescription = '';
     }
-    
+
     if (remarks !== undefined && remarks !== null) {
       remarks = String(remarks).trim();
     } else {
       remarks = '';
     }
-    
+
     if (verifiedBy !== undefined && verifiedBy !== null) {
       verifiedBy = String(verifiedBy).trim();
     } else {
       verifiedBy = 'Pending';
     }
-    
+
     if (inactiveReason !== undefined && inactiveReason !== null) {
       inactiveReason = String(inactiveReason).trim();
     } else {
       inactiveReason = '';
     }
-    
+
     if (inactiveRemark !== undefined && inactiveRemark !== null) {
       inactiveRemark = String(inactiveRemark).trim();
     } else {
@@ -2095,7 +2157,7 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
     } else {
       console.log('❌ No exitDate or inactiveReason found');
     }
-    
+
     if (!finalExitDate || finalExitDate === '') {
       cleanupFile();
       console.error('❌ Validation failed: Exit date is required');
@@ -2135,7 +2197,7 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
     // Validate mainCategory (required)
     const validMainCategories = ['Resignation', 'Termination', 'End of Contract / Project', 'Retirement', 'Death', 'Other'];
     const finalMainCategory = mainCategory || inactiveReason || null;
-    
+
     if (!finalMainCategory) {
       cleanupFile();
       return res.status(400).json({
@@ -2218,7 +2280,7 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
     // Update user status and inactive details
     user.status = 'Inactive';
     user.isActive = false;
-    
+
     // Set exit details with validated values
     user.exitDetails = {
       exitDate: exitDateObj,
@@ -2400,12 +2462,12 @@ router.put('/:id/reactivate', authenticateToken, requireUserManagementAccess, va
     // Reactivate user - clear all exit details
     user.status = 'Active';
     user.isActive = true;
-    
+
     // Clear exit details if they exist
     if (user.exitDetails) {
       user.exitDetails = undefined;
     }
-    
+
     // Clear old inactive fields for backward compatibility
     user.inactiveReason = null;
     user.inactiveRemark = '';
@@ -2414,7 +2476,7 @@ router.put('/:id/reactivate', authenticateToken, requireUserManagementAccess, va
 
     // Save without validating unchanged fields (fixes phone validation for old users)
     await user.save({ validateModifiedOnly: true });
-    
+
     // Create notification for dashboard
     try {
       const notification = new Notification({
@@ -2525,11 +2587,11 @@ router.put('/:id/reactivate', authenticateToken, requireUserManagementAccess, va
 // @access  Private (Admin panel only)
 router.get('/exit-records/export', authenticateToken, requireAdminPanel, async (req, res) => {
   try {
-    const { 
-      mainCategory, 
-      verifiedBy, 
-      startDate, 
-      endDate 
+    const {
+      mainCategory,
+      verifiedBy,
+      startDate,
+      endDate
     } = req.query;
 
     // Build query
@@ -2563,12 +2625,12 @@ router.get('/exit-records/export', authenticateToken, requireAdminPanel, async (
 
     // Generate CSV
     const csvHeader = 'Employee ID,Name,Email,Phone,Designation,Department,Location,City,State,Date of Joining,Exit Date,Exit Reason (Main),Exit Reason (Sub),Exit Description,Verified By,Verified By User,Has Proof Document,Remarks\n';
-    
+
     const csvRows = users.map(user => {
       const exitDetails = user.exitDetails || {};
       const exitReason = exitDetails.exitReason || {};
       const proofDoc = exitDetails.proofDocument || {};
-      
+
       return [
         user.employeeId || '',
         `"${user.name || ''}"`,
@@ -2612,14 +2674,14 @@ router.get('/exit-records/export', authenticateToken, requireAdminPanel, async (
 // @access  Private (Admin panel only)
 router.get('/exit-records', authenticateToken, requireAdminPanel, async (req, res) => {
   try {
-    const { 
-      mainCategory, 
-      verifiedBy, 
-      search, 
-      startDate, 
+    const {
+      mainCategory,
+      verifiedBy,
+      search,
+      startDate,
       endDate,
-      page = 1, 
-      limit = 50 
+      page = 1,
+      limit = 50
     } = req.query;
 
     // Build query
@@ -2800,7 +2862,7 @@ router.put('/:id/exit-details/verify', authenticateToken, requireAdminPanel, val
     }
 
     const user = await User.findById(userId);
-    
+
     if (!user) {
       return res.status(404).json({
         error: 'Not Found',
@@ -2855,5 +2917,158 @@ router.put('/:id/exit-details/verify', authenticateToken, requireAdminPanel, val
     });
   }
 });
+
+// ==================== WARNING ROUTES ====================
+// Add these routes to users.js before "module.exports = router;"
+
+// File upload storage for warning attachments
+const warningsDir = path.join(__dirname, '..', 'uploads', 'warnings');
+if (!fs.existsSync(warningsDir)) {
+  fs.mkdirSync(warningsDir, { recursive: true });
+}
+
+const warningStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, warningsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const uniqueName = `warning-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    cb(null, uniqueName);
+  }
+});
+
+const warningUpload = multer({
+  storage: warningStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+    files: 1
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg',
+      'image/png'
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF, JPG, and PNG files are allowed for warning attachments.'));
+    }
+  }
+});
+
+// @route   POST /api/users/:userId/warning
+// @desc    Send warning to user with optional attachment
+// @access  Private (Admin only)
+router.post('/:userId/warning', authenticateToken, requireAdmin, warningUpload.single('attachment'), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { message } = req.body;
+
+    console.log('📢 Creating warning for user:', userId);
+    console.log('Message:', message);
+    console.log('File:', req.file);
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Warning message is required'
+      });
+    }
+
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        error: 'User not found',
+        message: 'User does not exist'
+      });
+    }
+
+    const Warning = require('../models/Warning');
+
+    // Create warning document
+    const warning = new Warning({
+      userId: userId,
+      type: 'warning',
+      title: 'Warning Notice',
+      description: message,
+      severity: 'medium',
+      status: 'active',
+      issuedBy: req.user._id,
+      issuedAt: new Date(),
+      metadata: {
+        attachmentUrl: req.file ? `/uploads/warnings/${req.file.filename}` : null
+      }
+    });
+
+    await warning.save();
+
+    console.log('✅ Warning created:', warning._id);
+
+    res.status(201).json({
+      success: true,
+      message: 'Warning sent successfully',
+      warning: {
+        _id: warning._id,
+        userId: warning.userId,
+        title: warning.title,
+        description: warning.description,
+        severity: warning.severity,
+        status: warning.status,
+        issuedAt: warning.issuedAt,
+        metadata: warning.metadata
+      }
+    });
+
+  } catch (error) {
+    console.error('Send warning error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error sending warning',
+      details: error.message
+    });
+  }
+});
+
+// @route   GET /api/users/:userId/warnings
+// @desc    Get all warnings for a user
+// @access  Private (Admin or same user)
+router.get('/:userId/warnings', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Check if user can access this data
+    if (req.user.userType !== 'admin' && req.user._id.toString() !== userId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Access denied'
+      });
+    }
+
+    const Warning = require('../models/Warning');
+
+    const warnings = await Warning.find({ userId: userId })
+      .populate('issuedBy', 'name email')
+      .sort({ issuedAt: -1 });
+
+    console.log(`📋 Found ${warnings.length} warnings for user ${userId}`);
+
+    res.json({
+      success: true,
+      warnings: warnings
+    });
+
+  } catch (error) {
+    console.error('Get warnings error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error fetching warnings',
+      details: error.message
+    });
+  }
+});
+
 
 module.exports = router;
