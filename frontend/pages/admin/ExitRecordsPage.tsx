@@ -67,15 +67,16 @@ export const ExitRecordsPage: React.FC = () => {
     fetchExitRecords();
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
-      apiService.users.exportExitRecords({
+      toast.info('Starting export...');
+      await apiService.users.exportExitRecords({
         mainCategory,
         verifiedBy,
         startDate,
         endDate
       });
-      toast.success('Exporting exit records to CSV...');
+      toast.success('Exit records exported successfully');
     } catch (error) {
       console.error('Error exporting records:', error);
       toast.error('Failed to export records');
@@ -344,10 +345,10 @@ export const ExitRecordsPage: React.FC = () => {
                       <td className="py-3 px-2">
                         <Badge
                           className={`${record.exitDetails?.verifiedBy === 'HR'
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                              : record.exitDetails?.verifiedBy === 'Compliance'
-                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                            : record.exitDetails?.verifiedBy === 'Compliance'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
                             }`}
                         >
                           {record.exitDetails?.verifiedBy || 'Pending'}

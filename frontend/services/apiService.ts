@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // API Configuration
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
+const API_BASE_URL = process.env.NODE_ENV === 'production'
   ? 'https://feportal.foxivision.net/api'
   : '/api'; // Use proxy in development
 
@@ -40,18 +40,18 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     console.error('API Error:', error.response?.status, error.response?.data || error.message);
-    
+
     // Handle network errors (backend not running)
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
       console.error('Backend server is not running. Please start the backend server.');
       // Don't redirect to login for network errors, just show error
       return Promise.reject(new Error('Backend server is not running. Please start the backend server on port 3001.'));
     }
-    
+
     if (error.response?.status === 401) {
       // Unauthorized - clear token and prevent further requests
       localStorage.removeItem('authToken');
-      
+
       // Only redirect if we're not already on the login page
       if (!window.location.pathname.includes('login') && !window.location.hash.includes('login')) {
         // Dispatch a custom event to notify components about auth failure
@@ -61,23 +61,23 @@ apiClient.interceptors.response.use(
           window.location.href = '/#user-login';
         }, 100);
       }
-      
+
       // Return a specific error that components can handle
       return Promise.reject(new Error('Authentication failed. Please login again.'));
     }
-    
+
     if (error.response?.status === 404) {
       // Not found - log warning but don't throw error
       console.warn('API endpoint not found, using fallback data');
       return { data: null, error: 'Not found' };
     }
-    
+
     if (error.response?.status === 503) {
       // Service unavailable
       console.log('Service unavailable');
       throw new Error('Service unavailable. Please try again later.');
     }
-    
+
     // Handle 400 validation errors with details
     if (error.response?.status === 400 && error.response?.data?.details) {
       console.error('Validation errors:', error.response.data.details);
@@ -85,7 +85,7 @@ apiClient.interceptors.response.use(
       errorObj.response = error.response.data;
       return Promise.reject(errorObj);
     }
-    
+
     const errorMessage = error.response?.data?.message || error.message || 'An error occurred';
     return Promise.reject(new Error(errorMessage));
   }
@@ -103,7 +103,7 @@ export const apiService = {
       });
       return response;
     },
-    
+
     register: async (userData: {
       name: string;
       email: string;
@@ -113,7 +113,7 @@ export const apiService = {
       const response = await apiClient.post('/auth/register', userData);
       return response;
     },
-    
+
     logout: async () => {
       const response = await apiClient.post('/auth/logout');
       return response;
@@ -136,7 +136,7 @@ export const apiService = {
       const response = await apiClient.get(`/users/${userId}/profile`);
       return response;
     },
-    
+
     getAllUsers: async (filters?: {
       filter?: string;
       page?: number;
@@ -148,7 +148,7 @@ export const apiService = {
       if (filters?.page) params.append('page', filters.page.toString());
       if (filters?.limit) params.append('limit', filters.limit.toString());
       if (filters?.search) params.append('search', filters.search);
-      
+
       const response = await apiClient.get(`/users?${params.toString()}`);
       return response;
     },
@@ -198,7 +198,7 @@ export const apiService = {
 
     updateUser: async (userId: string, userData: any) => {
       // If userData is FormData, don't set Content-Type header (let axios handle it)
-      const config = userData instanceof FormData 
+      const config = userData instanceof FormData
         ? { headers: { 'Content-Type': 'multipart/form-data' } }
         : {};
       const response = await apiClient.put(`/users/${userId}`, userData, config);
@@ -291,7 +291,7 @@ export const apiService = {
       if (filters?.endDate) params.append('endDate', filters.endDate);
       if (filters?.page) params.append('page', filters.page.toString());
       if (filters?.limit) params.append('limit', filters.limit.toString());
-      
+
       const response = await apiClient.get(`/users/exit-records?${params.toString()}`);
       return response;
     },
@@ -325,9 +325,30 @@ export const apiService = {
       if (filters?.verifiedBy) params.append('verifiedBy', filters.verifiedBy);
       if (filters?.startDate) params.append('startDate', filters.startDate);
       if (filters?.endDate) params.append('endDate', filters.endDate);
-      
-      const token = localStorage.getItem('authToken');
-      window.open(`${API_BASE_URL}/users/exit-records/export?${params.toString()}&token=${token}`, '_blank');
+
+      try {
+        const response: any = await apiClient.get(`/users/exit-records/export?${params.toString()}`, {
+          responseType: 'blob'
+        });
+
+        // Create a blob from the response
+        const blob = new Blob([response], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `exit-records-${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+
+        // Clean up
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        return true;
+      } catch (error) {
+        console.error('Export failed:', error);
+        throw error;
+      }
     },
 
     reactivateUser: async (userId: string) => {
@@ -342,22 +363,22 @@ export const apiService = {
       const response = await apiClient.get('/modules');
       return response;
     },
-    
+
     getUserModules: async (userId: string) => {
       const response = await apiClient.get(`/modules/user/${userId}`);
       return response;
     },
-    
+
     getPublicModules: async () => {
       const response = await apiClient.get('/modules/public');
       return response;
     },
-    
-   getModule: async (moduleId: string) => {
+
+    getModule: async (moduleId: string) => {
       const response = await apiClient.get(`/modules/${moduleId}`);
       return response;
     },
-    
+
     createModule: async (moduleData: {
       title: string;
       description?: string;
@@ -401,12 +422,12 @@ export const apiService = {
       const response = await apiClient.get('/quizzes');
       return response;
     },
-    
+
     getQuiz: async (moduleId: string) => {
       const response = await apiClient.get(`/quizzes/${moduleId}`);
       return response;
     },
-    
+
     createQuiz: async (quizData: {
       moduleId: string;
       questions: any[];
@@ -586,7 +607,7 @@ export const apiService = {
       const response = await apiClient.get(`/reports/user/${userId}`);
       return response;
     },
-    
+
     getAdminReports: async () => {
       const response = await apiClient.get('/reports/admin');
       return response;
@@ -611,7 +632,7 @@ export const apiService = {
       if (filters?.startDate) params.append('startDate', filters.startDate);
       if (filters?.endDate) params.append('endDate', filters.endDate);
       if (filters?.department) params.append('department', filters.department);
-      
+
       const response = await apiClient.get(`/reports/analytics/performance?${params.toString()}`);
       return response;
     },
@@ -625,7 +646,7 @@ export const apiService = {
       if (filters?.format) params.append('format', filters.format);
       if (filters?.department) params.append('department', filters.department);
       if (filters?.status) params.append('status', filters.status);
-      
+
       const response = await apiClient.get(`/reports/export/users?${params.toString()}`);
       return response;
     },
@@ -658,7 +679,7 @@ export const apiService = {
       const params = new URLSearchParams();
       if (options?.unreadOnly) params.append('unreadOnly', 'true');
       if (options?.limit) params.append('limit', options.limit.toString());
-      
+
       const response = await apiClient.get(`/notifications/user/${userId}?${params.toString()}`);
       return response;
     },
@@ -690,11 +711,11 @@ export const apiService = {
       const params = new URLSearchParams();
       if (filters?.userId) params.append('userId', filters.userId);
       if (filters?.limit) params.append('limit', filters.limit.toString());
-      
+
       const response = await apiClient.get(`/awards?${params.toString()}`);
       return response;
     },
-    
+
     createAward: async (awardData: {
       userId: string;
       type: string;
@@ -718,7 +739,7 @@ export const apiService = {
         console.log(key, value);
       }
       console.log('==========================');
-      
+
       // IMPORTANT: Don't set Content-Type header manually for FormData
       // Let the browser set it automatically with the correct boundary
       const token = localStorage.getItem('authToken');
@@ -728,7 +749,7 @@ export const apiService = {
           // Content-Type will be set automatically by axios/browser
         }
       });
-      
+
       console.log('API response:', response);
       return response.data;
     },
@@ -759,11 +780,11 @@ export const apiService = {
       if (filters?.userId) params.append('userId', filters.userId);
       if (filters?.page) params.append('page', filters.page.toString());
       if (filters?.limit) params.append('limit', filters.limit.toString());
-      
+
       const response = await apiClient.get(`/audits?${params.toString()}`);
       return response;
     },
-    
+
     createRecord: async (recordData: {
       userId: string;
       type: string;
@@ -805,7 +826,7 @@ export const apiService = {
       if (filters?.startDate) params.append('startDate', filters.startDate);
       if (filters?.endDate) params.append('endDate', filters.endDate);
       if (filters?.limit) params.append('limit', filters.limit.toString());
-      
+
       const response = await apiClient.get(`/lifecycle/${userId}?${params.toString()}`);
       return response;
     },
@@ -830,7 +851,7 @@ export const apiService = {
       if (filters?.startDate) params.append('startDate', filters.startDate);
       if (filters?.endDate) params.append('endDate', filters.endDate);
       if (filters?.limit) params.append('limit', filters.limit.toString());
-      
+
       const response = await apiClient.get(`/lifecycle/system?${params.toString()}`);
       return response;
     }
@@ -883,7 +904,7 @@ export const apiService = {
     getUserKPIHistory: async (userId: string, limit?: number) => {
       const params = new URLSearchParams();
       if (limit) params.append('limit', limit.toString());
-      
+
       const response = await apiClient.get(`/kpi/${userId}/history?${params.toString()}`);
       return response;
     },
@@ -929,7 +950,7 @@ export const apiService = {
       if (filters?.limit) params.append('limit', filters.limit.toString());
       if (filters?.startDate) params.append('startDate', filters.startDate);
       if (filters?.endDate) params.append('endDate', filters.endDate);
-      
+
       const response = await apiClient.get(`/kpi/pending-automation?${params.toString()}`);
       return response;
     },
@@ -942,7 +963,7 @@ export const apiService = {
     getLowPerformers: async (threshold?: number) => {
       const params = new URLSearchParams();
       if (threshold) params.append('threshold', threshold.toString());
-      
+
       const response = await apiClient.get(`/kpi/alerts/low-performers?${params.toString()}`);
       return response;
     },
@@ -972,7 +993,7 @@ export const apiService = {
     getRealActivitySummary: async (userId: string, period?: string) => {
       const params = new URLSearchParams();
       if (period) params.append('period', period);
-      
+
       const response = await apiClient.get(`/kpi/real-activity-summary/${userId}?${params.toString()}`);
       return response;
     },
@@ -1037,7 +1058,7 @@ export const apiService = {
       if (filters?.moduleId) params.append('moduleId', filters.moduleId);
       if (filters?.limit) params.append('limit', filters.limit.toString());
       if (filters?.page) params.append('page', filters.page.toString());
-      
+
       const response = await apiClient.get(`/quiz-attempts/user/${userId}?${params.toString()}`);
       return response;
     },
@@ -1050,7 +1071,7 @@ export const apiService = {
     getQuizAttemptHistory: async (userId: string, moduleId?: string) => {
       const params = new URLSearchParams();
       if (moduleId) params.append('moduleId', moduleId);
-      
+
       const response = await apiClient.get(`/quiz-attempts/history/${userId}?${params.toString()}`);
       return response;
     },
@@ -1080,7 +1101,7 @@ export const apiService = {
       if (filters?.status) params.append('status', filters.status);
       if (filters?.page) params.append('page', filters.page.toString());
       if (filters?.limit) params.append('limit', filters.limit.toString());
-      
+
       const response = await apiClient.get(`/quiz-attempts?${params.toString()}`);
       return response;
     },
@@ -1094,7 +1115,7 @@ export const apiService = {
       if (filters?.startDate) params.append('startDate', filters.startDate);
       if (filters?.endDate) params.append('endDate', filters.endDate);
       if (filters?.moduleId) params.append('moduleId', filters.moduleId);
-      
+
       const response = await apiClient.get(`/quiz-attempts/analytics?${params.toString()}`);
       return response;
     }
@@ -1105,7 +1126,7 @@ export const apiService = {
     getActivitySummary: async (userId: string, days?: number) => {
       const params = new URLSearchParams();
       if (days) params.append('days', days.toString());
-      
+
       const response = await apiClient.get(`/user-activity/summary/${userId}?${params.toString()}`);
       return response;
     },
@@ -1113,7 +1134,7 @@ export const apiService = {
     getLoginAttempts: async (userId: string, days?: number) => {
       const params = new URLSearchParams();
       if (days) params.append('days', days.toString());
-      
+
       const response = await apiClient.get(`/user-activity/login-attempts/${userId}?${params.toString()}`);
       return response;
     },
@@ -1121,7 +1142,7 @@ export const apiService = {
     getSessionData: async (userId: string, days?: number) => {
       const params = new URLSearchParams();
       if (days) params.append('days', days.toString());
-      
+
       const response = await apiClient.get(`/user-activity/sessions/${userId}?${params.toString()}`);
       return response;
     },
@@ -1129,7 +1150,7 @@ export const apiService = {
     getSuspiciousActivities: async (userId: string, days?: number) => {
       const params = new URLSearchParams();
       if (days) params.append('days', days.toString());
-      
+
       const response = await apiClient.get(`/user-activity/suspicious/${userId}?${params.toString()}`);
       return response;
     },
@@ -1141,7 +1162,7 @@ export const apiService = {
       const params = new URLSearchParams();
       if (filters?.limit) params.append('limit', filters.limit.toString());
       if (filters?.page) params.append('page', filters.page.toString());
-      
+
       const response = await apiClient.get(`/user-activity/recent/${userId}?${params.toString()}`);
       return response;
     },
@@ -1166,7 +1187,7 @@ export const apiService = {
     getAdminAnalytics: async (days?: number) => {
       const params = new URLSearchParams();
       if (days) params.append('days', days.toString());
-      
+
       const response = await apiClient.get(`/user-activity/admin/analytics?${params.toString()}`);
       return response;
     }
@@ -1185,7 +1206,7 @@ export const apiService = {
       if (filters?.limit) params.append('limit', filters.limit.toString());
       if (filters?.status) params.append('status', filters.status);
       if (filters?.trainingType) params.append('trainingType', filters.trainingType);
-      
+
       const response = await apiClient.get(`/training-assignments/user/${userId}?${params.toString()}`);
       return response;
     },
@@ -1206,7 +1227,7 @@ export const apiService = {
       if (filters?.limit) params.append('limit', filters.limit.toString());
       if (filters?.trainingType) params.append('trainingType', filters.trainingType);
       if (filters?.status) params.append('status', filters.status);
-      
+
       const response = await apiClient.get(`/training-assignments/pending?${params.toString()}`);
       return response;
     },
@@ -1220,7 +1241,7 @@ export const apiService = {
       if (filters?.page) params.append('page', filters.page.toString());
       if (filters?.limit) params.append('limit', filters.limit.toString());
       if (filters?.trainingType) params.append('trainingType', filters.trainingType);
-      
+
       const response = await apiClient.get(`/training-assignments/overdue?${params.toString()}`);
       return response;
     },
@@ -1262,7 +1283,7 @@ export const apiService = {
       if (filters?.priority) params.append('priority', filters.priority);
       if (filters?.startDate) params.append('startDate', filters.startDate);
       if (filters?.endDate) params.append('endDate', filters.endDate);
-      
+
       const response = await apiClient.get(`/training-assignments/stats?${params.toString()}`);
       return response;
     }
@@ -1290,7 +1311,7 @@ export const apiService = {
       if (filters?.priority) params.append('priority', filters.priority);
       if (filters?.startDate) params.append('startDate', filters.startDate);
       if (filters?.endDate) params.append('endDate', filters.endDate);
-      
+
       const response = await apiClient.get(`/audit-scheduling/scheduled?${params.toString()}`);
       return response;
     },
@@ -1306,7 +1327,7 @@ export const apiService = {
       if (filters?.limit) params.append('limit', filters.limit.toString());
       if (filters?.auditType) params.append('auditType', filters.auditType);
       if (filters?.priority) params.append('priority', filters.priority);
-      
+
       const response = await apiClient.get(`/audit-scheduling/overdue?${params.toString()}`);
       return response;
     },
@@ -1336,7 +1357,7 @@ export const apiService = {
       if (filters?.auditType) params.append('auditType', filters.auditType);
       if (filters?.startDate) params.append('startDate', filters.startDate);
       if (filters?.endDate) params.append('endDate', filters.endDate);
-      
+
       const response = await apiClient.get(`/audit-scheduling/user/${userId}?${params.toString()}`);
       return response;
     },
@@ -1371,7 +1392,7 @@ export const apiService = {
       if (filters?.priority) params.append('priority', filters.priority);
       if (filters?.startDate) params.append('startDate', filters.startDate);
       if (filters?.endDate) params.append('endDate', filters.endDate);
-      
+
       const response = await apiClient.get(`/audit-scheduling/stats?${params.toString()}`);
       return response;
     },
@@ -1380,7 +1401,7 @@ export const apiService = {
       const params = new URLSearchParams();
       if (days) params.append('days', days.toString());
       if (limit) params.append('limit', limit.toString());
-      
+
       const response = await apiClient.get(`/audit-scheduling/upcoming?${params.toString()}`);
       return response;
     },
@@ -1402,7 +1423,7 @@ export const apiService = {
       if (filters?.search) params.append('search', filters.search);
       if (filters?.page) params.append('page', filters.page.toString());
       if (filters?.limit) params.append('limit', filters.limit.toString());
-      
+
       const response = await apiClient.get(`/recipient-groups?${params.toString()}`);
       return response;
     },
@@ -1493,7 +1514,7 @@ export const apiService = {
       if (filters?.recipientRole) params.append('recipientRole', filters.recipientRole);
       if (filters?.dateRange) params.append('dateRange', filters.dateRange);
       if (filters?.search) params.append('search', filters.search);
-      
+
       const response = await apiClient.get(`/email-logs?${params.toString()}`);
       return response;
     },
@@ -1562,13 +1583,13 @@ export const apiService = {
       if (filters?.status) params.append('status', filters.status);
       if (filters?.recipientRole) params.append('recipientRole', filters.recipientRole);
       if (filters?.dateRange) params.append('dateRange', filters.dateRange);
-      
+
       const response = await apiClient.get(`/email-logs/export?${params.toString()}`);
       return response;
     }
   },
 
- emailStats: {
+  emailStats: {
     get: async (filters?: {
       startDate?: string;
       endDate?: string;
@@ -1578,7 +1599,7 @@ export const apiService = {
       if (filters?.startDate) params.append('startDate', filters.startDate);
       if (filters?.endDate) params.append('endDate', filters.endDate);
       if (filters?.templateType) params.append('templateType', filters.templateType);
-      
+
       const response = await apiClient.get(`/email-stats?${params.toString()}`);
       return response;
     },
@@ -1590,7 +1611,7 @@ export const apiService = {
       const params = new URLSearchParams();
       if (filters?.startDate) params.append('startDate', filters.startDate);
       if (filters?.endDate) params.append('endDate', filters.endDate);
-      
+
       const response = await apiClient.get(`/email-stats/delivery?${params.toString()}`);
       return response;
     },
@@ -1602,7 +1623,7 @@ export const apiService = {
       const params = new URLSearchParams();
       if (filters?.startDate) params.append('startDate', filters.startDate);
       if (filters?.endDate) params.append('endDate', filters.endDate);
-      
+
       const response = await apiClient.get(`/email-stats/template-performance?${params.toString()}`);
       return response;
     }
@@ -1614,7 +1635,7 @@ export const apiService = {
       const formData = new FormData();
       formData.append('excelFile', file);
       formData.append('period', period);
-      
+
       // Let browser set Content-Type with correct boundary
       const token = localStorage.getItem('authToken');
       const response = await axios.post('/api/kpi-triggers/upload-excel', formData, {
@@ -1629,7 +1650,7 @@ export const apiService = {
       const formData = new FormData();
       formData.append('excelFile', file);
       formData.append('period', period);
-      
+
       // Let browser set Content-Type with correct boundary
       const token = localStorage.getItem('authToken');
       const response = await axios.post('/api/kpi-triggers/preview', formData, {
@@ -1657,7 +1678,7 @@ export const apiService = {
     getHistory: async (userId: string, limit?: number) => {
       const params = new URLSearchParams();
       if (limit) params.append('limit', limit.toString());
-      
+
       const response = await apiClient.get(`/kpi-triggers/history/${userId}?${params.toString()}`);
       return response;
     },
@@ -1765,7 +1786,7 @@ export const apiService = {
     getAll: async (unreadOnly: boolean = false) => {
       const params = new URLSearchParams();
       if (unreadOnly) params.append('unreadOnly', 'true');
-      
+
       const response = await apiClient.get(`/notifications?${params.toString()}`);
       return response;
     },
@@ -1800,7 +1821,7 @@ export const apiService = {
     getByType: async (type: string, limit?: number) => {
       const params = new URLSearchParams();
       if (limit) params.append('limit', limit.toString());
-      
+
       const response = await apiClient.get(`/notifications/type/${type}?${params.toString()}`);
       return response;
     },

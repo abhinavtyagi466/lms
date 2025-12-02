@@ -214,10 +214,7 @@ export const ScoreReportsPage: React.FC = () => {
     return <Badge className="bg-red-100 text-red-800">Unsatisfactory</Badge>;
   };
 
-  const getCompletionRate = (completed: number, total: number) => {
-    if (total === 0) return 0;
-    return Math.round((completed / total) * 100);
-  };
+
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
@@ -415,7 +412,6 @@ export const ScoreReportsPage: React.FC = () => {
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Employee ID</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Modules</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Avg Score</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Completion</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Last Activity</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Status</th>
                     </tr>
@@ -454,19 +450,7 @@ export const ScoreReportsPage: React.FC = () => {
                             </span>
                           </div>
                         </td>
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                              <div
-                                className="bg-blue-600 h-2 rounded-full"
-                                style={{ width: `${getCompletionRate(score.completedModules, score.totalModules)}%` }}
-                              />
-                            </div>
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                              {getCompletionRate(score.completedModules, score.totalModules)}%
-                            </span>
-                          </div>
-                        </td>
+                        {/* Completion bar hidden as requested */}
                         <td className="py-4 px-4 text-sm text-gray-500 dark:text-gray-400">
                           {score.lastActivity
                             ? new Date(score.lastActivity).toLocaleDateString()
