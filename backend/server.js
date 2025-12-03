@@ -40,7 +40,9 @@ const cache = new NodeCache({
 global.appCache = cache;
 
 // Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, process.env.LOCAL_UPLOAD_DIR || './uploads');
+const uploadsDir = process.env.NODE_ENV === 'production'
+  ? '/var/www/lms/backend/uploads'
+  : path.join(__dirname, process.env.LOCAL_UPLOAD_DIR || './uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -254,6 +256,10 @@ console.log('📁 Uploads directory exists:', fs.existsSync(uploadsDir));
 app.use('/uploads', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  // For viewing documents in browser instead of downloading
+  if (req.path.match(/\.(pdf|jpg|jpeg|png)$/i)) {
+    res.header('Content-Disposition', 'inline');
+  }
   next();
 }, express.static(uploadsDir));
 

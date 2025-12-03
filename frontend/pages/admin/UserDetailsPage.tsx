@@ -4,7 +4,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Progress } from '../../components/ui/progress';
 import { ArrowLeft, User, Mail, Phone, Clock, CheckCircle, Play, FileQuestion, Target, TrendingUp, AlertTriangle, BarChart3, Download, FileText, Award, XCircle } from 'lucide-react';
-import { apiService } from '../../services/apiService';
+import { apiService, UPLOADS_BASE_URL } from '../../services/apiService';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -542,7 +542,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                 {user.avatar && typeof user.avatar === 'string' && user.avatar.trim() !== '' && !imageError ? (
                   <img
                     key={user.avatar}
-                    src={user.avatar.startsWith('http') ? user.avatar : `${window.location.origin}${user.avatar}`}
+                    src={user.avatar.startsWith('http') ? user.avatar : `${UPLOADS_BASE_URL}${user.avatar}`}
                     alt={user.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {
@@ -772,7 +772,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              const fileUrl = doc.filePath.startsWith('http') ? doc.filePath : `${window.location.origin}${doc.filePath}`;
+                              const fileUrl = doc.filePath.startsWith('http') ? doc.filePath : `${UPLOADS_BASE_URL}${doc.filePath}`;
                               // Create a temporary anchor element to trigger download
                               const link = document.createElement('a');
                               link.href = fileUrl;

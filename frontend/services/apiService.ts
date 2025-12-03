@@ -5,6 +5,11 @@ const API_BASE_URL = process.env.NODE_ENV === 'production'
   ? 'https://feportal.foxivision.net/api'
   : '/api'; // Use proxy in development
 
+// For static files (uploads) - separate from API
+export const UPLOADS_BASE_URL = process.env.NODE_ENV === 'production'
+  ? 'https://feportal.foxivision.net'
+  : 'http://localhost:3001';
+
 // Create axios instance with default config
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

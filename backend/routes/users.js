@@ -15,7 +15,9 @@ const { validateCreateUser, validateUpdateUser, validateObjectId, validateUserId
 const router = express.Router();
 
 // File upload storage for exit documents
-const exitDocsDir = path.join(__dirname, '..', 'uploads', 'exit-documents');
+const exitDocsDir = process.env.NODE_ENV === 'production'
+  ? '/var/www/lms/backend/uploads/exit-documents'
+  : path.join(__dirname, '..', 'uploads', 'exit-documents');
 if (!fs.existsSync(exitDocsDir)) {
   fs.mkdirSync(exitDocsDir, { recursive: true });
 }
@@ -146,7 +148,9 @@ const conditionalMulter = (multerMiddleware) => {
 };
 
 // File upload storage for warnings and certificates
-const notificationsDir = path.join(__dirname, '..', 'uploads', 'notifications');
+const notificationsDir = process.env.NODE_ENV === 'production'
+  ? '/var/www/lms/backend/uploads/notifications'
+  : path.join(__dirname, '..', 'uploads', 'notifications');
 if (!fs.existsSync(notificationsDir)) {
   fs.mkdirSync(notificationsDir, { recursive: true });
 }
@@ -373,7 +377,9 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
     if (req.files && req.files.avatar) {
       try {
         const avatarFile = req.files.avatar;
-        const uploadsDir = path.join(__dirname, '..', process.env.LOCAL_UPLOAD_DIR || './uploads', 'avatars');
+        const uploadsDir = process.env.NODE_ENV === 'production'
+          ? '/var/www/lms/backend/uploads/avatars'
+          : path.join(__dirname, '..', process.env.LOCAL_UPLOAD_DIR || './uploads', 'avatars');
         if (!fs.existsSync(uploadsDir)) {
           fs.mkdirSync(uploadsDir, { recursive: true });
         }
@@ -397,7 +403,9 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
     const uploadedDocs = [];
     if (req.files && req.files.documents) {
       try {
-        const documentsDir = path.join(__dirname, '..', process.env.LOCAL_UPLOAD_DIR || './uploads', 'documents');
+        const documentsDir = process.env.NODE_ENV === 'production'
+          ? '/var/www/lms/backend/uploads/documents'
+          : path.join(__dirname, '..', process.env.LOCAL_UPLOAD_DIR || './uploads', 'documents');
         if (!fs.existsSync(documentsDir)) {
           fs.mkdirSync(documentsDir, { recursive: true });
         }
@@ -755,6 +763,51 @@ router.get('/:id/warnings', authenticateToken, validateObjectId, async (req, res
     });
   }
 });
+
+// @route   GET /api/users/view-document/:path
+// @desc    View document in browser (inline, not download)
+// @access  Private
+router.get('/view-document/:path(*)', authenticateToken, async (req, res) => {
+  try {
+    const documentPath = req.params.path;
+    const absolutePath = process.env.NODE_ENV === 'production'
+      ? path.join('/var/www/lms/backend/uploads', documentPath)
+      : path.join(__dirname, '..', 'uploads', documentPath);
+
+    console.log('📄 View document request:', documentPath);
+    console.log('📂 Absolute path:', absolutePath);
+
+    // Check if file exists
+    if (!fs.existsSync(absolutePath)) {
+      console.error('❌ File not found:', absolutePath);
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    // Set content type based on file extension
+    const ext = path.extname(absolutePath).toLowerCase();
+    const contentTypes = {
+      '.pdf': 'application/pdf',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.doc': 'application/msword',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    };
+
+    res.setHeader('Content-Type', contentTypes[ext] || 'application/octet-stream');
+    res.setHeader('Content-Disposition', 'inline'); // View in browser
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+
+    console.log('✅ Sending file:', absolutePath);
+    // Send file
+    res.sendFile(absolutePath);
+  } catch (error) {
+    console.error('Error viewing document:', error);
+    res.status(500).json({ message: 'Error viewing document' });
+  }
+});
+
 
 // @route   POST /api/users/:id/certificate
 // @desc    Send certificate to user
