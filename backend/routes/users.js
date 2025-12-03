@@ -2327,7 +2327,7 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
         type: 'info',
         title: 'Account Deactivated',
         message: `Your account has been deactivated. Exit reason: ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}. ${user.exitDetails.exitReasonDescription ? 'Details: ' + user.exitDetails.exitReasonDescription : ''}`,
-        isRead: false,
+        read: false,
         sentBy: req.user._id
       });
       await notification.save();
@@ -2427,6 +2427,10 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
 
   } catch (error) {
     console.error('❌ Set user inactive error:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error name:', error.name);
+    console.error('❌ Error message:', error.message);
+
     // Clean up uploaded file if error occurs
     if (proofDocumentFile && fs.existsSync(proofDocumentFile.path)) {
       try {
@@ -2438,7 +2442,8 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
     }
     res.status(500).json({
       error: 'Server Error',
-      message: 'Error setting user as inactive: ' + error.message
+      message: 'Error setting user as inactive: ' + error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

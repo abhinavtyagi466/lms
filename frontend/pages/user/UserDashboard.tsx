@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  BookOpen, BarChart3, Award, AlertTriangle, TrendingUp, Clock, 
+import {
+  BookOpen, BarChart3, Award, AlertTriangle, TrendingUp, Clock,
   CheckCircle, FileText, Target, FileQuestion, Bell,
   User, Trophy, Activity, Eye,
   GraduationCap, Shield,
@@ -330,19 +330,19 @@ export const UserDashboard: React.FC = () => {
   const [modules, setModules] = useState<ModuleWithProgress[]>([]);
   const [warnings, setWarnings] = useState<any[]>([]);
   const [awards, setAwards] = useState<any[]>([]);
-  const [recentLifecycleEvents, setRecentLifecycleEvents] = useState<any[]>([]);
+
   const [loading, setLoading] = useState(true);
-  
+
   // KPI-related state
   const [kpiScore, setKpiScore] = useState<KPIScore | null>(null);
   const [trainingAssignments, setTrainingAssignments] = useState<TrainingAssignment[]>([]);
   const [auditSchedules, setAuditSchedules] = useState<AuditSchedule[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  
+
   // Quiz attempt state
   const [quizAttemptStats, setQuizAttemptStats] = useState<QuizAttemptStats | null>(null);
   const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
-  
+
   // User activity state
   const [activitySummary, setActivitySummary] = useState<ActivitySummary | null>(null);
   const [loginAttempts, setLoginAttempts] = useState<LoginAttempts | null>(null);
@@ -359,7 +359,7 @@ export const UserDashboard: React.FC = () => {
     totalWatchTime: 0,
     lastActivity: ''
   });
-  
+
   // NEW: Module Scores State (ADDED WITHOUT TOUCHING EXISTING)
   const [moduleScores, setModuleScores] = useState<ModuleScore[]>([]);
   const [loadingModuleScores, setLoadingModuleScores] = useState(false);
@@ -367,11 +367,11 @@ export const UserDashboard: React.FC = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (!(user as any)?._id && !(user as any)?.id) return;
-      
+
       try {
         setLoading(true);
         const userId = (user as any)._id || (user as any).id;
-        
+
         // Phase 1: Fetch critical data first (above the fold) with performance monitoring
         const criticalData = await Promise.allSettled([
           measureAPI(() => apiService.users.getProfile(userId), 'users/getProfile').catch(() => ({ data: { name: (user as any)?.name, email: (user as any)?.email } })),
@@ -381,23 +381,23 @@ export const UserDashboard: React.FC = () => {
 
         // Set critical data immediately for faster UI rendering
         setUserProfile(criticalData[0].status === 'fulfilled' ? criticalData[0].value : { name: (user as any)?.name, email: (user as any)?.email });
-        
+
         if (criticalData[1].status === 'fulfilled' && (criticalData[1].value as any).success) {
           const modulesList = (criticalData[1].value as any).modules || [];
           setModules(modulesList);
-          
+
           // Calculate comprehensive stats immediately
           const completed = modulesList.filter((m: ModuleWithProgress) => m.progress >= 0.95).length;
           const inProgress = modulesList.filter((m: ModuleWithProgress) => m.progress > 0 && m.progress < 0.95).length;
           const notStarted = modulesList.filter((m: ModuleWithProgress) => m.progress === 0).length;
           const totalQuizzes = modulesList.filter((m: ModuleWithProgress) => m.quizInfo).length;
           const completedQuizzes = modulesList.filter((m: ModuleWithProgress) => m.quizInfo && m.progress >= 0.95).length;
-          
+
           // Calculate total watch time (estimated)
           const totalWatchTime = modulesList.reduce((acc: number, m: ModuleWithProgress) => {
             return acc + (m.progress * 30); // Assuming 30 minutes per module
           }, 0);
-          
+
           setStats({
             totalModules: modulesList.length,
             completedModules: completed,
@@ -410,9 +410,9 @@ export const UserDashboard: React.FC = () => {
             lastActivity: new Date().toLocaleDateString()
           });
         }
-        
+
         setKpiScore(criticalData[2].status === 'fulfilled' ? (criticalData[2].value as any).data : null);
-        
+
         // Phase 2: Fetch secondary data in background (below the fold) with performance monitoring
         setTimeout(async () => {
           try {
@@ -432,13 +432,13 @@ export const UserDashboard: React.FC = () => {
             setRecentLifecycleEvents(secondaryData[3].status === 'fulfilled' ? (secondaryData[3].value as any).data?.events || [] : []);
             const quizStats = secondaryData[4].status === 'fulfilled' ? (secondaryData[4].value as any).data : null;
             const quizAttemptsData = secondaryData[5].status === 'fulfilled' ? (secondaryData[5].value as any).data || [] : [];
-            
+
             console.log('=== QUIZ ATTEMPTS DEBUG ===');
             console.log('Quiz Stats Response:', secondaryData[4]);
             console.log('Quiz Stats Data:', quizStats);
             console.log('Quiz Attempts Response:', secondaryData[5]);
             console.log('Quiz Attempts Data:', quizAttemptsData);
-            
+
             setQuizAttemptStats(quizStats);
             setQuizAttempts(quizAttemptsData);
           } catch (error) {
@@ -472,7 +472,7 @@ export const UserDashboard: React.FC = () => {
             console.error('Error fetching tertiary data:', error);
           }
         }, 300);
-        
+
         // NEW: Fetch module scores (ADDED WITHOUT TOUCHING EXISTING)
         setTimeout(async () => {
           try {
@@ -487,7 +487,7 @@ export const UserDashboard: React.FC = () => {
             setLoadingModuleScores(false);
           }
         }, 500);
-        
+
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         toast.error('Failed to load dashboard data');
@@ -597,7 +597,7 @@ export const UserDashboard: React.FC = () => {
                   </span>
                 )}
               </Badge>
-              <Button 
+              <Button
                 onClick={() => setCurrentPage('modules')}
                 variant="secondary"
                 size="lg"
@@ -660,9 +660,9 @@ export const UserDashboard: React.FC = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Quiz Performance</p>
                   <p className="text-3xl font-bold text-gray-900">
-                    {quizAttemptStats ? Math.round(quizAttemptStats.averageScore) : 
-                     quizAttempts.length > 0 ? Math.round(quizAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / quizAttempts.length) : 
-                     0}%
+                    {quizAttemptStats ? Math.round(quizAttemptStats.averageScore) :
+                      quizAttempts.length > 0 ? Math.round(quizAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / quizAttempts.length) :
+                        0}%
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-purple-500 dark:to-violet-600 rounded-xl flex items-center justify-center">
@@ -722,7 +722,7 @@ export const UserDashboard: React.FC = () => {
                       {kpiScore.rating}
                     </Badge>
                   </div>
-                  
+
                   {/* Individual Metrics */}
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
@@ -738,7 +738,7 @@ export const UserDashboard: React.FC = () => {
                       <span className="font-semibold">{kpiScore.metrics?.appUsage?.percentage || 0}%</span>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Major Negativity</span>
@@ -753,7 +753,7 @@ export const UserDashboard: React.FC = () => {
                       <span className="font-semibold">{kpiScore.metrics?.insufficiency?.percentage || 0}%</span>
                     </div>
                   </div>
-                  
+
                   <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg">
                     <div className="text-2xl font-bold text-green-600">
                       {kpiScore.automationStatus === 'completed' ? '✓' : '⏳'}
@@ -938,7 +938,7 @@ export const UserDashboard: React.FC = () => {
                         <div className="text-sm text-gray-600 dark:text-gray-400">Pass Rate</div>
                       </div>
                     </div>
-                    
+
                     {quizAttemptStats.violations > 0 && (
                       <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                         <div className="flex items-center text-red-600 dark:text-red-400">
@@ -978,7 +978,7 @@ export const UserDashboard: React.FC = () => {
                         <div className="text-sm text-gray-600 dark:text-gray-400">Pass Rate</div>
                       </div>
                     </div>
-                    
+
                     {quizAttempts.some(attempt => attempt.violations && attempt.violations.length > 0) && (
                       <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                         <div className="flex items-center text-red-600 dark:text-red-400">
@@ -1016,11 +1016,10 @@ export const UserDashboard: React.FC = () => {
                   {quizAttempts.slice(0, 5).map((attempt) => (
                     <div key={attempt._id} className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-700/50 rounded-lg">
                       <div className="flex items-center space-x-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          attempt.passed 
-                            ? 'bg-green-100 dark:bg-green-900/30' 
-                            : 'bg-red-100 dark:bg-red-900/30'
-                        }`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${attempt.passed
+                          ? 'bg-green-100 dark:bg-green-900/30'
+                          : 'bg-red-100 dark:bg-red-900/30'
+                          }`}>
                           {attempt.passed ? (
                             <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                           ) : (
@@ -1037,11 +1036,10 @@ export const UserDashboard: React.FC = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className={`text-sm font-semibold ${
-                          attempt.passed 
-                            ? 'text-green-600 dark:text-green-400' 
-                            : 'text-red-600 dark:text-red-400'
-                        }`}>
+                        <div className={`text-sm font-semibold ${attempt.passed
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-red-600 dark:text-red-400'
+                          }`}>
                           {attempt.score}%
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -1050,7 +1048,7 @@ export const UserDashboard: React.FC = () => {
                       </div>
                     </div>
                   ))}
-                  
+
                   {quizAttempts.length === 0 && (
                     <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                       <FileQuestion className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -1076,28 +1074,28 @@ export const UserDashboard: React.FC = () => {
                     Activity Summary
                   </CardTitle>
                   <CardDescription>
-                    Your activity patterns over the last {activitySummary.period}
+                    Your activity patterns over the last {activitySummary?.period}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                       <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                        {activitySummary.totalActivities}
+                        {activitySummary?.totalActivities}
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">Total Activities</div>
                     </div>
                     <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                       <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                        {activitySummary.suspiciousActivities}
+                        {activitySummary?.suspiciousActivities}
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">Suspicious</div>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <h4 className="font-medium text-gray-900 dark:text-white">Top Activities:</h4>
-                    {activitySummary.summary.slice(0, 5).map((activity, index) => (
+                    {activitySummary?.summary.slice(0, 5).map((activity, index) => (
                       <div key={index} className="flex justify-between items-center p-2 bg-gray-50/50 dark:bg-gray-700/50 rounded">
                         <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
                           {activity._id.replace(/_/g, ' ')}
@@ -1133,34 +1131,34 @@ export const UserDashboard: React.FC = () => {
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                       <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                        {loginAttempts.statistics.successRate}%
+                        {loginAttempts?.statistics.successRate}%
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">Success Rate</div>
                     </div>
                     <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                       <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                        {loginAttempts.statistics.uniqueDevices}
+                        {loginAttempts?.statistics.uniqueDevices}
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">Devices</div>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-400">Total Attempts:</span>
-                      <span className="font-medium">{loginAttempts.statistics.totalAttempts}</span>
+                      <span className="font-medium">{loginAttempts?.statistics.totalAttempts}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-400">Successful:</span>
-                      <span className="font-medium text-green-600">{loginAttempts.statistics.successfulLogins}</span>
+                      <span className="font-medium text-green-600">{loginAttempts?.statistics.successfulLogins}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-400">Failed:</span>
-                      <span className="font-medium text-red-600">{loginAttempts.statistics.failedLogins}</span>
+                      <span className="font-medium text-red-600">{loginAttempts?.statistics.failedLogins}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-400">Unique IPs:</span>
-                      <span className="font-medium">{loginAttempts.statistics.uniqueIPs}</span>
+                      <span className="font-medium">{loginAttempts?.statistics.uniqueIPs}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -1180,41 +1178,41 @@ export const UserDashboard: React.FC = () => {
                   Session Summary
                 </CardTitle>
                 <CardDescription>
-                  Your session activity over the last {sessionData.period}
+                  Your session activity over the last {sessionData?.period}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="text-center p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
                     <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                      {sessionData.summary.totalSessions}
+                      {sessionData?.summary.totalSessions}
                     </div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">Sessions</div>
                   </div>
                   <div className="text-center p-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg">
                     <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">
-                      {Math.round(sessionData.summary.avgDuration / 60)}m
+                      {Math.round((sessionData?.summary.avgDuration || 0) / 60)}m
                     </div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">Avg Duration</div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Total Time:</span>
-                    <span className="font-medium">{Math.round(sessionData.summary.totalDuration / 3600)}h</span>
+                    <span className="font-medium">{Math.round((sessionData?.summary.totalDuration || 0) / 3600)}h</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Page Views:</span>
-                    <span className="font-medium">{sessionData.summary.totalPageViews}</span>
+                    <span className="font-medium">{sessionData?.summary.totalPageViews}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Actions:</span>
-                    <span className="font-medium">{sessionData.summary.totalActions}</span>
+                    <span className="font-medium">{sessionData?.summary.totalActions}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Unique Devices:</span>
-                    <span className="font-medium">{sessionData.summary.uniqueDevices.length}</span>
+                    <span className="font-medium">{sessionData?.summary.uniqueDevices.length}</span>
                   </div>
                 </div>
               </CardContent>
@@ -1233,7 +1231,7 @@ export const UserDashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {sessionData.devicePatterns.slice(0, 3).map((device, index) => (
+                  {sessionData?.devicePatterns.slice(0, 3).map((device, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-700/50 rounded-lg">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-purple-600 rounded-lg flex items-center justify-center">
@@ -1279,11 +1277,10 @@ export const UserDashboard: React.FC = () => {
                 {recentActivities.slice(0, 8).map((activity) => (
                   <div key={activity._id} className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-700/50 rounded-lg">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        activity.success 
-                          ? 'bg-green-100 dark:bg-green-900/30' 
-                          : 'bg-red-100 dark:bg-red-900/30'
-                      }`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${activity.success
+                        ? 'bg-green-100 dark:bg-green-900/30'
+                        : 'bg-red-100 dark:bg-red-900/30'
+                        }`}>
                         {activity.success ? (
                           <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                         ) : (
@@ -1300,14 +1297,13 @@ export const UserDashboard: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge 
+                      <Badge
                         variant="outline"
-                        className={`${
-                          activity.severity === 'critical' ? 'border-red-300 text-red-700 bg-red-50' :
+                        className={`${activity.severity === 'critical' ? 'border-red-300 text-red-700 bg-red-50' :
                           activity.severity === 'high' ? 'border-orange-300 text-orange-700 bg-orange-50' :
-                          activity.severity === 'medium' ? 'border-yellow-300 text-yellow-700 bg-yellow-50' :
-                          'border-gray-300 text-gray-700 bg-gray-50'
-                        }`}
+                            activity.severity === 'medium' ? 'border-yellow-300 text-yellow-700 bg-yellow-50' :
+                              'border-gray-300 text-gray-700 bg-gray-50'
+                          }`}
                       >
                         {activity.severity}
                       </Badge>
@@ -1475,9 +1471,8 @@ export const UserDashboard: React.FC = () => {
                 <CardContent>
                   <div className="space-y-3">
                     {notifications.slice(0, 5).map((notification) => (
-                      <div key={notification._id} className={`p-3 rounded-lg border-l-4 ${
-                        notification.isRead ? 'bg-gray-50 border-l-gray-300' : 'bg-blue-50 border-l-blue-500'
-                      }`}>
+                      <div key={notification._id} className={`p-3 rounded-lg border-l-4 ${notification.isRead ? 'bg-gray-50 border-l-gray-300' : 'bg-blue-50 border-l-blue-500'
+                        }`}>
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <p className="text-sm font-medium text-gray-900">{notification.title}</p>
@@ -1576,7 +1571,7 @@ export const UserDashboard: React.FC = () => {
                 Detailed performance breakdown for each training module
               </p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {moduleScores.map((score) => (
                 <ModuleScoreCard key={score.moduleId} score={score} />

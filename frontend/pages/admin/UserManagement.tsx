@@ -207,26 +207,52 @@ export const UserManagement: React.FC = () => {
       // Validate all fields
       const errors: Record<string, string> = {};
 
-      const nameValidation = validateName(createUserData.name);
-      if (!nameValidation.isValid) errors.name = nameValidation.error;
-
-      const emailValidation = validateEmail(createUserData.email);
-      if (!emailValidation.isValid) errors.email = emailValidation.error;
-
-      const passwordValidation = validatePassword(createUserData.password);
-      if (!passwordValidation.isValid) errors.password = passwordValidation.error;
-
-      const phoneValidation = validatePhone(createUserData.phone);
-      if (!phoneValidation.isValid) errors.phone = phoneValidation.error;
-
-      if (createUserData.aadhaarNo) {
-        const aadhaarValidation = validateAadhaar(createUserData.aadhaarNo);
-        if (!aadhaarValidation.isValid) errors.aadhaarNo = aadhaarValidation.error;
+      // Mandatory Fields Validation
+      if (!createUserData.name.trim()) errors.name = 'Name is required';
+      if (!createUserData.email.trim()) errors.email = 'Email is required';
+      if (!createUserData.password) errors.password = 'Password is required';
+      if (!createUserData.phone.trim()) errors.phone = 'Phone is required';
+      if (!createUserData.userType) errors.userType = 'User Type is required';
+      if (createUserData.userType === 'user' && !createUserData.reportingManager.trim()) {
+        errors.reportingManager = 'Reporting Manager is required';
       }
 
-      if (createUserData.panNo) {
-        const panValidation = validatePAN(createUserData.panNo);
-        if (!panValidation.isValid) errors.panNo = panValidation.error;
+      // Specific Validations
+
+      // Name Validation
+      if (createUserData.name.trim() && !validateName(createUserData.name).isValid) {
+        errors.name = validateName(createUserData.name).error;
+      }
+
+      // Email Validation
+      if (createUserData.email.trim() && !validateEmail(createUserData.email).isValid) {
+        errors.email = validateEmail(createUserData.email).error;
+      }
+
+      // Phone Validation (Must be 10 digits)
+      if (createUserData.phone.trim()) {
+        const phoneRegex = /^\d{10}$/;
+        if (!phoneRegex.test(createUserData.phone)) {
+          errors.phone = 'Phone number must be exactly 10 digits';
+        }
+      }
+
+      // Password Validation (1 Upper, 1 Number, 1 Special)
+      if (createUserData.password) {
+        const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{6,}$/;
+        if (!passwordRegex.test(createUserData.password)) {
+          errors.password = 'Password must contain at least 1 uppercase letter, 1 number, and 1 special character';
+        }
+      }
+
+      // Aadhaar Validation
+      if (createUserData.aadhaarNo && !validateAadhaar(createUserData.aadhaarNo).isValid) {
+        errors.aadhaarNo = validateAadhaar(createUserData.aadhaarNo).error;
+      }
+
+      // PAN Validation
+      if (createUserData.panNo && !validatePAN(createUserData.panNo).isValid) {
+        errors.panNo = validatePAN(createUserData.panNo).error;
       }
 
       // If there are validation errors, show them and return
@@ -1464,9 +1490,16 @@ export const UserManagement: React.FC = () => {
                           id="email"
                           type="email"
                           value={createUserData.email}
-                          onChange={(e) => setCreateUserData(prev => ({ ...prev, email: e.target.value }))}
+                          onChange={(e) => {
+                            setCreateUserData(prev => ({ ...prev, email: e.target.value }));
+                            if (validationErrors.email) setValidationErrors(prev => ({ ...prev, email: '' }));
+                          }}
                           placeholder="Enter email address"
+                          className={validationErrors.email ? 'border-red-500' : ''}
                         />
+                        {validationErrors.email && (
+                          <p className="text-xs text-red-500 mt-1">{validationErrors.email}</p>
+                        )}
                       </div>
                     </div>
 
@@ -1477,9 +1510,16 @@ export const UserManagement: React.FC = () => {
                           id="password"
                           type="password"
                           value={createUserData.password}
-                          onChange={(e) => setCreateUserData(prev => ({ ...prev, password: e.target.value }))}
+                          onChange={(e) => {
+                            setCreateUserData(prev => ({ ...prev, password: e.target.value }));
+                            if (validationErrors.password) setValidationErrors(prev => ({ ...prev, password: '' }));
+                          }}
                           placeholder="Enter password"
+                          className={validationErrors.password ? 'border-red-500' : ''}
                         />
+                        {validationErrors.password && (
+                          <p className="text-xs text-red-500 mt-1">{validationErrors.password}</p>
+                        )}
                       </div>
 
                       <div>
@@ -1567,7 +1607,7 @@ export const UserManagement: React.FC = () => {
                           <SelectTrigger>
                             <SelectValue placeholder="Select user type" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="z-[150]">
                             <SelectItem value="user">User (Field Executive)</SelectItem>
                             <SelectItem value="manager">Manager</SelectItem>
                             <SelectItem value="hod">HOD (Head of Department)</SelectItem>
@@ -1591,9 +1631,16 @@ export const UserManagement: React.FC = () => {
                           <Input
                             id="reportingManager"
                             value={createUserData.reportingManager}
-                            onChange={(e) => setCreateUserData(prev => ({ ...prev, reportingManager: e.target.value }))}
+                            onChange={(e) => {
+                              setCreateUserData(prev => ({ ...prev, reportingManager: e.target.value }));
+                              if (validationErrors.reportingManager) setValidationErrors(prev => ({ ...prev, reportingManager: '' }));
+                            }}
                             placeholder="Enter reporting manager name"
+                            className={validationErrors.reportingManager ? 'border-red-500' : ''}
                           />
+                          {validationErrors.reportingManager && (
+                            <p className="text-xs text-red-500 mt-1">{validationErrors.reportingManager}</p>
+                          )}
                         </div>
                       )}
                     </div>
