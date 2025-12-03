@@ -86,11 +86,10 @@ export const LoginPopup: React.FC<LoginPopupProps> = ({
                       type="button"
                       variant={userType === 'user' ? 'default' : 'outline'}
                       onClick={() => setUserType('user')}
-                      className={`flex-1 transition-all duration-200 ${
-                        userType === 'user' 
-                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg' 
+                      className={`flex-1 transition-all duration-200 ${userType === 'user'
+                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
                           : 'hover:bg-blue-50 hover:border-blue-300'
-                      }`}
+                        }`}
                     >
                       <User className="w-4 h-4 mr-2 text-gray-700 dark:text-gray-300" />
                       User
@@ -99,11 +98,10 @@ export const LoginPopup: React.FC<LoginPopupProps> = ({
                       type="button"
                       variant={userType === 'admin' ? 'default' : 'outline'}
                       onClick={() => setUserType('admin')}
-                      className={`flex-1 transition-all duration-200 ${
-                        userType === 'admin' 
-                          ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg' 
+                      className={`flex-1 transition-all duration-200 ${userType === 'admin'
+                          ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg'
                           : 'hover:bg-purple-50 hover:border-purple-300'
-                      }`}
+                        }`}
                     >
                       <User className="w-4 h-4 mr-2 text-gray-700 dark:text-gray-300" />
                       Admin

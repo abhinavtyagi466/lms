@@ -87,42 +87,42 @@ export const LogoutPopup: React.FC<LogoutPopupProps> = ({
 
                 {/* Action Buttons */}
                 <div className="flex space-x-3">
-  {/* Cancel Button */}
-  <Button
-    variant="outline"
-    onClick={onClose}
-    disabled={loading}
-    className="flex-1 h-12 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white 
+                  {/* Cancel Button */}
+                  <Button
+                    variant="outline"
+                    onClick={onClose}
+                    disabled={loading}
+                    className="flex-1 h-12 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white 
                hover:bg-gray-50 dark:hover:bg-gray-600 hover:border-gray-300 dark:hover:border-gray-500 
                transition-all duration-200"
-  >
-    <X className="w-4 h-4 mr-2" />
-    Cancel
-  </Button>
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
 
-  {/* Logout Button (Red) */}
-  <Button
-    onClick={handleLogout}
-    disabled={loading}
-    className="flex-1 h-12 bg-red-600 hover:bg-red-700 
+                  {/* Logout Button (Red) */}
+                  <Button
+                    onClick={handleLogout}
+                    disabled={loading}
+                    className="flex-1 h-12 bg-red-600 hover:bg-red-700 
                text-white font-semibold rounded-lg shadow-lg hover:shadow-xl 
                border border-red-700 
                transition-all duration-200 transform hover:scale-[1.02] 
                disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-  >
-    {loading ? (
-      <>
-        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-        Logging Out...
-      </>
-    ) : (
-      <>
-        <LogOut className="w-5 h-5 mr-2" />
-        Logout
-      </>
-    )}
-  </Button>
-</div>
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Logging Out...
+                      </>
+                    ) : (
+                      <>
+                        <LogOut className="w-5 h-5 mr-2" />
+                        Logout
+                      </>
+                    )}
+                  </Button>
+                </div>
 
 
                 {/* Additional Info */}

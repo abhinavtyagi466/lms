@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Check, CheckCheck, Filter, AlertCircle, BookOpen, FileText, Award, Calendar, Mail, Trophy, Target } from 'lucide-react';
+import { Bell, Check, CheckCheck, AlertCircle, BookOpen, FileText, Award, Calendar, Trophy } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -41,6 +41,8 @@ interface Award {
   description: string;
   awardDate: string;
   value?: number;
+  document?: string;
+  documentName?: string;
 }
 
 interface Certificate {
@@ -49,6 +51,8 @@ interface Certificate {
   description: string;
   awardDate: string;
   type: string;
+  document?: string;
+  documentName?: string;
 }
 
 export const NotificationsPage: React.FC = () => {
@@ -66,9 +70,13 @@ export const NotificationsPage: React.FC = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    applyFilter();
+  }, [activeTab, notifications]);
+
   const fetchAllData = async () => {
     if (!user || !(user as any)?._id) return;
-    
+
     try {
       setLoading(true);
       const userId = (user as any)._id;
@@ -77,13 +85,13 @@ export const NotificationsPage: React.FC = () => {
         apiService.awards.getUserAwards(userId).catch(() => ({ awards: [] })),
         apiService.users.getUserCertificates(userId).catch(() => ({ certificates: [] }))
       ]);
-      
+
       const notificationsData = notifRes?.data || notifRes || [];
       setNotifications(Array.isArray(notificationsData) ? notificationsData : []);
-      
+
       const awardsData = awardsRes?.awards || awardsRes?.data || awardsRes || [];
       setAwards(Array.isArray(awardsData) ? awardsData : []);
-      
+
       const certsData = certsRes?.certificates || certsRes?.data || certsRes || [];
       setCertificates(Array.isArray(certsData) ? certsData : []);
     } catch (error) {
@@ -96,7 +104,7 @@ export const NotificationsPage: React.FC = () => {
 
   const applyFilter = () => {
     let filtered = [...notifications];
-    
+
     switch (activeTab) {
       case 'warnings':
         filtered = filtered.filter(n => n.type === 'warning' || n.type === 'error');
@@ -120,17 +128,10 @@ export const NotificationsPage: React.FC = () => {
       setNotifications(prev =>
         prev.map(n => n._id === notificationId ? { ...n, read: true } : n)
       );
-      toast({
-        title: 'Success',
-        description: 'Notification marked as read',
-      });
+      toast.success('Notification marked as read');
     } catch (error) {
       console.error('Error marking as read:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to mark as read',
-        variant: 'destructive',
-      });
+      toast.error('Failed to mark as read');
     }
   };
 
@@ -188,7 +189,15 @@ export const NotificationsPage: React.FC = () => {
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+
     const date = new Date(dateString);
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid Date';
+    }
+
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
       month: 'short',
@@ -214,7 +223,7 @@ export const NotificationsPage: React.FC = () => {
                 Notifications & Updates
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
-                {unreadCount > 0 
+                {unreadCount > 0
                   ? `You have ${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
                   : 'You\'re all caught up! 🎉'}
               </p>
@@ -270,15 +279,12 @@ export const NotificationsPage: React.FC = () => {
         {/* Tabbed Content */}
         <Card className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg rounded-2xl">
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="all">
                 <Bell className="w-4 h-4 mr-2" />
                 All ({notifications.length})
               </TabsTrigger>
-              <TabsTrigger value="notifications">
-                <Mail className="w-4 h-4 mr-2" />
-                Messages
-              </TabsTrigger>
+
               <TabsTrigger value="training">
                 <BookOpen className="w-4 h-4 mr-2" />
                 Training ({trainingCount})
@@ -313,9 +319,8 @@ export const NotificationsPage: React.FC = () => {
                   {notifications.map((notification) => (
                     <Card
                       key={notification._id}
-                      className={`p-6 transition-all hover:shadow-lg ${
-                        !notification.read ? 'border-l-4 border-l-blue-600 bg-blue-50 dark:bg-blue-900/10' : ''
-                      }`}
+                      className={`p-6 transition-all hover:shadow-lg ${!notification.read ? 'border-l-4 border-l-blue-600 bg-blue-50 dark:bg-blue-900/10' : ''
+                        }`}
                     >
                       <div className="flex items-start gap-4">
                         <div className="flex-shrink-0 mt-1">
@@ -390,30 +395,7 @@ export const NotificationsPage: React.FC = () => {
               )}
             </TabsContent>
 
-            {/* Messages Tab */}
-            <TabsContent value="notifications" className="mt-6">
-              <div className="space-y-4">
-                {filteredNotifications.length === 0 ? (
-                  <div className="p-12 text-center">
-                    <Mail className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-600">No messages</p>
-                  </div>
-                ) : (
-                  filteredNotifications.map((notification) => (
-                    <Card key={notification._id} className={`p-6 ${!notification.read ? 'border-l-4 border-l-blue-600 bg-blue-50' : ''}`}>
-                      <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0">{getNotificationIcon(notification.type)}</div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-1">{notification.title}</h3>
-                          <p className="text-sm text-gray-700 mb-3">{notification.message}</p>
-                          <p className="text-xs text-gray-500">{formatDate(notification.sentAt)}</p>
-                        </div>
-                      </div>
-                    </Card>
-                  ))
-                )}
-              </div>
-            </TabsContent>
+
 
             {/* Training Tab */}
             <TabsContent value="training" className="mt-6">
@@ -461,13 +443,26 @@ export const NotificationsPage: React.FC = () => {
                         <div className="flex-1">
                           <h3 className="font-semibold text-lg mb-1">{award.title}</h3>
                           <p className="text-sm text-gray-600 mb-2">{award.description}</p>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 flex-wrap">
                             <Badge className="bg-green-100 text-green-800">{award.type}</Badge>
                             <span className="text-sm text-gray-500">{formatDate(award.awardDate)}</span>
                             {award.value && (
                               <Badge className="bg-yellow-100 text-yellow-800">₹{award.value}</Badge>
                             )}
                           </div>
+                          {award.document && (
+                            <div className="mt-3">
+                              <a
+                                href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/proxy?url=${encodeURIComponent(award.document)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                <FileText className="w-4 h-4" />
+                                <span>View Attachment: {award.documentName || 'Document'}</span>
+                              </a>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </Card>
@@ -495,10 +490,23 @@ export const NotificationsPage: React.FC = () => {
                         <div className="flex-1">
                           <h3 className="font-semibold text-lg mb-1">{cert.title}</h3>
                           <p className="text-sm text-gray-600 mb-2">{cert.description}</p>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 flex-wrap">
                             <Badge className="bg-purple-100 text-purple-800">{cert.type}</Badge>
                             <span className="text-sm text-gray-500">{formatDate(cert.awardDate)}</span>
                           </div>
+                          {cert.document && (
+                            <div className="mt-3">
+                              <a
+                                href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/proxy?url=${encodeURIComponent(cert.document)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                <FileText className="w-4 h-4" />
+                                <span>View Certificate: {cert.documentName || 'Document'}</span>
+                              </a>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </Card>
@@ -524,10 +532,7 @@ export const NotificationsPage: React.FC = () => {
                           <AlertCircle className="w-6 h-6 text-orange-600" />
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center justify-between mb-2">
-                            <h3 className="font-semibold text-lg">{notification.title}</h3>
-                            {getPriorityBadge(notification.priority)}
-                          </div>
+                          <h3 className="font-semibold text-lg mb-2">{notification.title}</h3>
                           <p className="text-sm text-gray-700 mb-3">{notification.message}</p>
                           <p className="text-xs text-gray-500">{formatDate(notification.sentAt)}</p>
                         </div>

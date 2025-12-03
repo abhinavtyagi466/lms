@@ -107,6 +107,8 @@ interface LifecycleEvent {
   metadata?: any;
   createdBy?: string;
   createdAt: string;
+  type?: string;
+  category?: string;
 }
 
 export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
@@ -252,15 +254,15 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
       console.log('==========================');
 
       // Set video progress - FIXED: Handle response properly
-      if (progressResponse?.success && progressResponse.progress) {
-        console.log('Setting video progress (format 1):', progressResponse.progress);
-        setVideoProgress(progressResponse.progress);
-      } else if (progressResponse?.data?.success && progressResponse.data.progress) {
-        console.log('Setting video progress (format 2):', progressResponse.data.progress);
-        setVideoProgress(progressResponse.data.progress);
-      } else if (progressResponse?.data?.progress) {
-        console.log('Setting video progress (format 3):', progressResponse.data.progress);
-        setVideoProgress(progressResponse.data.progress);
+      if ((progressResponse as any)?.success && (progressResponse as any).progress) {
+        console.log('Setting video progress (format 1):', (progressResponse as any).progress);
+        setVideoProgress((progressResponse as any).progress);
+      } else if ((progressResponse as any)?.data?.success && (progressResponse as any).data.progress) {
+        console.log('Setting video progress (format 2):', (progressResponse as any).data.progress);
+        setVideoProgress((progressResponse as any).data.progress);
+      } else if ((progressResponse as any)?.data?.progress) {
+        console.log('Setting video progress (format 3):', (progressResponse as any).data.progress);
+        setVideoProgress((progressResponse as any).data.progress);
       } else {
         console.log('No video progress found, setting empty object');
         setVideoProgress({});
@@ -268,15 +270,15 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
 
       // Set modules - FIXED: Handle multiple response formats
       let modulesList: any[] = [];
-      if (modulesResponse?.success && modulesResponse.modules) {
-        console.log('Modules found (format 1):', modulesResponse.modules.length);
-        modulesList = modulesResponse.modules;
-      } else if (modulesResponse?.data?.success && modulesResponse.data.modules) {
-        console.log('Modules found (format 2):', modulesResponse.data.modules.length);
-        modulesList = modulesResponse.data.modules;
-      } else if (modulesResponse?.data && Array.isArray(modulesResponse.data)) {
-        console.log('Modules found (format 3):', modulesResponse.data.length);
-        modulesList = modulesResponse.data;
+      if ((modulesResponse as any)?.success && (modulesResponse as any).modules) {
+        console.log('Modules found (format 1):', (modulesResponse as any).modules.length);
+        modulesList = (modulesResponse as any).modules;
+      } else if ((modulesResponse as any)?.data?.success && (modulesResponse as any).data.modules) {
+        console.log('Modules found (format 2):', (modulesResponse as any).data.modules.length);
+        modulesList = (modulesResponse as any).data.modules;
+      } else if ((modulesResponse as any)?.data && Array.isArray((modulesResponse as any).data)) {
+        console.log('Modules found (format 3):', (modulesResponse as any).data.length);
+        modulesList = (modulesResponse as any).data;
       } else if (modulesResponse && Array.isArray(modulesResponse)) {
         console.log('Modules found (format 4):', modulesResponse.length);
         modulesList = modulesResponse;
@@ -293,15 +295,15 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
 
       // Set quiz results - FIXED: Handle multiple response formats
       let quizResultsList: any[] = [];
-      if (quizResultsResponse?.success && quizResultsResponse.results) {
-        console.log('Quiz results found (format 1):', quizResultsResponse.results.length);
-        quizResultsList = quizResultsResponse.results;
-      } else if (quizResultsResponse?.data?.results) {
-        console.log('Quiz results found (format 2):', quizResultsResponse.data.results.length);
-        quizResultsList = quizResultsResponse.data.results;
-      } else if (quizResultsResponse?.data && Array.isArray(quizResultsResponse.data)) {
-        console.log('Quiz results found (format 3):', quizResultsResponse.data.length);
-        quizResultsList = quizResultsResponse.data;
+      if ((quizResultsResponse as any)?.success && (quizResultsResponse as any).results) {
+        console.log('Quiz results found (format 1):', (quizResultsResponse as any).results.length);
+        quizResultsList = (quizResultsResponse as any).results;
+      } else if ((quizResultsResponse as any)?.data?.results) {
+        console.log('Quiz results found (format 2):', (quizResultsResponse as any).data.results.length);
+        quizResultsList = (quizResultsResponse as any).data.results;
+      } else if ((quizResultsResponse as any)?.data && Array.isArray((quizResultsResponse as any).data)) {
+        console.log('Quiz results found (format 3):', (quizResultsResponse as any).data.length);
+        quizResultsList = (quizResultsResponse as any).data;
       } else if (quizResultsResponse && Array.isArray(quizResultsResponse)) {
         console.log('Quiz results found (format 4):', quizResultsResponse.length);
         quizResultsList = quizResultsResponse;
@@ -310,13 +312,13 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
 
       // Set quiz attempt stats - FIXED: Handle multiple response formats
       let quizStatsData = null;
-      if (quizStatsResponse?.success && quizStatsResponse.stats) {
+      if ((quizStatsResponse as any)?.success && (quizStatsResponse as any).stats) {
         console.log('Quiz stats found (format 1)');
-        quizStatsData = quizStatsResponse.stats;
-      } else if (quizStatsResponse?.data) {
+        quizStatsData = (quizStatsResponse as any).stats;
+      } else if ((quizStatsResponse as any)?.data) {
         console.log('Quiz stats found (format 2)');
-        quizStatsData = quizStatsResponse.data;
-      } else if (quizStatsResponse && !quizStatsResponse.data) {
+        quizStatsData = (quizStatsResponse as any).data;
+      } else if (quizStatsResponse && !(quizStatsResponse as any).data) {
         console.log('Quiz stats found (format 3)');
         quizStatsData = quizStatsResponse;
       }
@@ -324,12 +326,12 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
 
       // Set quiz attempts - FIXED: Handle multiple response formats
       let quizAttemptsList: any[] = [];
-      if (quizAttemptsResponse?.success && quizAttemptsResponse.attempts) {
-        console.log('Quiz attempts found (format 1):', quizAttemptsResponse.attempts.length);
-        quizAttemptsList = quizAttemptsResponse.attempts;
-      } else if (quizAttemptsResponse?.data) {
-        console.log('Quiz attempts found (format 2):', quizAttemptsResponse.data.length);
-        quizAttemptsList = quizAttemptsResponse.data;
+      if ((quizAttemptsResponse as any)?.success && (quizAttemptsResponse as any).attempts) {
+        console.log('Quiz attempts found (format 1):', (quizAttemptsResponse as any).attempts.length);
+        quizAttemptsList = (quizAttemptsResponse as any).attempts;
+      } else if ((quizAttemptsResponse as any)?.data) {
+        console.log('Quiz attempts found (format 2):', (quizAttemptsResponse as any).data.length);
+        quizAttemptsList = (quizAttemptsResponse as any).data;
       } else if (quizAttemptsResponse && Array.isArray(quizAttemptsResponse)) {
         console.log('Quiz attempts found (format 3):', quizAttemptsResponse.length);
         quizAttemptsList = quizAttemptsResponse;
@@ -338,38 +340,38 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
 
       // Set warnings - FIXED: Handle multiple response formats
       let warningsList: any[] = [];
-      if (warningsResponse?.success && warningsResponse.warnings) {
-        console.log('Warnings found (format 1):', warningsResponse.warnings.length);
-        warningsList = warningsResponse.warnings;
-      } else if (warningsResponse?.data?.warnings) {
-        console.log('Warnings found (format 2):', warningsResponse.data.warnings.length);
-        warningsList = warningsResponse.data.warnings;
-      } else if (warningsResponse?.data && Array.isArray(warningsResponse.data)) {
-        console.log('Warnings found (format 3):', warningsResponse.data.length);
-        warningsList = warningsResponse.data;
+      if ((warningsResponse as any)?.success && (warningsResponse as any).warnings) {
+        console.log('Warnings found (format 1):', (warningsResponse as any).warnings.length);
+        warningsList = (warningsResponse as any).warnings;
+      } else if ((warningsResponse as any)?.data?.warnings) {
+        console.log('Warnings found (format 2):', (warningsResponse as any).data.warnings.length);
+        warningsList = (warningsResponse as any).data.warnings;
+      } else if ((warningsResponse as any)?.data && Array.isArray((warningsResponse as any).data)) {
+        console.log('Warnings found (format 3):', (warningsResponse as any).data.length);
+        warningsList = (warningsResponse as any).data;
       }
       setWarnings(warningsList);
 
       // Set lifecycle events - FIXED: Handle multiple response formats
       let lifecycleEventsList: any[] = [];
-      if (lifecycleResponse?.success && lifecycleResponse.events) {
-        console.log('Lifecycle events found (format 1):', lifecycleResponse.events.length);
-        lifecycleEventsList = lifecycleResponse.events;
-      } else if (lifecycleResponse?.data?.events) {
-        console.log('Lifecycle events found (format 2):', lifecycleResponse.data.events.length);
-        lifecycleEventsList = lifecycleResponse.data.events;
-      } else if (lifecycleResponse?.data && Array.isArray(lifecycleResponse.data)) {
-        console.log('Lifecycle events found (format 3):', lifecycleResponse.data.length);
-        lifecycleEventsList = lifecycleResponse.data;
+      if ((lifecycleResponse as any)?.success && (lifecycleResponse as any).events) {
+        console.log('Lifecycle events found (format 1):', (lifecycleResponse as any).events.length);
+        lifecycleEventsList = (lifecycleResponse as any).events;
+      } else if ((lifecycleResponse as any)?.data?.events) {
+        console.log('Lifecycle events found (format 2):', (lifecycleResponse as any).data.events.length);
+        lifecycleEventsList = (lifecycleResponse as any).data.events;
+      } else if ((lifecycleResponse as any)?.data && Array.isArray((lifecycleResponse as any).data)) {
+        console.log('Lifecycle events found (format 3):', (lifecycleResponse as any).data.length);
+        lifecycleEventsList = (lifecycleResponse as any).data;
       }
       setLifecycleEvents(lifecycleEventsList);
 
       // Set awards/certificates
       let awardsList: any[] = [];
-      if (awardsResponse?.success && awardsResponse.awards) {
-        awardsList = awardsResponse.awards;
-      } else if (awardsResponse?.data?.awards) {
-        awardsList = awardsResponse.data.awards;
+      if ((awardsResponse as any)?.success && (awardsResponse as any).awards) {
+        awardsList = (awardsResponse as any).awards;
+      } else if ((awardsResponse as any)?.data?.awards) {
+        awardsList = (awardsResponse as any).data.awards;
       } else if (awardsResponse?.data && Array.isArray(awardsResponse.data)) {
         awardsList = awardsResponse.data;
       }
@@ -388,7 +390,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
 
       console.log('===== FINAL STATE =====');
       console.log('Modules count:', mappedModules.length);
-      console.log('Video progress keys:', Object.keys(progressResponse?.progress || progressResponse?.data?.progress || {}).length);
+      console.log('Video progress keys:', Object.keys((progressResponse as any)?.progress || (progressResponse as any)?.data?.progress || {}).length);
       console.log('Quiz results count:', quizResultsList.length);
       console.log('Quiz attempts count:', quizAttemptsList.length);
       console.log('Warnings count:', warningsList.length);

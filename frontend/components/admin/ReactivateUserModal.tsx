@@ -54,8 +54,8 @@ export const ReactivateUserModal: React.FC<ReactivateUserModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md mx-auto">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+      <Card className="w-full max-w-md mx-auto shadow-2xl border border-gray-100 dark:border-gray-700 rounded-2xl">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -115,7 +115,7 @@ export const ReactivateUserModal: React.FC<ReactivateUserModalProps> = ({
                     </div>
                   </div>
                 )}
-                
+
                 {user.exitDetails?.exitReason?.mainCategory && (
                   <div>
                     <span className="text-gray-600">Exit Reason:</span>
@@ -135,7 +135,7 @@ export const ReactivateUserModal: React.FC<ReactivateUserModalProps> = ({
                     </div>
                   </div>
                 )}
-                
+
                 {user.exitDetails?.exitReasonDescription && (
                   <div>
                     <span className="text-gray-600">Description:</span>

@@ -73,12 +73,12 @@ export const InactiveUserModal: React.FC<InactiveUserModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!exitDate) {
       toast.error('Please select exit date');
       return;
     }
-    
+
     if (!mainCategory) {
       toast.error('Please select exit reason category');
       return;
@@ -87,7 +87,7 @@ export const InactiveUserModal: React.FC<InactiveUserModalProps> = ({
     setLoading(true);
     setIsUploading(true);
     setUploadProgress(0);
-    
+
     try {
       // Create FormData for file upload
       const formData = new FormData();
@@ -122,13 +122,13 @@ export const InactiveUserModal: React.FC<InactiveUserModalProps> = ({
       }, 200);
 
       await apiService.users.setUserInactiveWithExitDetails(user._id, formData);
-      
+
       clearInterval(progressInterval);
       setUploadProgress(100);
-      
+
       // Show completion for a moment
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       toast.success('User has been set as inactive with exit details successfully');
       onSuccess();
       handleClose();
@@ -172,8 +172,8 @@ export const InactiveUserModal: React.FC<InactiveUserModalProps> = ({
   const availableSubCategories = mainCategory ? EXIT_CATEGORIES[mainCategory as keyof typeof EXIT_CATEGORIES] || [] : [];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <Card className="w-full max-w-2xl mx-auto my-8">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 overflow-y-auto">
+      <Card className="w-full max-w-2xl mx-auto my-8 shadow-2xl border border-gray-100 dark:border-gray-700 rounded-2xl">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -388,7 +388,7 @@ export const InactiveUserModal: React.FC<InactiveUserModalProps> = ({
                   </span>
                 </div>
                 <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2.5 overflow-hidden">
-                  <div 
+                  <div
                     className="bg-blue-600 dark:bg-blue-500 h-2.5 rounded-full transition-all duration-300 ease-out"
                     style={{ width: `${uploadProgress}%` }}
                   >

@@ -164,11 +164,11 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
 
   const fetchUserData = async () => {
     if (!user || !user._id) return;
-    
+
     try {
       setLoading(true);
       console.log('UserDetailsModal: Fetching data for user:', user._id);
-      
+
       // Fetch user's video progress, modules, quiz results, quiz attempts, warnings, and lifecycle events in parallel
       const [progressResponse, modulesResponse, quizResultsResponse, quizStatsResponse, quizAttemptsResponse, warningsResponse, lifecycleResponse] = await Promise.all([
         apiService.progress.getUserProgress(user._id),
@@ -308,12 +308,12 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
   // Calculate quiz statistics
   const getQuizStats = () => {
     if (quizResults.length === 0) return null;
-    
+
     const totalQuizzes = quizResults.length;
     const passedQuizzes = quizResults.filter(result => result.passed).length;
     const averageScore = Math.round(quizResults.reduce((sum, result) => sum + result.percentage, 0) / totalQuizzes);
     const totalTimeSpent = quizResults.reduce((sum, result) => sum + result.timeTaken, 0);
-    
+
     return {
       totalQuizzes,
       passedQuizzes,
@@ -333,9 +333,9 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
   }
 
   return (
-<div className="w-full min-h-screen bg-gray-50">
-<Card className="w-full min-h-screen rounded-none overflow-auto">
-    
+    <div className="w-full min-h-screen bg-gray-50">
+      <Card className="w-full min-h-screen rounded-none overflow-auto">
+
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b bg-gray-50">
           <div className="flex items-center gap-3">
@@ -361,61 +361,55 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
         <div className="flex border-b">
           <button
             onClick={() => setActiveTab('details')}
-            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'details'
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'details'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+              }`}
           >
             User Details
           </button>
           <button
             onClick={() => setActiveTab('progress')}
-            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'progress'
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'progress'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+              }`}
           >
             Video Progress
           </button>
           <button
             onClick={() => setActiveTab('quiz')}
-            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'quiz'
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'quiz'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+              }`}
           >
             Quiz Stats
           </button>
           <button
             onClick={() => setActiveTab('attempts')}
-            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'attempts'
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'attempts'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+              }`}
           >
             Quiz Attempts
           </button>
           <button
             onClick={() => setActiveTab('warnings')}
-            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'warnings'
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'warnings'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+              }`}
           >
             Warnings ({warnings.length})
           </button>
           <button
             onClick={() => setActiveTab('lifecycle')}
-            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'lifecycle'
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'lifecycle'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+              }`}
           >
             Lifecycle Events
           </button>
@@ -445,19 +439,18 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                         <div><span className="font-medium">Employee ID:</span> {user.employeeId || 'Not assigned'}</div>
                         <div><span className="font-medium">Department:</span> {user.department || 'Not assigned'}</div>
                         <div><span className="font-medium">Manager:</span> {user.manager || 'Not assigned'}</div>
-                        <div><span className="font-medium">Status:</span> 
-                          <Badge className={`ml-2 ${
-                            user.status === 'Active' ? 'bg-green-100 text-green-800' :
-                            user.status === 'Warning' ? 'bg-yellow-100 text-yellow-800' :
-                            user.status === 'Audited' ? 'bg-blue-100 text-blue-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
+                        <div><span className="font-medium">Status:</span>
+                          <Badge className={`ml-2 ${user.status === 'Active' ? 'bg-green-100 text-green-800' :
+                              user.status === 'Warning' ? 'bg-yellow-100 text-yellow-800' :
+                                user.status === 'Audited' ? 'bg-blue-100 text-blue-800' :
+                                  'bg-red-100 text-red-800'
+                            }`}>
                             {user.status}
                           </Badge>
                         </div>
                         <div><span className="font-medium">KPI Score:</span> {user.kpiScore || 0}%</div>
                         <div><span className="font-medium">Last Login:</span> {user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}</div>
-                        <div><span className="font-medium">Account Status:</span> 
+                        <div><span className="font-medium">Account Status:</span>
                           <Badge className={`ml-2 ${user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                             {user.isActive ? 'Active' : 'Inactive'}
                           </Badge>
@@ -528,7 +521,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                         const progressPercentage = getProgressPercentage(progress.currentTime, progress.duration);
                         const completed = isVideoCompleted(progress.currentTime, progress.duration);
                         const moduleTitle = getModuleTitle(videoId);
-                        
+
                         return (
                           <Card key={videoId} className="p-4">
                             <div className="flex items-start justify-between mb-3">
@@ -550,15 +543,15 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                                 )}
                               </div>
                             </div>
-                            
+
                             <div className="space-y-3">
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-gray-600">Progress</span>
                                 <span className="font-medium">{progressPercentage}%</span>
                               </div>
-                              
+
                               <Progress value={progressPercentage} className="h-2" />
-                              
+
                               <div className="flex items-center justify-between text-xs text-gray-500">
                                 <span>
                                   {formatTime(progress.currentTime)} / {formatTime(progress.duration)} watched
@@ -618,7 +611,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                           <div className="text-2xl font-bold text-blue-600">{stats.totalQuizzes}</div>
                           <div className="text-sm text-gray-600">Total Quizzes</div>
                         </Card>
-                        
+
                         <Card className="p-4 text-center">
                           <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
                             <CheckCircle className="w-4 h-4 text-green-600" />
@@ -626,7 +619,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                           <div className="text-2xl font-bold text-green-600">{stats.passedQuizzes}</div>
                           <div className="text-sm text-gray-600">Passed</div>
                         </Card>
-                        
+
                         <Card className="p-4 text-center">
                           <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-2">
                             <TrendingUp className="w-4 h-4 text-orange-600" />
@@ -634,7 +627,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                           <div className="text-2xl font-bold text-orange-600">{stats.averageScore}%</div>
                           <div className="text-sm text-gray-600">Average Score</div>
                         </Card>
-                        
+
                         <Card className="p-4 text-center">
                           <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
                             <Target className="w-4 h-4 text-purple-600" />
@@ -675,7 +668,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                               )}
                             </div>
                           </div>
-                          
+
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
                               <span className="text-gray-600">Score:</span>
@@ -742,7 +735,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                         <div className="text-2xl font-bold text-blue-600">{quizAttemptStats.totalAttempts}</div>
                         <div className="text-sm text-gray-600">Total Attempts</div>
                       </Card>
-                      
+
                       <Card className="p-4 text-center">
                         <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
                           <CheckCircle className="w-4 h-4 text-green-600" />
@@ -750,7 +743,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                         <div className="text-2xl font-bold text-green-600">{quizAttemptStats.totalQuizzes}</div>
                         <div className="text-sm text-gray-600">Quizzes Taken</div>
                       </Card>
-                      
+
                       <Card className="p-4 text-center">
                         <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-2">
                           <TrendingUp className="w-4 h-4 text-orange-600" />
@@ -758,7 +751,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                         <div className="text-2xl font-bold text-orange-600">{Math.round(quizAttemptStats.averageScore)}%</div>
                         <div className="text-sm text-gray-600">Average Score</div>
                       </Card>
-                      
+
                       <Card className="p-4 text-center">
                         <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
                           <Target className="w-4 h-4 text-purple-600" />
@@ -812,21 +805,20 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                                   Failed
                                 </Badge>
                               )}
-                              <Badge 
-                                variant="outline" 
-                                className={`${
-                                  attempt.status === 'violation' 
-                                    ? 'border-red-300 text-red-700 bg-red-50' 
+                              <Badge
+                                variant="outline"
+                                className={`${attempt.status === 'violation'
+                                    ? 'border-red-300 text-red-700 bg-red-50'
                                     : attempt.status === 'completed'
-                                    ? 'border-green-300 text-green-700 bg-green-50'
-                                    : 'border-gray-300 text-gray-700 bg-gray-50'
-                                }`}
+                                      ? 'border-green-300 text-green-700 bg-green-50'
+                                      : 'border-gray-300 text-gray-700 bg-gray-50'
+                                  }`}
                               >
                                 {attempt.status}
                               </Badge>
                             </div>
                           </div>
-                          
+
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
                               <span className="text-gray-600">Score:</span>
@@ -920,29 +912,27 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Badge 
-                                className={`${
-                                  warning.severity === 'critical' ? 'bg-red-100 text-red-800' :
-                                  warning.severity === 'high' ? 'bg-orange-100 text-orange-800' :
-                                  warning.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                                  'bg-blue-100 text-blue-800'
-                                }`}
+                              <Badge
+                                className={`${warning.severity === 'critical' ? 'bg-red-100 text-red-800' :
+                                    warning.severity === 'high' ? 'bg-orange-100 text-orange-800' :
+                                      warning.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-blue-100 text-blue-800'
+                                  }`}
                               >
                                 {warning.severity}
                               </Badge>
-                              <Badge 
+                              <Badge
                                 variant="outline"
-                                className={`${
-                                  warning.status === 'completed' ? 'border-green-300 text-green-700 bg-green-50' :
-                                  warning.status === 'pending' ? 'border-yellow-300 text-yellow-700 bg-yellow-50' :
-                                  'border-gray-300 text-gray-700 bg-gray-50'
-                                }`}
+                                className={`${warning.status === 'completed' ? 'border-green-300 text-green-700 bg-green-50' :
+                                    warning.status === 'pending' ? 'border-yellow-300 text-yellow-700 bg-yellow-50' :
+                                      'border-gray-300 text-gray-700 bg-gray-50'
+                                  }`}
                               >
                                 {warning.status}
                               </Badge>
                             </div>
                           </div>
-                          
+
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                             <div>
                               <span className="text-gray-600">Type:</span>
@@ -1019,13 +1009,12 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Badge 
-                                className={`${
-                                  event.category === 'positive' ? 'bg-green-100 text-green-800' :
-                                  event.category === 'negative' ? 'bg-red-100 text-red-800' :
-                                  event.category === 'milestone' ? 'bg-blue-100 text-blue-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}
+                              <Badge
+                                className={`${event.category === 'positive' ? 'bg-green-100 text-green-800' :
+                                    event.category === 'negative' ? 'bg-red-100 text-red-800' :
+                                      event.category === 'milestone' ? 'bg-blue-100 text-blue-800' :
+                                        'bg-gray-100 text-gray-800'
+                                  }`}
                               >
                                 {event.category}
                               </Badge>

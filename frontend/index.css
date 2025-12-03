@@ -12,6 +12,13 @@
   animation: shimmer 2s infinite;
 }
 
+/* Modal overlay fix - ensures modals cover entire viewport */
+.modal-overlay-fix {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 100 !important;
+}
+
 @layer base {
   @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
     *, :before, :after, ::backdrop {

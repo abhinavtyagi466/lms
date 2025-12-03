@@ -173,8 +173,8 @@ export const ModuleManagement: React.FC = () => {
 
       // Handle different response structures
       let usersData = [];
-      if (response && response.users) {
-        usersData = response.users;
+      if (response && (response as any).users) {
+        usersData = (response as any).users;
       } else if (response && response.data && response.data.users) {
         usersData = response.data.users;
       } else if (Array.isArray(response)) {
@@ -994,8 +994,8 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
 
         {/* Create Module Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 dark:border-gray-700">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Create New YouTube Module</h2>
                 <Button
@@ -1019,8 +1019,8 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
 
         {/* Create/Edit Quiz Modal */}
         {showQuizModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 dark:border-gray-700">
               <h2 className="text-xl font-semibold mb-4">
                 {createQuizData.moduleId && getModuleQuiz(createQuizData.moduleId) ? 'Edit Quiz' : 'Create New Quiz'} for Module: {modules.find(m => m._id === createQuizData.moduleId)?.title || 'Unknown'}
               </h2>
@@ -1231,8 +1231,8 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
 
         {/* CSV Upload Modal */}
         {showCSVModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-700">
               <h2 className="text-xl font-semibold mb-4">
                 Upload Questions via CSV for Module: {modules.find(m => m._id === selectedModuleId)?.title || 'Unknown'}
               </h2>
@@ -1329,8 +1329,8 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
 
         {/* Personalised Module Modal */}
         {showPersonalisedModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-700">
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                 <Plus className="w-5 h-5 text-purple-600" />
                 Assign Personalised Module
@@ -1526,8 +1526,8 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
 
         {/* NEW: Edit Question Modal (ADDED WITHOUT TOUCHING EXISTING) */}
         {showEditQuestionModal && editingQuestion && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 dark:border-gray-700">
               <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
                 Edit Question
               </h3>
