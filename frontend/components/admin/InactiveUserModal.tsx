@@ -6,6 +6,7 @@ import { Input } from '../ui/input';
 import { X, AlertTriangle, UserX, Upload, FileText } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
+import { ModalPortal } from '../common/ModalPortal';
 
 interface InactiveUserModalProps {
   user: {
@@ -172,7 +173,8 @@ export const InactiveUserModal: React.FC<InactiveUserModalProps> = ({
   const availableSubCategories = mainCategory ? EXIT_CATEGORIES[mainCategory as keyof typeof EXIT_CATEGORIES] || [] : [];
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 overflow-y-auto">
+    <ModalPortal>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 overflow-y-auto">
       <Card className="w-full max-w-2xl mx-auto my-8 shadow-2xl border border-gray-100 dark:border-gray-700 rounded-2xl">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
@@ -440,5 +442,6 @@ export const InactiveUserModal: React.FC<InactiveUserModalProps> = ({
         </div>
       </Card>
     </div>
+    </ModalPortal>
   );
 };

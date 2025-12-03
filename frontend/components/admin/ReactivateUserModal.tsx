@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { X, UserCheck, AlertTriangle } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
+import { ModalPortal } from '../common/ModalPortal';
 
 interface ReactivateUserModalProps {
   user: {
@@ -54,7 +55,8 @@ export const ReactivateUserModal: React.FC<ReactivateUserModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+    <ModalPortal>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
       <Card className="w-full max-w-md mx-auto shadow-2xl border border-gray-100 dark:border-gray-700 rounded-2xl">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
@@ -190,5 +192,6 @@ export const ReactivateUserModal: React.FC<ReactivateUserModalProps> = ({
         </div>
       </Card>
     </div>
+    </ModalPortal>
   );
 };

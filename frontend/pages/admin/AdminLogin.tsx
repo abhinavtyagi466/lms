@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Sun, Moon, Mail, Lock } from 'lucide-react';
+import { Shield, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
@@ -11,10 +11,11 @@ import { toast } from 'sonner';
 
 export const AdminLogin: React.FC = () => {
   const { login } = useAuth();
-  const { isDarkMode, toggleDarkMode } = useTheme();
+  const { isDarkMode } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,17 +165,27 @@ export const AdminLogin: React.FC = () => {
                   }`} />
                   <Input 
                     id="password" 
-                    type="password" 
+                    type={showPassword ? "text" : "password"} 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className={`pl-10 h-12 ${
+                    className={`pl-10 pr-10 h-12 ${
                       isDarkMode 
                         ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
                         : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
                     }`}
                     disabled={isLoading}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${
+                      isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                    disabled={isLoading}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
               
@@ -195,29 +206,12 @@ export const AdminLogin: React.FC = () => {
               </Button>
             </form>
             
-            <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-center pt-4 border-t border-gray-200 dark:border-gray-700">
               <p className={`text-xs ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-500'
               }`}>
                 Authorized personnel only
               </p>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={toggleDarkMode}
-                className={`p-2 rounded-lg transition-colors ${
-                  isDarkMode 
-                    ? 'hover:bg-gray-700 text-gray-300' 
-                    : 'hover:bg-gray-100 text-gray-600'
-                }`}
-              >
-                {isDarkMode ? (
-                  <Sun className="w-4 h-4" />
-                ) : (
-                  <Moon className="w-4 h-4" />
-                )}
-              </Button>
             </div>
           </div>
         </Card>

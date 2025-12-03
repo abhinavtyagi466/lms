@@ -2107,24 +2107,6 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
       ? req.files.find(f => f.fieldname === 'proofDocument')
       : null;
 
-    console.log('=== Set Inactive Request ===');
-    console.log('User ID:', userId);
-    console.log('Content-Type:', req.get('Content-Type'));
-    console.log('Request body exists:', !!req.body);
-    console.log('Request body type:', typeof req.body);
-    console.log('Request body (raw):', req.body);
-    console.log('Request body keys:', req.body ? Object.keys(req.body) : 'No body');
-    console.log('Request body values:', req.body ? Object.entries(req.body).map(([k, v]) => [k, typeof v, v]) : 'No body');
-    console.log('Files uploaded:', req.files ? `${req.files.length} file(s)` : 'No');
-    console.log('Proof document:', proofDocumentFile ? `Yes - ${proofDocumentFile.originalname} (${(proofDocumentFile.size / 1024).toFixed(2)} KB)` : 'No');
-
-    console.log('Extracted fields:', {
-      exitDate: exitDate ? `${typeof exitDate} - "${exitDate}"` : 'undefined',
-      mainCategory: mainCategory ? `${typeof mainCategory} - "${mainCategory}"` : 'undefined',
-      subCategory: subCategory ? `${typeof subCategory} - "${subCategory}"` : 'undefined',
-      verifiedBy: verifiedBy ? `${typeof verifiedBy} - "${verifiedBy}"` : 'undefined'
-    });
-
     // Clean up uploaded file helper function
     const cleanupFile = () => {
       if (proofDocumentFile && fs.existsSync(proofDocumentFile.path)) {
@@ -2137,12 +2119,6 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
       }
     };
 
-    // Debug: Log all body fields to see what we're receiving
-    console.log('=== Field Values Before Processing ===');
-    console.log('exitDate type:', typeof exitDate, 'value:', exitDate);
-    console.log('mainCategory type:', typeof mainCategory, 'value:', mainCategory);
-    console.log('All req.body keys:', Object.keys(req.body));
-    console.log('All req.body values:', Object.values(req.body).map(v => typeof v === 'string' ? v.substring(0, 50) : v));
 
     // Trim string fields - handle all possible cases
     if (exitDate !== undefined && exitDate !== null) {
@@ -2193,37 +2169,22 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
       inactiveRemark = '';
     }
 
-    console.log('=== Field Values After Processing ===');
-    console.log('exitDate:', exitDate);
-    console.log('mainCategory:', mainCategory);
 
     // Validate exitDate (required)
     // Check if exitDate is provided (either from new form or backward compatibility)
     let finalExitDate = null;
     if (exitDate && exitDate !== '') {
       finalExitDate = exitDate;
-      console.log('✅ Using exitDate from form:', finalExitDate);
     } else if (inactiveReason && inactiveReason !== '') {
       // Backward compatibility: if inactiveReason is provided but no exitDate, use today's date
       finalExitDate = new Date().toISOString().split('T')[0];
-      console.log('✅ Using today\'s date (backward compatibility):', finalExitDate);
-    } else {
-      console.log('❌ No exitDate or inactiveReason found');
     }
 
     if (!finalExitDate || finalExitDate === '') {
       cleanupFile();
-      console.error('❌ Validation failed: Exit date is required');
-      console.error('Request body keys:', Object.keys(req.body));
-      console.error('Request body:', JSON.stringify(req.body, null, 2));
       return res.status(400).json({
         error: 'Validation Error',
-        message: 'Exit date is required. Please select an exit date.',
-        debug: process.env.NODE_ENV === 'development' ? {
-          receivedFields: Object.keys(req.body),
-          exitDate: exitDate,
-          mainCategory: mainCategory
-        } : undefined
+        message: 'Exit date is required. Please select an exit date.'
       });
     }
 
@@ -2360,7 +2321,6 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
         mimeType: proofDocumentFile.mimetype,
         uploadedAt: new Date()
       };
-      console.log(`✅ Proof document uploaded: ${proofDocumentFile.originalname} (${(proofDocumentFile.size / 1024).toFixed(2)} KB)`);
     }
 
     // Keep backward compatibility with old fields
@@ -2371,106 +2331,12 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
 
     // Save without validating unchanged fields (fixes phone validation for old users)
     await user.save({ validateModifiedOnly: true });
-    console.log('✅ User saved successfully as inactive');
-
-    // Create notification for dashboard
-    try {
-      const notification = new Notification({
-        userId: user._id,
-        type: 'info',
-        title: 'Account Deactivated',
-        message: `Your account has been deactivated. Exit reason: ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}. ${user.exitDetails.exitReasonDescription ? 'Details: ' + user.exitDetails.exitReasonDescription : ''}`,
-        read: false,
-        sentBy: req.user._id
-      });
-      await notification.save();
-      console.log('✅ Notification created for user deactivation');
-    } catch (notificationError) {
-      console.error('⚠️  Error creating notification (non-critical):', notificationError.message);
-    }
-
-    // Send email to user about deactivation
-    if (user.email) {
-      try {
-        await emailService.sendEmail(
-          user.email,
-          'custom',
-          {
-            userName: user.name,
-            subject: 'Account Deactivation Notice',
-            customContent: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-                  <h2 style="color: #d32f2f; margin-bottom: 20px;">Account Deactivation Notice</h2>
-                  <p>Dear ${user.name},</p>
-                  <p>This is to inform you that your account has been deactivated.</p>
-                  <div style="background-color: #ffebee; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #d32f2f;">
-                    <p><strong>Exit Date:</strong> ${user.exitDetails.exitDate ? new Date(user.exitDetails.exitDate).toLocaleDateString() : 'N/A'}</p>
-                    <p><strong>Exit Reason:</strong> ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}</p>
-                    ${user.exitDetails.exitReasonDescription ? `<p><strong>Details:</strong> ${user.exitDetails.exitReasonDescription}</p>` : ''}
-                  </div>
-                  <p>If you have any questions or concerns, please contact the HR department.</p>
-                  <p>Best regards,<br>Management Team</p>
-                </div>
-              </div>
-            `
-          },
-          {
-            recipientEmail: user.email,
-            recipientRole: user.userType || 'fe',
-            templateType: 'notification',
-            userId: user._id
-          }
-        );
-        console.log(`✅ Deactivation email sent to ${user.email}`);
-      } catch (emailError) {
-        console.error('⚠️  Failed to send deactivation email (non-critical):', emailError.message);
-      }
-    }
-
-    // Create audit record (don't block response on this)
-    try {
-      const auditRecord = new AuditRecord({
-        userId: userId,
-        type: 'other',
-        title: 'User Deactivated - Exit Management',
-        reason: `Exit Reason: ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}`,
-        description: `User deactivated by ${req.user.name}. Exit Date: ${user.exitDetails.exitDate.toLocaleDateString()}. ${user.exitDetails.exitReasonDescription ? 'Details: ' + user.exitDetails.exitReasonDescription : ''} ${req.file ? 'Proof document uploaded.' : ''}`,
-        severity: 'medium',
-        status: 'completed',
-        createdBy: req.user._id,
-        tags: ['exit', 'deactivation', user.exitDetails.exitReason.mainCategory.toLowerCase().replace(/\s+/g, '-')]
-      });
-
-      await auditRecord.save();
-      console.log('✅ Audit record created successfully');
-    } catch (auditError) {
-      console.error('⚠️  Error creating audit record (non-critical):', auditError.message);
-      // Don't fail the whole operation if audit record fails
-    }
-
-    // Create lifecycle event (don't block response on this)
-    try {
-      const LifecycleEvent = require('../models/LifecycleEvent');
-      await LifecycleEvent.createAutoEvent({
-        userId: user._id,
-        type: 'left',
-        title: 'Employee Exit',
-        description: `Exit reason: ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}`,
-        category: 'negative',
-        createdBy: req.user._id
-      });
-      console.log('✅ Lifecycle event created successfully');
-    } catch (lifecycleError) {
-      console.error('⚠️  Error creating lifecycle event (non-critical):', lifecycleError.message);
-      // Don't fail the whole operation if lifecycle event fails
-    }
 
     // Remove password from response
     const userResponse = user.toJSON();
     delete userResponse.password;
 
-    console.log('✅ User deactivated successfully, sending response');
+    // Send response immediately - don't wait for email/notifications
     res.json({
       success: true,
       message: 'User set as inactive successfully with exit details',
@@ -2478,11 +2344,111 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
       fileUploaded: !!proofDocumentFile
     });
 
+    // Handle non-critical operations asynchronously (don't block response)
+    setImmediate(async () => {
+      try {
+        // Run all async operations in parallel
+        const asyncOperations = [];
+
+        // Create notification
+        asyncOperations.push(
+          (async () => {
+            try {
+              const notification = new Notification({
+                userId: user._id,
+                type: 'info',
+                title: 'Account Deactivated',
+                message: `Your account has been deactivated. Exit reason: ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}. ${user.exitDetails.exitReasonDescription ? 'Details: ' + user.exitDetails.exitReasonDescription : ''}`,
+                read: false,
+                sentBy: req.user._id
+              });
+              await notification.save();
+            } catch (err) {
+              console.error('Notification creation error:', err.message);
+            }
+          })()
+        );
+
+        // Send email (if email exists)
+        if (user.email) {
+          asyncOperations.push(
+            emailService.sendEmail(
+              user.email,
+              'custom',
+              {
+                userName: user.name,
+                subject: 'Account Deactivation Notice',
+                customContent: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+                      <h2 style="color: #d32f2f; margin-bottom: 20px;">Account Deactivation Notice</h2>
+                      <p>Dear ${user.name},</p>
+                      <p>This is to inform you that your account has been deactivated.</p>
+                      <div style="background-color: #ffebee; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #d32f2f;">
+                        <p><strong>Exit Date:</strong> ${user.exitDetails.exitDate ? new Date(user.exitDetails.exitDate).toLocaleDateString() : 'N/A'}</p>
+                        <p><strong>Exit Reason:</strong> ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}</p>
+                        ${user.exitDetails.exitReasonDescription ? `<p><strong>Details:</strong> ${user.exitDetails.exitReasonDescription}</p>` : ''}
+                      </div>
+                      <p>If you have any questions or concerns, please contact the HR department.</p>
+                      <p>Best regards,<br>Management Team</p>
+                    </div>
+                  </div>
+                `
+              },
+              {
+                recipientEmail: user.email,
+                recipientRole: user.userType || 'fe',
+                templateType: 'notification',
+                userId: user._id
+              }
+            ).catch(err => console.error('Email sending error:', err.message))
+          );
+        }
+
+        // Create audit record
+        asyncOperations.push(
+          (async () => {
+            try {
+              const auditRecord = new AuditRecord({
+                userId: userId,
+                type: 'other',
+                title: 'User Deactivated - Exit Management',
+                reason: `Exit Reason: ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}`,
+                description: `User deactivated by ${req.user.name}. Exit Date: ${user.exitDetails.exitDate.toLocaleDateString()}. ${user.exitDetails.exitReasonDescription ? 'Details: ' + user.exitDetails.exitReasonDescription : ''} ${proofDocumentFile ? 'Proof document uploaded.' : ''}`,
+                severity: 'medium',
+                status: 'completed',
+                createdBy: req.user._id,
+                tags: ['exit', 'deactivation', user.exitDetails.exitReason.mainCategory.toLowerCase().replace(/\s+/g, '-')]
+              });
+              await auditRecord.save();
+            } catch (err) {
+              console.error('Audit record creation error:', err.message);
+            }
+          })()
+        );
+
+        // Create lifecycle event
+        const LifecycleEvent = require('../models/LifecycleEvent');
+        asyncOperations.push(
+          LifecycleEvent.createAutoEvent({
+            userId: user._id,
+            type: 'left',
+            title: 'Employee Exit',
+            description: `Exit reason: ${user.exitDetails.exitReason.mainCategory}${user.exitDetails.exitReason.subCategory ? ' - ' + user.exitDetails.exitReason.subCategory : ''}`,
+            category: 'negative',
+            createdBy: req.user._id
+          }).catch(err => console.error('Lifecycle event creation error:', err.message))
+        );
+
+        // Execute all operations in parallel
+        await Promise.all(asyncOperations);
+      } catch (error) {
+        console.error('Error in async operations:', error.message);
+      }
+    });
+
   } catch (error) {
-    console.error('❌ Set user inactive error:', error);
-    console.error('❌ Error stack:', error.stack);
-    console.error('❌ Error name:', error.name);
-    console.error('❌ Error message:', error.message);
+    console.error('Set user inactive error:', error.message);
 
     // Clean up uploaded file if error occurs
     if (proofDocumentFile && fs.existsSync(proofDocumentFile.path)) {
@@ -2535,100 +2501,117 @@ router.put('/:id/reactivate', authenticateToken, requireUserManagementAccess, va
     // Save without validating unchanged fields (fixes phone validation for old users)
     await user.save({ validateModifiedOnly: true });
 
-    // Create notification for dashboard
-    try {
-      const notification = new Notification({
-        userId: user._id,
-        type: 'success',
-        title: 'Account Reactivated',
-        message: `Your account has been reactivated. You can now access all features.`,
-        isRead: false,
-        sentBy: req.user._id
-      });
-      await notification.save();
-      console.log('✅ Notification created for user reactivation');
-    } catch (notificationError) {
-      console.error('⚠️  Error creating notification (non-critical):', notificationError.message);
-    }
-
-    // Send email to user about reactivation
-    if (user.email) {
-      try {
-        await emailService.sendEmail(
-          user.email,
-          'custom',
-          {
-            userName: user.name,
-            subject: 'Account Reactivated',
-            customContent: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-                  <h2 style="color: #2e7d32; margin-bottom: 20px;">Account Reactivated</h2>
-                  <p>Dear ${user.name},</p>
-                  <p>Your account has been reactivated successfully. You can now access all features of the platform.</p>
-                  <div style="background-color: #e8f5e8; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #2e7d32;">
-                    <p><strong>Status:</strong> Active</p>
-                    <p><strong>Reactivated Date:</strong> ${new Date().toLocaleDateString()}</p>
-                  </div>
-                  <p>If you have any questions, please contact the HR department.</p>
-                  <p>Best regards,<br>Management Team</p>
-                </div>
-              </div>
-            `
-          },
-          {
-            recipientEmail: user.email,
-            recipientRole: user.userType || 'fe',
-            templateType: 'notification',
-            userId: user._id
-          }
-        );
-        console.log(`✅ Reactivation email sent to ${user.email}`);
-      } catch (emailError) {
-        console.error('⚠️  Failed to send reactivation email (non-critical):', emailError.message);
-      }
-    }
-
-    // Create audit record
-    const auditRecord = new AuditRecord({
-      userId: userId,
-      type: 'other',
-      title: 'User Reactivated',
-      reason: `Account reactivated by admin: ${req.user.name}`,
-      description: `User account has been reactivated and set to active status.`,
-      severity: 'low',
-      status: 'completed',
-      createdBy: req.user._id,
-      tags: ['reactivation', 'activation']
-    });
-
-    await auditRecord.save();
-
-    // Create lifecycle event (use 'achievement' type for reactivation as it's a positive event)
-    try {
-      const LifecycleEvent = require('../models/LifecycleEvent');
-      await LifecycleEvent.createAutoEvent({
-        userId: user._id,
-        type: 'achievement',
-        title: 'Account Reactivated',
-        description: `Account reactivated by admin: ${req.user.name}`,
-        category: 'positive',
-        createdBy: req.user._id
-      });
-      console.log('✅ Lifecycle event created successfully');
-    } catch (lifecycleError) {
-      console.error('⚠️  Error creating lifecycle event (non-critical):', lifecycleError.message);
-      // Don't fail the whole operation if lifecycle event fails
-    }
-
     // Remove password from response
     const userResponse = user.toJSON();
     delete userResponse.password;
 
+    // Send response immediately - don't wait for email/notifications
     res.json({
       success: true,
       message: 'User reactivated successfully',
       user: userResponse
+    });
+
+    // Handle non-critical operations asynchronously (don't block response)
+    setImmediate(async () => {
+      try {
+        // Run all async operations in parallel
+        const asyncOperations = [];
+
+        // Create notification
+        asyncOperations.push(
+          (async () => {
+            try {
+              const notification = new Notification({
+                userId: user._id,
+                type: 'success',
+                title: 'Account Reactivated',
+                message: `Your account has been reactivated. You can now access all features.`,
+                isRead: false,
+                sentBy: req.user._id
+              });
+              await notification.save();
+            } catch (err) {
+              console.error('Notification creation error:', err.message);
+            }
+          })()
+        );
+
+        // Send email (if email exists)
+        if (user.email) {
+          asyncOperations.push(
+            emailService.sendEmail(
+              user.email,
+              'custom',
+              {
+                userName: user.name,
+                subject: 'Account Reactivated',
+                customContent: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+                      <h2 style="color: #2e7d32; margin-bottom: 20px;">Account Reactivated</h2>
+                      <p>Dear ${user.name},</p>
+                      <p>Your account has been reactivated successfully. You can now access all features of the platform.</p>
+                      <div style="background-color: #e8f5e8; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #2e7d32;">
+                        <p><strong>Status:</strong> Active</p>
+                        <p><strong>Reactivated Date:</strong> ${new Date().toLocaleDateString()}</p>
+                      </div>
+                      <p>If you have any questions, please contact the HR department.</p>
+                      <p>Best regards,<br>Management Team</p>
+                    </div>
+                  </div>
+                `
+              },
+              {
+                recipientEmail: user.email,
+                recipientRole: user.userType || 'fe',
+                templateType: 'notification',
+                userId: user._id
+              }
+            ).catch(err => console.error('Email sending error:', err.message))
+          );
+        }
+
+        // Create audit record
+        asyncOperations.push(
+          (async () => {
+            try {
+              const auditRecord = new AuditRecord({
+                userId: userId,
+                type: 'other',
+                title: 'User Reactivated',
+                reason: `Account reactivated by admin: ${req.user.name}`,
+                description: `User account has been reactivated and set to active status.`,
+                severity: 'low',
+                status: 'completed',
+                createdBy: req.user._id,
+                tags: ['reactivation', 'activation']
+              });
+              await auditRecord.save();
+            } catch (err) {
+              console.error('Audit record creation error:', err.message);
+            }
+          })()
+        );
+
+        // Create lifecycle event
+        const LifecycleEvent = require('../models/LifecycleEvent');
+        asyncOperations.push(
+          LifecycleEvent.createAutoEvent({
+            userId: user._id,
+            type: 'achievement',
+            title: 'Account Reactivated',
+            description: `Account reactivated by admin: ${req.user.name}`,
+            category: 'positive',
+            createdBy: req.user._id
+          }).catch(err => console.error('Lifecycle event creation error:', err.message))
+        );
+
+        // Execute all operations in parallel
+        await Promise.all(asyncOperations);
+      } catch (error) {
+        console.error('Error in async operations:', error.message);
+      }
     });
 
   } catch (error) {
