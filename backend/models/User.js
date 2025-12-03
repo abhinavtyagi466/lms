@@ -31,7 +31,7 @@ const userSchema = new mongoose.Schema({
     trim: true,
     maxlength: [100, 'Father\'s name cannot be more than 100 characters']
   },
-  
+
   // Address Information
   currentAddress: {
     type: String,
@@ -166,7 +166,7 @@ const userSchema = new mongoose.Schema({
   }],
   inactiveReason: {
     type: String,
-    enum: ['Performance Issues', 'Policy Violation', 'Attendance Problems', 'Behavioral Issues', 'Resignation', 'Termination', 'Other'],
+    enum: ['Resignation', 'Termination', 'End of Contract / Project', 'Retirement', 'Death', 'Other', 'Performance Issues', 'Policy Violation', 'Attendance Problems', 'Behavioral Issues'],
     default: null
   },
   inactiveRemark: {
@@ -191,7 +191,7 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: [
           'Resignation',
-          'Termination', 
+          'Termination',
           'End of Contract / Project',
           'Retirement',
           'Death',
@@ -264,8 +264,8 @@ const userSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true,
-  toJSON: { 
-    transform: function(doc, ret) {
+  toJSON: {
+    transform: function (doc, ret) {
       delete ret.password;
       return ret;
     }
@@ -277,9 +277,9 @@ userSchema.index({ status: 1 });
 userSchema.index({ isActive: 1, lastLoginAt: -1 }); // Compound index for active users query
 
 // Pre-save middleware to hash password
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-  
+
   try {
     const salt = await bcrypt.genSalt(parseInt(process.env.BCRYPT_ROUNDS) || 12);
     this.password = await bcrypt.hash(this.password, salt);
@@ -290,7 +290,7 @@ userSchema.pre('save', async function(next) {
 });
 
 // Static method to generate unique employee ID
-userSchema.statics.generateEmployeeId = async function() {
+userSchema.statics.generateEmployeeId = async function () {
   try {
     console.log('Starting Employee ID generation...');
     let employeeId;
@@ -303,20 +303,20 @@ userSchema.statics.generateEmployeeId = async function() {
       const now = new Date();
       const year = now.getFullYear().toString().slice(-2);
       const month = (now.getMonth() + 1).toString().padStart(2, '0');
-      
+
       console.log(`Attempt ${attempts + 1}: Generating ID for ${year}-${month}`);
-      
+
       // Get count of users created this month for sequential numbering
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const count = await this.countDocuments({
         createdAt: { $gte: startOfMonth }
       });
-      
+
       const sequentialNumber = (count + 1).toString().padStart(4, '0');
       employeeId = `FE${year}${month}${sequentialNumber}`;
-      
+
       console.log(`Generated Employee ID: ${employeeId}`);
-      
+
       // Check if this ID already exists
       const existingUser = await this.findOne({ employeeId });
       if (!existingUser) {
@@ -325,7 +325,7 @@ userSchema.statics.generateEmployeeId = async function() {
       } else {
         console.log(`Employee ID ${employeeId} already exists, trying again...`);
       }
-      
+
       attempts++;
     }
 
@@ -345,7 +345,7 @@ userSchema.statics.generateEmployeeId = async function() {
 };
 
 // Auto-generate employeeId if not provided
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (!this.employeeId && this.isNew) {
     try {
       console.log('Generating Employee ID for new user:', this.name);
@@ -363,36 +363,36 @@ userSchema.pre('save', async function(next) {
 });
 
 // Instance method to check password
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
 // Instance method to update last login
-userSchema.methods.updateLastLogin = function() {
+userSchema.methods.updateLastLogin = function () {
   this.lastLogin = new Date();
   return this.save();
 };
 
 // Instance method to generate new session ID
-userSchema.methods.generateSessionId = function() {
+userSchema.methods.generateSessionId = function () {
   const crypto = require('crypto');
   return crypto.randomBytes(32).toString('hex');
 };
 
 // Instance method to clear session
-userSchema.methods.clearSession = function() {
+userSchema.methods.clearSession = function () {
   this.sessionId = undefined;
   return this.save();
 };
 
 // Static method to find users by status
-userSchema.statics.findByStatus = function(status) {
+userSchema.statics.findByStatus = function (status) {
   return this.find({ status: status, isActive: true });
 };
 
 module.exports = mongoose.model('User', userSchema);
 // Emit socket event when a new user is created
-userSchema.post('save', function(doc) {
+userSchema.post('save', function (doc) {
   if (this.isNew) {
     try {
       const app = require('../server');

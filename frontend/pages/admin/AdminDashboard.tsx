@@ -62,13 +62,13 @@ export const AdminDashboard: React.FC = () => {
   useEffect(() => {
     // Only fetch data if user is authenticated and is admin
     if (user && (userType === 'admin' || userType === 'hr' || userType === 'manager' || userType === 'hod')) {
-      fetchDashboardData();
-      
+      fetchDashboardData(true); // Initial load with loading state
+
       // Set up auto-refresh interval for real-time updates from MongoDB Atlas
       const refreshInterval = setInterval(() => {
         console.log('🔄 Auto-refreshing dashboard data...');
         fetchDashboardData();
-      }, 5000); // Refresh every 5 seconds for real-time updates
+      }, 300000); // Refresh every 5 minutes (300 seconds)
 
       // Refresh when page becomes visible
       const handleVisibilityChange = () => {
@@ -109,10 +109,12 @@ export const AdminDashboard: React.FC = () => {
     }
   }, [user, userType]);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (showLoading = false) => {
     try {
-      setLoading(true);
-      
+      if (showLoading) {
+        setLoading(true);
+      }
+
       // Fetch dashboard data in parallel with pagination (limit to 100 for faster load)
       const [
         statsResponse,
@@ -131,7 +133,7 @@ export const AdminDashboard: React.FC = () => {
       if (progressResponse.status === 'fulfilled' && progressResponse.value?.data) {
         setUserProgress(progressResponse.value.data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
       // Don't show error toast for auth failures, let the auth system handle it
       if (!error.message?.includes('Authentication failed')) {
@@ -180,33 +182,33 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-  <Badge 
-    variant="outline" 
-    className="flex items-center bg-gradient-to-r from-gray-800 to-gray-900 
+              <Badge
+                variant="outline"
+                className="flex items-center bg-gradient-to-r from-gray-800 to-gray-900 
               hover:from-gray-900 hover:to-black 
               text-blue-700 px-6 py-3 
               rounded-xl shadow-lg hover:shadow-xl 
               transition-all duration-300 transform hover:scale-105  
               border border-indigo-200 dark:border-indigo-500"
-  >
-    <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-    <BarChart3 className="w-5 h-5 mr-2" />
-    Real-time Data
-  </Badge>
+              >
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                <BarChart3 className="w-5 h-5 mr-2" />
+                Real-time Data
+              </Badge>
 
-  <Button 
-    onClick={() => window.location.reload()}
-    className="flex items-center bg-gradient-to-r from-gray-800 to-gray-900 
+              <Button
+                onClick={() => window.location.reload()}
+                className="flex items-center bg-gradient-to-r from-gray-800 to-gray-900 
               hover:from-gray-900 hover:to-black 
               text-blue-700 px-6 py-3 
               rounded-xl shadow-lg hover:shadow-xl 
               transition-all duration-300 transform hover:scale-105  
               border border-indigo-200 dark:border-indigo-500"
-  >
-    <Zap className="w-5 h-5 mr-2" />
-    Refresh Data
-  </Button>
-</div>
+              >
+                <Zap className="w-5 h-5 mr-2" />
+                Refresh Data
+              </Button>
+            </div>
 
           </div>
         </div>
@@ -321,8 +323,8 @@ export const AdminDashboard: React.FC = () => {
                       <option key={index} value={title}>{title}</option>
                     ))}
                   </select>
-                  <Button 
-                    onClick={fetchDashboardData}
+                  <Button
+                    onClick={() => fetchDashboardData(true)}
                     variant="outline"
                     size="sm"
                     className="px-3"
@@ -330,7 +332,7 @@ export const AdminDashboard: React.FC = () => {
                     <Zap className="w-4 h-4" />
                   </Button>
                 </div>
-                
+
                 {/* Progress Summary */}
                 <div className="grid grid-cols-3 gap-4 mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <div className="text-center">
@@ -358,32 +360,32 @@ export const AdminDashboard: React.FC = () => {
                     .filter(progress => selectedModule === 'all' || progress.moduleId.title === selectedModule)
                     .slice(0, 8)
                     .map((progress) => (
-                    <div key={progress._id} className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100/50 dark:hover:bg-gray-600/50 transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-500 dark:bg-gradient-to-br dark:from-indigo-500 dark:to-purple-600 rounded-lg flex items-center justify-center">
-                          <Users className="w-5 h-5 text-white drop-shadow-lg" />
+                      <div key={progress._id} className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100/50 dark:hover:bg-gray-600/50 transition-colors">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-blue-500 dark:bg-gradient-to-br dark:from-indigo-500 dark:to-purple-600 rounded-lg flex items-center justify-center">
+                            <Users className="w-5 h-5 text-white drop-shadow-lg" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900 dark:text-white">{progress.userId.name}</h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">{progress.moduleId.title}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Last accessed: {new Date(progress.lastAccessedAt).toLocaleDateString()}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900 dark:text-white">{progress.userId.name}</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-300">{progress.moduleId.title}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Last accessed: {new Date(progress.lastAccessedAt).toLocaleDateString()}
-                          </p>
+                        <div className="flex items-center space-x-3">
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              {Math.round(progress.videoProgress)}%
+                            </p>
+                            <Badge className={getStatusColor(progress.status)}>
+                              {progress.status.replace('_', ' ')}
+                            </Badge>
+                          </div>
+                          <Progress value={progress.videoProgress} className="w-20 h-2" />
                         </div>
                       </div>
-                      <div className="flex items-center space-x-3">
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {Math.round(progress.videoProgress)}%
-                          </p>
-                          <Badge className={getStatusColor(progress.status)}>
-                            {progress.status.replace('_', ' ')}
-                          </Badge>
-                        </div>
-                        <Progress value={progress.videoProgress} className="w-20 h-2" />
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                   {userProgress.length === 0 && (
                     <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                       <Users className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
@@ -457,14 +459,14 @@ export const AdminDashboard: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button 
+                <Button
                   onClick={() => window.location.href = '/admin/user-management'}
                   className="w-full justify-start bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
                 >
                   <Users className="w-4 h-4 mr-2" />
                   Manage Users
                 </Button>
-                <Button 
+                <Button
                   onClick={() => window.location.href = '/admin/module-management'}
                   variant="outline"
                   className="w-full justify-start border-green-200 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20"
@@ -472,7 +474,7 @@ export const AdminDashboard: React.FC = () => {
                   <BookOpen className="w-4 h-4 mr-2" />
                   Manage Modules
                 </Button>
-                <Button 
+                <Button
                   onClick={() => window.location.href = '/admin/quiz-management'}
                   variant="outline"
                   className="w-full justify-start border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
@@ -480,7 +482,7 @@ export const AdminDashboard: React.FC = () => {
                   <FileText className="w-4 h-4 mr-2" />
                   Manage Quizzes
                 </Button>
-                <Button 
+                <Button
                   onClick={() => window.location.href = '/admin/reports'}
                   variant="outline"
                   className="w-full justify-start border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/20"

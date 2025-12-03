@@ -61,32 +61,32 @@ export const AdminDashboardEnhanced: React.FC = () => {
   useEffect(() => {
     // Only fetch data if user is authenticated and is admin
     if (user && (userType === 'admin' || userType === 'hr' || userType === 'manager' || userType === 'hod')) {
-      fetchDashboardData();
-      
+      fetchDashboardData(true); // Initial load with loading state
+
       // Set up auto-refresh interval for real-time updates from MongoDB Atlas
       const refreshInterval = setInterval(() => {
         console.log('🔄 Auto-refreshing dashboard data...');
-        fetchDashboardData();
-      }, 5000); // Refresh every 5 seconds for real-time updates
+        fetchDashboardData(false); // Background refresh without loading state
+      }, 300000); // Refresh every 5 minutes (300 seconds)
 
       // Refresh when page becomes visible
       const handleVisibilityChange = () => {
         if (!document.hidden) {
           console.log('👁️ Page visible, refreshing dashboard...');
-          fetchDashboardData();
+          fetchDashboardData(false);
         }
       };
 
       // Refresh when window gains focus
       const handleFocus = () => {
         console.log('🎯 Window focused, refreshing dashboard...');
-        fetchDashboardData();
+        fetchDashboardData(false);
       };
 
       // Listen for data update events
       const handleDataUpdate = () => {
         console.log('📊 Data update event received, refreshing dashboard...');
-        fetchDashboardData();
+        fetchDashboardData(false);
       };
 
       document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -108,21 +108,20 @@ export const AdminDashboardEnhanced: React.FC = () => {
     }
   }, [user, userType]);
 
-  const fetchDashboardData = async (showLoading = true) => {
+  const fetchDashboardData = async (showLoading = false) => {
     try {
       if (showLoading) {
         setLoading(true);
       }
       setError(null);
-      
-      // Fetch dashboard data in parallel with cache-busting timestamp
-      const timestamp = Date.now();
+
+      // Fetch dashboard data in parallel
       const [
         statsResponse,
         progressResponse
       ] = await Promise.allSettled([
         apiService.reports.getAdminStats(),
-        apiService.reports.getAllUserProgress({ page: 1, limit: 100 }) // Only fetch first 100 records for faster load
+        apiService.reports.getAllUserProgress(1, 100) // Only fetch first 100 records for faster load
       ]);
 
       // Handle stats data
@@ -179,7 +178,7 @@ export const AdminDashboardEnhanced: React.FC = () => {
     const inProgress = filtered.filter(p => p.status === 'in_progress').length;
     const notStarted = filtered.filter(p => p.status === 'not_started').length;
     const total = filtered.length;
-    
+
     return { completed, inProgress, notStarted, total };
   };
 
@@ -221,8 +220,8 @@ export const AdminDashboardEnhanced: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <Badge 
-                variant="outline" 
+              <Badge
+                variant="outline"
                 className="flex items-center bg-gradient-to-r from-gray-800 to-gray-900 
                           hover:from-gray-900 hover:to-black 
                           text-blue-700 px-6 py-3 
@@ -451,7 +450,7 @@ export const AdminDashboardEnhanced: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button 
+                <Button
                   onClick={() => setCurrentPage('user-management')}
                   variant="outline"
                   className="w-full justify-start border-blue-200 dark:border-blue-500 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
@@ -459,7 +458,7 @@ export const AdminDashboardEnhanced: React.FC = () => {
                   <Users className="w-4 h-4 mr-2" />
                   Manage Users
                 </Button>
-                <Button 
+                <Button
                   onClick={() => setCurrentPage('lifecycle')}
                   variant="outline"
                   className="w-full justify-start border-purple-200 dark:border-purple-500 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
@@ -467,7 +466,7 @@ export const AdminDashboardEnhanced: React.FC = () => {
                   <Activity className="w-4 h-4 mr-2" />
                   User Lifecycle
                 </Button>
-                <Button 
+                <Button
                   onClick={() => setCurrentPage('module-management')}
                   className="w-full justify-start bg-green-50 hover:bg-green-100 dark:bg-green-600 dark:hover:bg-green-700 text-green-700 dark:text-white border border-green-200 dark:border-green-500 transition-all duration-200"
                 >

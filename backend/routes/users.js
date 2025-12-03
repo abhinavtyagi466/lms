@@ -1798,6 +1798,19 @@ router.put('/:id/activate', authenticateToken, requireUserManagementAccess, vali
 
     await user.save({ validateModifiedOnly: true });
 
+    // Clear cache for user list to ensure instant updates on main page
+    if (global.appCache) {
+      const cacheKeys = [
+        '__express__/api/users?filter=all',
+        '__express__/api/reports/admin/stats',
+        '__express__/api/reports/admin/user-progress'
+      ];
+      cacheKeys.forEach(key => {
+        global.appCache.del(key);
+        console.log('🗑️ Cleared cache for:', key);
+      });
+    }
+
     // Create notification for dashboard
     try {
       const notification = new Notification({
@@ -1873,6 +1886,118 @@ router.put('/:id/activate', authenticateToken, requireUserManagementAccess, vali
   }
 });
 
+// @route   PUT /api/users/:id/reactivate
+// @desc    Reactivate user (clear inactive/exit details and activate)
+// @access  Private (Admin only)
+router.put('/:id/reactivate', authenticateToken, requireUserManagementAccess, validateObjectId, async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'User not found'
+      });
+    }
+
+    // Reactivate user and clear exit/inactive details
+    user.status = 'Active';
+    user.isActive = true;
+
+    // Clear exit details
+    user.exitDetails = undefined;
+
+    // Clear old inactive fields (backward compatibility)
+    user.inactiveReason = undefined;
+    user.inactiveRemark = undefined;
+    user.inactiveDate = undefined;
+    user.inactiveBy = undefined;
+
+    await user.save({ validateModifiedOnly: true });
+
+    // Clear cache for user list to ensure instant updates on main page
+    if (global.appCache) {
+      const cacheKeys = [
+        '__express__/api/users?filter=all',
+        '__express__/api/reports/admin/stats',
+        '__express__/api/reports/admin/user-progress'
+      ];
+      cacheKeys.forEach(key => {
+        global.appCache.del(key);
+        console.log('🗑️ Cleared cache for:', key);
+      });
+    }
+
+    // Create notification
+    try {
+      const notification = new Notification({
+        userId: user._id,
+        type: 'success',
+        title: 'Account Reactivated',
+        message: `Your account has been reactivated. You can now access all features.`,
+        read: false,
+        sentBy: req.user._id
+      });
+      await notification.save();
+    } catch (notifError) {
+      console.error('Notification creation error:', notifError);
+    }
+
+    // Send email notification
+    if (user.email) {
+      emailService.sendEmail(
+        user.email,
+        'custom',
+        {
+          userName: user.name,
+          subject: 'Account Reactivated',
+          customContent: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+                <h2 style="color: #28a745; margin-bottom: 20px;">Account Reactivated</h2>
+                <p>Dear ${user.name},</p>
+                <p>Great news! Your account has been reactivated.</p>
+                <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #28a745;">
+                  <p><strong>Status:</strong> Active</p>
+                  <p><strong>Reactivated on:</strong> ${new Date().toLocaleDateString()}</p>
+                </div>
+                <p>You can now log in and access all features of the platform.</p>
+                <p>Best regards,<br>Management Team</p>
+              </div>
+            </div>
+          `
+        },
+        {
+          recipientEmail: user.email,
+          recipientRole: user.userType === 'user' ? 'fe' : user.userType,
+          templateType: 'notification',
+          userId: user._id
+        }
+      ).catch(err => console.error('Email sending error:', err.message));
+    }
+
+    res.json({
+      success: true,
+      message: 'User reactivated successfully',
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        status: user.status,
+        isActive: user.isActive
+      }
+    });
+
+  } catch (error) {
+    console.error('Reactivate user error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error reactivating user'
+    });
+  }
+});
+
 // @route   PUT /api/users/:id/deactivate
 // @desc    Deactivate user
 // @access  Private (Admin only)
@@ -1903,6 +2028,19 @@ router.put('/:id/deactivate', authenticateToken, requireUserManagementAccess, va
     // For full exit management, use /set-inactive endpoint
 
     await user.save({ validateModifiedOnly: true });
+
+    // Clear cache for user list to ensure instant updates on main page
+    if (global.appCache) {
+      const cacheKeys = [
+        '__express__/api/users?filter=all',
+        '__express__/api/reports/admin/stats',
+        '__express__/api/reports/admin/user-progress'
+      ];
+      cacheKeys.forEach(key => {
+        global.appCache.del(key);
+        console.log('🗑️ Cleared cache for:', key);
+      });
+    }
 
     // Create notification for dashboard
     try {
@@ -2083,6 +2221,11 @@ router.get('/:userId/certificates', authenticateToken, validateUserId, requireOw
 // @access  Private (Admin only)
 // Use .any() to parse all fields and files, then we'll handle the file separately
 router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, validateObjectId, conditionalMulter(exitDocUpload.any()), async (req, res) => {
+  // Extract proofDocument file from req.files (declare here for proper scope in catch block)
+  const proofDocumentFile = req.files && Array.isArray(req.files)
+    ? req.files.find(f => f.fieldname === 'proofDocument')
+    : null;
+
   try {
     const userId = req.params.id;
 
@@ -2102,10 +2245,6 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
     let inactiveReason = req.body.inactiveReason;
     let inactiveRemark = req.body.inactiveRemark;
 
-    // Extract proofDocument file from req.files (since we're using .any())
-    const proofDocumentFile = req.files && Array.isArray(req.files)
-      ? req.files.find(f => f.fieldname === 'proofDocument')
-      : null;
 
     // Clean up uploaded file helper function
     const cleanupFile = () => {
@@ -2331,6 +2470,19 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
 
     // Save without validating unchanged fields (fixes phone validation for old users)
     await user.save({ validateModifiedOnly: true });
+
+    // Clear cache for user list to ensure instant updates on main page
+    if (global.appCache) {
+      const cacheKeys = [
+        '__express__/api/users?filter=all',
+        '__express__/api/reports/admin/stats',
+        '__express__/api/reports/admin/user-progress'
+      ];
+      cacheKeys.forEach(key => {
+        global.appCache.del(key);
+        console.log('🗑️ Cleared cache for:', key);
+      });
+    }
 
     // Remove password from response
     const userResponse = user.toJSON();
