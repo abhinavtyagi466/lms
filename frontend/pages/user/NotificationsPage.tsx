@@ -4,6 +4,7 @@ import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
@@ -279,12 +280,53 @@ export const NotificationsPage: React.FC = () => {
         {/* Tabbed Content */}
         <Card className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg rounded-2xl">
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-            <TabsList className="grid w-full grid-cols-5">
+            {/* Mobile Dropdown */}
+            <div className="md:hidden mb-6">
+              <Select value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4" />
+                      <span>All ({notifications.length})</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="training">
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="w-4 h-4" />
+                      <span>Training ({trainingCount})</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="awards">
+                    <div className="flex items-center gap-2">
+                      <Award className="w-4 h-4" />
+                      <span>Awards ({awards.length})</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="certificates">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4" />
+                      <span>Certificates ({certificates.length})</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="warnings">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>Warnings ({warningCount})</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Desktop Tabs */}
+            <TabsList className="hidden md:grid w-full grid-cols-5">
               <TabsTrigger value="all">
                 <Bell className="w-4 h-4 mr-2" />
                 All ({notifications.length})
               </TabsTrigger>
-
               <TabsTrigger value="training">
                 <BookOpen className="w-4 h-4 mr-2" />
                 Training ({trainingCount})
