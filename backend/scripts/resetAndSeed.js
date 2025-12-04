@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 // Import only models that exist
@@ -346,16 +345,14 @@ async function resetAndSeed() {
     // ==================== SEED ADMIN USER ====================
     console.log('👤 Creating Admin User...');
 
-    const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
-
+    // Don't hash password here - User model's pre-save hook will hash it
     const adminUser = await User.create({
       name: 'Super Admin',
       email: ADMIN_EMAIL,
       phone: '9999999999',
-      password: hashedPassword,
+      password: ADMIN_PASSWORD,  // Plain password - model will hash it
       userType: 'admin',
       isActive: true,
-      emailVerified: true,
       createdAt: new Date(),
       updatedAt: new Date()
     });
