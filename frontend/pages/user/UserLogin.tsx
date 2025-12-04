@@ -92,9 +92,12 @@ export const UserLogin: React.FC = () => {
         setError(errorMessage);
         toast.error(`Access Denied: ${userType} accounts cannot access user dashboard`);
       } else {
-        const errorMessage = error?.response?.data?.message || error?.message || 'Login failed. Please check your credentials and try again.';
+        const errorMessage = error?.response?.status === 401
+          ? 'Invalid credentials'
+          : (error?.response?.data?.message || error?.message || 'Login failed. Please check your credentials and try again.');
+
         setError(errorMessage);
-        toast.error('Login failed. Please check your credentials.');
+        toast.error(errorMessage);
       }
     } finally {
       setIsLoading(false);

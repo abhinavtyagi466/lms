@@ -84,7 +84,7 @@ const adminSidebarItems = [
   { key: 'awards', label: 'Awards & Recognition', icon: Award },
   { key: 'lifecycle', label: 'Lifecycle Dashboard', icon: Clock },
   // { key: 'mail-preview', label: 'Mail Preview', icon: Mail },
-  // { key: 'logout', label: 'Logout', icon: LogOut }
+  { key: 'logout', label: 'Logout', icon: LogOut }
 ];
 
 

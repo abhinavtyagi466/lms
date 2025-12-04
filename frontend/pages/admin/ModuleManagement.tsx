@@ -246,6 +246,28 @@ export const ModuleManagement: React.FC = () => {
     }
   };
 
+  const handleToggleModuleStatus = async (moduleId: string, currentStatus: 'draft' | 'published') => {
+    const newStatus = currentStatus === 'draft' ? 'published' : 'draft';
+    const confirmMessage = newStatus === 'published'
+      ? 'Are you sure you want to publish this module? It will be visible to all users.'
+      : 'Are you sure you want to move this module to draft? It will be hidden from users.';
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      const response = await apiService.modules.updateModuleStatus(moduleId, newStatus);
+      if (response && ((response as any).success || (response as any).data?.success)) {
+        toast.success(`Module ${newStatus === 'published' ? 'published' : 'moved to draft'} successfully`);
+        fetchModules();
+      }
+    } catch (error) {
+      console.error('Error updating module status:', error);
+      toast.error('Failed to update module status');
+    }
+  };
+
   const handleCreateQuiz = async () => {
     try {
       setIsCreatingQuiz(true);
@@ -766,10 +788,17 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                       <Eye className="w-12 h-12 text-gray-400" />
                     </div>
                   )}
-                  <div className="absolute top-2 right-2">
-                    <Badge variant={module.status === 'published' ? 'default' : 'secondary'}>
-                      {module.status}
-                    </Badge>
+                  <div className="absolute top-2 right-2 flex gap-2">
+                    <button
+                      onClick={() => handleToggleModuleStatus(module._id, module.status)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 hover:scale-105 ${module.status === 'published'
+                          ? 'bg-green-600 text-white hover:bg-green-700'
+                          : 'bg-orange-500 text-white hover:bg-orange-600'
+                        }`}
+                      title={`Click to ${module.status === 'draft' ? 'publish' : 'unpublish'}`}
+                    >
+                      {module.status === 'published' ? '✓ Published' : '📝 Draft'}
+                    </button>
                   </div>
                 </div>
 
@@ -1271,12 +1300,12 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                         id="csvFile"
                         accept=".csv,text/csv"
                         onChange={handleFileChange}
-                        className="block w-full text-sm text-gray-500
+                        className="block w-full text-sm text-gray-900
                       file:mr-4 file:py-2 file:px-4
                       file:rounded-md file:border-0
                       file:text-sm file:font-semibold
-                      file:bg-blue-50 file:text-blue-700
-                      hover:file:bg-blue-100
+                      file:bg-gray-800 file:text-white
+                      hover:file:bg-gray-900
                       file:cursor-pointer
                       border border-gray-300 rounded-md p-2"
                       />
@@ -1298,7 +1327,7 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                 <div className="flex gap-3 mt-6">
                   <Button
                     onClick={handleUploadCSV}
-                    className="flex-1"
+                    className="flex-1 bg-black hover:bg-gray-800 text-white"
                     disabled={isUploadingCSV || !selectedModuleId || !csvData.trim()}
                   >
                     {isUploadingCSV ? (

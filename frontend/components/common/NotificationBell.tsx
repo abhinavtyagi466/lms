@@ -4,7 +4,7 @@ import { Bell, X, CheckCheck, AlertCircle, BookOpen, FileText, Award, Clock, Eye
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
-import { apiService } from '../../services/apiService';
+import { apiService, UPLOADS_BASE_URL } from '../../services/apiService';
 import { useToast } from '../ui/use-toast';
 
 interface Notification {
@@ -282,8 +282,8 @@ export const NotificationBell: React.FC = () => {
                   <div
                     key={notification._id}
                     className={`border-b border-gray-200 dark:border-gray-700 p-4 transition-all duration-200 cursor-pointer ${!notification.read
-                        ? 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950 dark:to-indigo-950 border-l-4 border-l-blue-500 hover:shadow-md'
-                        : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750'
+                      ? 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950 dark:to-indigo-950 border-l-4 border-l-blue-500 hover:shadow-md'
+                      : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750'
                       }`}
                     onClick={() => {
                       if (!notification.read) {
@@ -298,8 +298,8 @@ export const NotificationBell: React.FC = () => {
                     <div className="flex items-start gap-3">
                       {/* Icon */}
                       <div className={`flex-shrink-0 mt-1 p-2.5 rounded-lg shadow-md ${!notification.read
-                          ? 'bg-white dark:bg-gray-800 ring-2 ring-blue-200 dark:ring-blue-800'
-                          : 'bg-gray-100 dark:bg-gray-700'
+                        ? 'bg-white dark:bg-gray-800 ring-2 ring-blue-200 dark:ring-blue-800'
+                        : 'bg-gray-100 dark:bg-gray-700'
                         }`}>
                         {getNotificationIcon(notification.type)}
                       </div>
@@ -308,8 +308,8 @@ export const NotificationBell: React.FC = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-1">
                           <h4 className={`text-sm font-bold ${!notification.read
-                              ? 'text-blue-900 dark:text-blue-100'
-                              : 'text-gray-700 dark:text-gray-300'
+                            ? 'text-blue-900 dark:text-blue-100'
+                            : 'text-gray-700 dark:text-gray-300'
                             }`}>
                             {notification.title}
                           </h4>
@@ -319,8 +319,8 @@ export const NotificationBell: React.FC = () => {
                         </div>
 
                         <p className={`text-xs mt-1 line-clamp-2 ${!notification.read
-                            ? 'text-gray-700 dark:text-blue-200 font-medium'
-                            : 'text-gray-600 dark:text-gray-400'
+                          ? 'text-gray-700 dark:text-blue-200 font-medium'
+                          : 'text-gray-600 dark:text-gray-400'
                           }`}>
                           {notification.message}
                         </p>
@@ -354,7 +354,7 @@ export const NotificationBell: React.FC = () => {
                             {notification.attachments.map((attachment, idx) => (
                               <a
                                 key={idx}
-                                href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${attachment.filePath}`}
+                                href={attachment.filePath.startsWith('http') ? attachment.filePath : `${UPLOADS_BASE_URL}${attachment.filePath}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}

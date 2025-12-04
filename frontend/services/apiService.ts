@@ -68,7 +68,9 @@ apiClient.interceptors.response.use(
       }
 
       // Return a specific error that components can handle
-      return Promise.reject(new Error('Authentication failed. Please login again.'));
+      const authError: any = new Error(error.response?.data?.message || 'Authentication failed. Please login again.');
+      authError.response = error.response;
+      return Promise.reject(authError);
     }
 
     if (error.response?.status === 404) {
@@ -92,7 +94,9 @@ apiClient.interceptors.response.use(
     }
 
     const errorMessage = error.response?.data?.message || error.message || 'An error occurred';
-    return Promise.reject(new Error(errorMessage));
+    const finalError: any = new Error(errorMessage);
+    finalError.response = error.response;
+    return Promise.reject(finalError);
   }
 );
 
@@ -412,6 +416,22 @@ export const apiService = {
 
     getPersonalisedModules: async (userId: string) => {
       const response = await apiClient.get(`/modules/personalised/${userId}`);
+      return response;
+    },
+
+    updateModuleStatus: async (moduleId: string, status: 'draft' | 'published') => {
+      const response = await apiClient.patch(`/modules/${moduleId}/status`, { status });
+      return response;
+    },
+
+    updateModule: async (moduleId: string, moduleData: {
+      title?: string;
+      description?: string;
+      ytVideoId?: string;
+      tags?: string[];
+      status?: 'draft' | 'published';
+    }) => {
+      const response = await apiClient.put(`/modules/${moduleId}`, moduleData);
       return response;
     },
 
@@ -1714,14 +1734,7 @@ export const apiService = {
       return response;
     },
 
-    getUnmatched: async (params?: { period?: string; search?: string; limit?: number }) => {
-      const qs = new URLSearchParams();
-      if (params?.period) qs.append('period', params.period);
-      if (params?.search) qs.append('search', params.search);
-      if (params?.limit) qs.append('limit', String(params.limit));
-      const response = await apiClient.get(`/kpi-triggers/unmatched?${qs.toString()}`);
-      return response;
-    },
+
 
     sendEmail: async (payload: { userId?: string; fallbackEmail?: string; template: string; data?: any }) => {
       const response = await apiClient.post('/kpi-triggers/send-email', payload);

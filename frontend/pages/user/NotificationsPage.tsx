@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { apiService } from '../../services/apiService';
+import { apiService, UPLOADS_BASE_URL } from '../../services/apiService';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -405,7 +405,7 @@ export const NotificationsPage: React.FC = () => {
                               {notification.attachments.map((attachment, idx) => (
                                 <a
                                   key={idx}
-                                  href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${attachment.filePath}`}
+                                  href={attachment.filePath.startsWith('http') ? attachment.filePath : `${UPLOADS_BASE_URL}${attachment.filePath}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
@@ -495,7 +495,7 @@ export const NotificationsPage: React.FC = () => {
                           {award.document && (
                             <div className="mt-3">
                               <a
-                                href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/proxy?url=${encodeURIComponent(award.document)}`}
+                                href={award.document.startsWith('http') ? award.document : `${UPLOADS_BASE_URL}${award.document}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
@@ -539,7 +539,7 @@ export const NotificationsPage: React.FC = () => {
                           {cert.document && (
                             <div className="mt-3">
                               <a
-                                href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/proxy?url=${encodeURIComponent(cert.document)}`}
+                                href={cert.document.startsWith('http') ? cert.document : `${UPLOADS_BASE_URL}${cert.document}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"

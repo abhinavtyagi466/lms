@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { GraduationCap, User, Menu, X, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { NotificationBell } from './NotificationBell';
+import { LogoutPopup } from './LogoutPopup';
 
 interface SidebarItem {
   key: string;
@@ -17,15 +18,28 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ items, onItemClick }) => {
   const { currentPage, user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   const handleItemClick = (key: string) => {
     onItemClick(key);
     setIsOpen(false); // Close sidebar on mobile after clicking
   };
 
-  const handleLogout = () => {
-    logout();
-    setIsOpen(false);
+  const handleLogoutClick = () => {
+    setShowLogoutPopup(true);
+  };
+
+  const handleLogout = async () => {
+    setLogoutLoading(true);
+    try {
+      await logout();
+      setShowLogoutPopup(false);
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setLogoutLoading(false);
+    }
   };
 
   return (
@@ -105,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, onItemClick }) => {
             </h3>
           </div>
           <ul className="space-y-1">
-            {items.map((item) => (
+            {items.filter(item => item.key !== 'logout').map((item) => (
               <li key={item.key}>
                 <button
                   onClick={() => handleItemClick(item.key)}
@@ -135,16 +149,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ items, onItemClick }) => {
         {/* Logout Button - At bottom */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border border-transparent hover:border-red-200 dark:hover:border-red-800"
+            onClick={handleLogoutClick}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-md hover:scale-[1.02] border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
           >
-            <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
+            <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700">
               <LogOut className="w-5 h-5" />
             </div>
             <span className="font-medium">Logout</span>
           </button>
         </div>
       </div>
+
+      {/* Logout Confirmation Popup */}
+      <LogoutPopup
+        isOpen={showLogoutPopup}
+        onClose={() => setShowLogoutPopup(false)}
+        onLogout={handleLogout}
+        loading={logoutLoading}
+        userName={user?.name}
+      />
     </>
   );
 };

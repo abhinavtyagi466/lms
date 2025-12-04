@@ -388,6 +388,102 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// @route   PATCH /api/modules/:id/status
+// @desc    Update module status (draft/published) (Admin only)
+// @access  Private (Admin only)
+router.patch('/:id/status', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    if (!status || !['draft', 'published'].includes(status)) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Valid status (draft or published) is required'
+      });
+    }
+
+    const module = await Module.findById(req.params.id);
+
+    if (!module) {
+      return res.status(404).json({
+        error: 'Module not found',
+        message: 'Module does not exist'
+      });
+    }
+
+    module.status = status;
+    if (status === 'published' && !module.publishedAt) {
+      module.publishedAt = new Date();
+    }
+
+    await module.save();
+
+    // Clear module cache
+    clearModuleCache();
+
+    res.json({
+      success: true,
+      message: `Module ${status === 'published' ? 'published' : 'saved as draft'} successfully`,
+      module: module
+    });
+
+  } catch (error) {
+    console.error('Update module status error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error updating module status'
+    });
+  }
+});
+
+// @route   PUT /api/modules/:id
+// @desc    Update module details (Admin only)
+// @access  Private (Admin only)
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { title, description, ytVideoId, tags, status } = req.body;
+
+    const module = await Module.findById(req.params.id);
+
+    if (!module) {
+      return res.status(404).json({
+        error: 'Module not found',
+        message: 'Module does not exist'
+      });
+    }
+
+    // Update fields if provided
+    if (title) module.title = title.trim();
+    if (description !== undefined) module.description = description.trim();
+    if (ytVideoId) module.ytVideoId = ytVideoId.trim();
+    if (tags) module.tags = tags;
+    if (status && ['draft', 'published'].includes(status)) {
+      module.status = status;
+      if (status === 'published' && !module.publishedAt) {
+        module.publishedAt = new Date();
+      }
+    }
+
+    await module.save();
+
+    // Clear module cache
+    clearModuleCache();
+
+    res.json({
+      success: true,
+      message: 'Module updated successfully',
+      module: module
+    });
+
+  } catch (error) {
+    console.error('Update module error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error updating module'
+    });
+  }
+});
+
 // @route   POST /api/modules/personalised
 // @desc    Create personalised module assignment
 // @access  Private (Admin only)

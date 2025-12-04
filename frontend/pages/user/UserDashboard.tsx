@@ -14,7 +14,7 @@ import { Progress } from '../../components/ui/progress';
 // import { Alert, AlertDescription } from '../../components/ui/alert';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { useAuth } from '../../contexts/AuthContext';
-import { apiService } from '../../services/apiService';
+import { apiService, UPLOADS_BASE_URL } from '../../services/apiService';
 import { toast } from 'sonner';
 import { ModuleWithProgress } from '../../types';
 import { useAPIPerformance } from '../../hooks/usePerformance';
@@ -1482,7 +1482,7 @@ export const UserDashboard: React.FC = () => {
                                 {notification.attachments.map((attachment: any, idx: number) => (
                                   <a
                                     key={idx}
-                                    href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${attachment.filePath}`}
+                                    href={attachment.filePath.startsWith('http') ? attachment.filePath : `${UPLOADS_BASE_URL}${attachment.filePath}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-1 text-xs text-blue-600 hover:underline"

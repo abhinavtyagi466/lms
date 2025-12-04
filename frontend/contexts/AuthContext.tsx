@@ -254,7 +254,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error: any) {
       console.error('AuthProvider: Login error:', error);
       const errorMessage = error.message || 'Login failed. Please try again.';
-      toast.error(errorMessage);
+      // toast.error(errorMessage); // Let login components handle specific error messages
       throw error;
     } finally {
       setLoading(false);
