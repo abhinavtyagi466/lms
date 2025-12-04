@@ -17,7 +17,8 @@ const lifecycleEventSchema = new mongoose.Schema({
       'audit',           // Audit events
       'warning',         // Warning letters
       'achievement',     // Awards/recognitions
-      'exit'            // When FE leaves
+      'exit',            // When FE leaves
+      'left'             // Alternative for exit (when user is marked inactive)
     ]
   },
   title: {
@@ -88,7 +89,7 @@ lifecycleEventSchema.index({ category: 1 });
 lifecycleEventSchema.index({ createdAt: -1 });
 
 // Static method to create automated event
-lifecycleEventSchema.statics.createAutoEvent = async function(eventData) {
+lifecycleEventSchema.statics.createAutoEvent = async function (eventData) {
   try {
     const event = await this.create({
       userId: eventData.userId,
@@ -115,7 +116,7 @@ lifecycleEventSchema.statics.createAutoEvent = async function(eventData) {
 };
 
 // Static method to get user's career timeline
-lifecycleEventSchema.statics.getCareerTimeline = async function(userId) {
+lifecycleEventSchema.statics.getCareerTimeline = async function (userId) {
   try {
     const timeline = await this.find({ userId, isActive: true })
       .sort({ createdAt: -1 })
@@ -143,7 +144,7 @@ lifecycleEventSchema.statics.getCareerTimeline = async function(userId) {
 };
 
 // Static method to get performance metrics
-lifecycleEventSchema.statics.getPerformanceMetrics = async function(userId) {
+lifecycleEventSchema.statics.getPerformanceMetrics = async function (userId) {
   try {
     const events = await this.find({ userId, isActive: true });
 
@@ -165,7 +166,7 @@ lifecycleEventSchema.statics.getPerformanceMetrics = async function(userId) {
 };
 
 // Instance method to get event details with attachments
-lifecycleEventSchema.methods.getFullDetails = async function() {
+lifecycleEventSchema.methods.getFullDetails = async function () {
   await this.populate('userId', 'name email employeeId');
   await this.populate('createdBy', 'name email');
 
@@ -181,13 +182,13 @@ lifecycleEventSchema.methods.getFullDetails = async function() {
 };
 
 // Static method to get user lifecycle events
-lifecycleEventSchema.statics.getUserLifecycle = async function(userId) {
+lifecycleEventSchema.statics.getUserLifecycle = async function (userId) {
   try {
     const events = await this.find({ userId, isActive: true })
       .sort({ createdAt: -1 })
       .populate('userId', 'name email employeeId')
       .populate('createdBy', 'name email');
-    
+
     return events;
   } catch (error) {
     console.error('Error getting user lifecycle:', error);
@@ -196,21 +197,21 @@ lifecycleEventSchema.statics.getUserLifecycle = async function(userId) {
 };
 
 // Static method to get timeline with date filters
-lifecycleEventSchema.statics.getTimeline = async function(userId, startDate, endDate) {
+lifecycleEventSchema.statics.getTimeline = async function (userId, startDate, endDate) {
   try {
     let query = { userId, isActive: true };
-    
+
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
       if (endDate) query.createdAt.$lte = new Date(endDate);
     }
-    
+
     const events = await this.find(query)
       .sort({ createdAt: -1 })
       .populate('userId', 'name email employeeId')
       .populate('createdBy', 'name email');
-    
+
     return events;
   } catch (error) {
     console.error('Error getting timeline:', error);
@@ -219,10 +220,10 @@ lifecycleEventSchema.statics.getTimeline = async function(userId, startDate, end
 };
 
 // Static method to get statistics
-lifecycleEventSchema.statics.getStatistics = async function(userId) {
+lifecycleEventSchema.statics.getStatistics = async function (userId) {
   try {
     const events = await this.find({ userId, isActive: true });
-    
+
     const stats = {
       totalEvents: events.length,
       positiveEvents: events.filter(e => e.category === 'positive').length,
@@ -235,7 +236,7 @@ lifecycleEventSchema.statics.getStatistics = async function(userId) {
       latestEvent: events.length > 0 ? events[0] : null,
       firstEvent: events.length > 0 ? events[events.length - 1] : null
     };
-    
+
     return [stats]; // Return as array to match route expectation
   } catch (error) {
     console.error('Error getting statistics:', error);
