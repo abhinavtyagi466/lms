@@ -275,6 +275,12 @@ const userSchema = new mongoose.Schema({
 // Index for better query performance
 userSchema.index({ status: 1 });
 userSchema.index({ isActive: 1, lastLoginAt: -1 }); // Compound index for active users query
+// Additional performance indexes
+userSchema.index({ email: 1 }); // Email lookups
+userSchema.index({ employeeId: 1 }); // Employee ID lookups
+userSchema.index({ userType: 1, isActive: 1 }); // Filter by role and status
+userSchema.index({ createdAt: -1 }); // Sort by creation date
+userSchema.index({ sessionId: 1 }, { sparse: true }); // Session lookups
 
 // Pre-save middleware to hash password
 userSchema.pre('save', async function (next) {

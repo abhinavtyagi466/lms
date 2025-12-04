@@ -242,15 +242,18 @@ export const ModuleManagement: React.FC = () => {
       }
     } catch (error) {
       console.error('Error deleting module:', error);
-      toast.error('Failed to delete module');
     }
   };
 
   const handleToggleModuleStatus = async (moduleId: string, currentStatus: 'draft' | 'published') => {
-    const newStatus = currentStatus === 'draft' ? 'published' : 'draft';
-    const confirmMessage = newStatus === 'published'
-      ? 'Are you sure you want to publish this module? It will be visible to all users.'
-      : 'Are you sure you want to move this module to draft? It will be hidden from users.';
+    // Only allow draft -> published, not published -> draft
+    if (currentStatus === 'published') {
+      toast.error('Cannot unpublish a module. Users may already be using it.');
+      return;
+    }
+
+    const newStatus = 'published';
+    const confirmMessage = 'Are you sure you want to publish this module? It will be visible to all users.';
 
     if (!confirm(confirmMessage)) {
       return;
@@ -259,7 +262,7 @@ export const ModuleManagement: React.FC = () => {
     try {
       const response = await apiService.modules.updateModuleStatus(moduleId, newStatus);
       if (response && ((response as any).success || (response as any).data?.success)) {
-        toast.success(`Module ${newStatus === 'published' ? 'published' : 'moved to draft'} successfully`);
+        toast.success('Module published successfully');
         fetchModules();
       }
     } catch (error) {
@@ -788,18 +791,6 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                       <Eye className="w-12 h-12 text-gray-400" />
                     </div>
                   )}
-                  <div className="absolute top-2 right-2 flex gap-2">
-                    <button
-                      onClick={() => handleToggleModuleStatus(module._id, module.status)}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 hover:scale-105 ${module.status === 'published'
-                          ? 'bg-green-600 text-white hover:bg-green-700'
-                          : 'bg-orange-500 text-white hover:bg-orange-600'
-                        }`}
-                      title={`Click to ${module.status === 'draft' ? 'publish' : 'unpublish'}`}
-                    >
-                      {module.status === 'published' ? '✓ Published' : '📝 Draft'}
-                    </button>
-                  </div>
                 </div>
 
                 <div className="p-4">
@@ -1000,6 +991,16 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                       Created by {module.createdBy?.name || 'Unknown'}
                     </div>
                     <div className="flex gap-2">
+                      <button
+                        onClick={() => handleToggleModuleStatus(module._id, module.status)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 hover:scale-105 flex items-center gap-1 ${module.status === 'published'
+                          ? 'bg-green-600 text-white hover:bg-green-700'
+                          : 'bg-orange-500 text-white hover:bg-orange-600'
+                          }`}
+                        title={`Click to ${module.status === 'draft' ? 'publish' : 'unpublish'}`}
+                      >
+                        {module.status === 'published' ? '✓ Published' : '📝 Draft'}
+                      </button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -1282,7 +1283,7 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                       <SelectTrigger>
                         <SelectValue placeholder="Select a module" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[200]">
                         {modules.map(module => (
                           <SelectItem key={module._id} value={module._id}>
                             {module.title}
@@ -1491,7 +1492,7 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                       <SelectTrigger>
                         <SelectValue placeholder="Choose a module..." />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[200]">
                         {modules.filter(m => m.status === 'published').map((module) => (
                           <SelectItem key={module._id} value={module._id}>
                             {module.title}
@@ -1512,7 +1513,7 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                       <SelectTrigger>
                         <SelectValue placeholder="Select priority..." />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[200]">
                         <SelectItem value="low">Low</SelectItem>
                         <SelectItem value="medium">Medium</SelectItem>
                         <SelectItem value="high">High</SelectItem>
@@ -1637,7 +1638,7 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                       <SelectTrigger>
                         <SelectValue placeholder="Select correct option..." />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[200]">
                         {editingQuestion.options.map((option, index) => (
                           <SelectItem key={index} value={index.toString()}>
                             Option {index + 1}: {option || 'Empty'}
@@ -1697,6 +1698,6 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
           </ModalPortal>
         )}
       </div>
-    </div>
+    </div >
   );
 };

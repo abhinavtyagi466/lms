@@ -4,7 +4,8 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Progress } from '../../components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import {
   User, Mail, Phone, MapPin, Calendar, Briefcase, GraduationCap,
   CreditCard, FileText, Award, AlertTriangle, BarChart3, Activity,
   Clock, Target, TrendingUp, Download, Eye
@@ -55,7 +56,7 @@ export const UserProfilePage: React.FC = () => {
 
   const fetchUserProfile = async () => {
     if (!authUser || !(authUser as any)?._id) return;
-    
+
     try {
       setLoading(true);
       const userId = (authUser as any)._id;
@@ -69,7 +70,7 @@ export const UserProfilePage: React.FC = () => {
       // Get KPI scores and find latest
       const scores = kpiRes?.scores || kpiRes?.data || kpiRes || [];
       setKpiScores(Array.isArray(scores) ? scores : []);
-      
+
       // Update user profile with latest KPI score from KPIScore database (overrides user model kpiScore field)
       // Backend already returns latest KPI via KPIScore.getLatestForUser() but we double-check here
       if (Array.isArray(scores) && scores.length > 0) {
@@ -79,10 +80,10 @@ export const UserProfilePage: React.FC = () => {
           const dateB = new Date(b.createdAt || b.period);
           return dateB.getTime() - dateA.getTime();
         });
-        
+
         const latestKPI = sortedScores[0];
         console.log('📊 Latest KPI Score from database:', latestKPI.overallScore, '|', latestKPI.rating);
-        
+
         // Override with actual database KPI score
         profileRes.kpiScore = latestKPI.overallScore;
         profileRes.kpiRating = latestKPI.rating;
@@ -91,11 +92,11 @@ export const UserProfilePage: React.FC = () => {
         profileRes.kpiScore = 0;
         profileRes.kpiRating = 'No Score';
       }
-      
+
       setUser(profileRes);
       const awardsData = awardsRes?.awards || awardsRes?.data || awardsRes || [];
       setAwards(Array.isArray(awardsData) ? awardsData : []);
-      
+
       const warningsData = warningsRes?.warnings || warningsRes?.data || warningsRes || [];
       setWarnings(Array.isArray(warningsData) ? warningsData : []);
     } catch (error: any) {
@@ -256,7 +257,7 @@ export const UserProfilePage: React.FC = () => {
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Tenure</p>
                 <p className="text-3xl font-bold text-purple-600">
-                  {user.dateOfJoining 
+                  {user.dateOfJoining
                     ? Math.floor((new Date().getTime() - new Date(user.dateOfJoining).getTime()) / (1000 * 60 * 60 * 24 * 30))
                     : 0}
                 </p>
@@ -272,7 +273,49 @@ export const UserProfilePage: React.FC = () => {
         {/* Tabbed Content */}
         <Card className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg rounded-2xl">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5">
+            {/* Mobile Dropdown */}
+            <div className="md:hidden mb-6">
+              <Select value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select section" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="personal">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      <span>Personal</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="kpi">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4" />
+                      <span>KPI Scores ({kpiScores.length})</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="awards">
+                    <div className="flex items-center gap-2">
+                      <Award className="w-4 h-4" />
+                      <span>Awards ({awards.length})</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="warnings">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Warnings ({warnings.length})</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="activity">
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-4 h-4" />
+                      <span>Activity</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Desktop Tabs */}
+            <TabsList className="hidden md:grid w-full grid-cols-5">
               <TabsTrigger value="personal">
                 <User className="w-4 h-4 mr-2" />
                 Personal
@@ -597,8 +640,8 @@ export const UserProfilePage: React.FC = () => {
                       <p className="text-sm text-gray-600">Performance Status</p>
                       <Badge className={
                         user.status === 'Active' ? 'bg-green-100 text-green-800' :
-                        user.status === 'Warning' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
+                          user.status === 'Warning' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
                       }>
                         {user.status}
                       </Badge>
@@ -606,7 +649,7 @@ export const UserProfilePage: React.FC = () => {
                     <div>
                       <p className="text-sm text-gray-600">Total Months</p>
                       <p className="font-medium">
-                        {user.dateOfJoining 
+                        {user.dateOfJoining
                           ? Math.floor((new Date().getTime() - new Date(user.dateOfJoining).getTime()) / (1000 * 60 * 60 * 24 * 30))
                           : 0} months
                       </p>

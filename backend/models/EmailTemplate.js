@@ -8,7 +8,7 @@ const emailTemplateSchema = new mongoose.Schema({
     trim: true,
     unique: true
   },
-  
+
   type: {
     type: String,
     required: true,
@@ -21,6 +21,8 @@ const emailTemplateSchema = new mongoose.Schema({
       'training_assignment',
       'audit_schedule',
       'performance_warning',
+      'send_warning',
+      'send_certificate',
       'welcome',
       'password_reset',
       'module_completion',
@@ -29,64 +31,64 @@ const emailTemplateSchema = new mongoose.Schema({
       'custom'
     ]
   },
-  
+
   category: {
     type: String,
     required: true,
     enum: ['kpi', 'training', 'audit', 'warning', 'general', 'achievement']
   },
-  
+
   // Email Content
   subject: {
     type: String,
     required: true,
     trim: true
   },
-  
+
   content: {
     type: String,
     required: true
   },
-  
+
   // Template Variables
   variables: [{
     type: String,
     trim: true
   }],
-  
+
   // Metadata
   description: {
     type: String,
     trim: true
   },
-  
+
   isActive: {
     type: Boolean,
     default: true
   },
-  
+
   // Recipient Configuration
   defaultRecipients: [{
     type: String,
     enum: ['FE', 'Coordinator', 'Manager', 'HOD', 'Compliance Team', 'Admin']
   }],
-  
+
   // Usage Statistics
   usageCount: {
     type: Number,
     default: 0
   },
-  
+
   lastUsed: {
     type: Date
   },
-  
+
   // Audit Fields
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  
+
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
@@ -101,36 +103,36 @@ emailTemplateSchema.index({ category: 1 });
 emailTemplateSchema.index({ name: 'text', description: 'text' });
 
 // Method to increment usage count
-emailTemplateSchema.methods.recordUsage = async function() {
+emailTemplateSchema.methods.recordUsage = async function () {
   this.usageCount += 1;
   this.lastUsed = new Date();
   await this.save();
 };
 
 // Static method to get template by type
-emailTemplateSchema.statics.getByType = async function(type) {
+emailTemplateSchema.statics.getByType = async function (type) {
   return await this.findOne({ type, isActive: true });
 };
 
 // Static method to render template with variables
-emailTemplateSchema.statics.renderTemplate = function(template, variables) {
+emailTemplateSchema.statics.renderTemplate = function (template, variables) {
   let rendered = {
     subject: template.subject,
     content: template.content
   };
-  
+
   // Replace all variables in subject and content
   Object.keys(variables).forEach(key => {
     const placeholder = new RegExp(`{{${key}}}`, 'g');
     rendered.subject = rendered.subject.replace(placeholder, variables[key] || '');
     rendered.content = rendered.content.replace(placeholder, variables[key] || '');
   });
-  
+
   return rendered;
 };
 
 // Validation: Check if all required variables are present
-emailTemplateSchema.methods.validateVariables = function(providedVariables) {
+emailTemplateSchema.methods.validateVariables = function (providedVariables) {
   const missing = this.variables.filter(v => !(v in providedVariables));
   return {
     valid: missing.length === 0,

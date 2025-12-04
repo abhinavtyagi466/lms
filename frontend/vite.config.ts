@@ -1,9 +1,28 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import viteCompression from 'vite-plugin-compression';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    // Gzip compression for production builds
+    viteCompression({
+      verbose: true,
+      disable: false,
+      threshold: 10240, // Only compress files larger than 10KB
+      algorithm: 'gzip',
+      ext: '.gz',
+    }),
+    // Brotli compression (better than gzip)
+    viteCompression({
+      verbose: true,
+      disable: false,
+      threshold: 10240,
+      algorithm: 'brotliCompress',
+      ext: '.br',
+    }),
+  ],
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
     alias: {
@@ -19,9 +38,23 @@ export default defineConfig({
       output: {
         manualChunks: {
           // Separate vendor chunks for better caching
-          vendor: ['react', 'react-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-toast'],
-          utils: ['axios', 'lucide-react', 'sonner'],
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-radix': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-toast',
+            '@radix-ui/react-checkbox',
+            '@radix-ui/react-label',
+            '@radix-ui/react-popover',
+            '@radix-ui/react-progress',
+            '@radix-ui/react-separator',
+            '@radix-ui/react-slot',
+          ],
+          'utils': ['axios', 'lucide-react', 'sonner', 'clsx', 'tailwind-merge'],
+          'animation': ['framer-motion'],
+          'performance': ['use-debounce', 'react-window'],
         },
       },
     },
@@ -31,10 +64,16 @@ export default defineConfig({
       compress: {
         drop_console: true,
         drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug'],
+      },
+      mangle: {
+        safari10: true,
       },
     },
     // Increase chunk size warning limit
     chunkSizeWarningLimit: 1000,
+    // Enable CSS code splitting
+    cssCodeSplit: true,
   },
   server: {
     port: 3000,
@@ -65,6 +104,7 @@ export default defineConfig({
     include: [
       'react',
       'react-dom',
+      'react-router-dom',
       'axios',
       'lucide-react',
       '@radix-ui/react-dialog',
@@ -73,6 +113,8 @@ export default defineConfig({
       '@radix-ui/react-tabs',
       '@radix-ui/react-toast',
       'sonner',
+      'use-debounce',
+      'react-window',
     ],
   },
 });

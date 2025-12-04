@@ -2430,6 +2430,15 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
       });
     }
 
+    // Prevent deactivation of admin users
+    if (user.userType === 'admin') {
+      cleanupFile();
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Admin users cannot be deactivated. Admin accounts are protected to maintain system integrity.'
+      });
+    }
+
     // Update user status and inactive details
     user.status = 'Inactive';
     user.isActive = false;

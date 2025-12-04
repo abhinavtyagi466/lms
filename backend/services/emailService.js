@@ -21,7 +21,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Verify SMTP connection on startup
-transporter.verify(function(error, success) {
+transporter.verify(function (error, success) {
   if (error) {
     console.error('❌ SMTP Connection Failed:', error.message);
     console.error('   Please check your .env file and email credentials');
@@ -412,7 +412,7 @@ const emailTemplates = {
   }),
 
   // NEW: Enhanced Email Templates (ADDED WITHOUT TOUCHING EXISTING)
-  
+
   // Training notification template for stakeholders
   trainingNotification: (data) => ({
     subject: `Training Assignment Notification: ${data.userName}`,
@@ -583,7 +583,7 @@ const sendEmail = async (to, template, data, emailLogData = null) => {
 
     // Log email activity if emailLogData is provided
     if (emailLogData) {
-      const normalizedType = ['training','audit','warning'].includes(emailLogData.templateType)
+      const normalizedType = ['training', 'audit', 'warning'].includes(emailLogData.templateType)
         ? emailLogData.templateType
         : (String(template).toLowerCase().includes('kpi') ? 'kpi_score' : 'notification');
       await logEmailActivity({
@@ -604,7 +604,7 @@ const sendEmail = async (to, template, data, emailLogData = null) => {
 
     // Log failed email if emailLogData is provided
     if (emailLogData) {
-      const normalizedType = ['training','audit','warning'].includes(emailLogData.templateType)
+      const normalizedType = ['training', 'audit', 'warning'].includes(emailLogData.templateType)
         ? emailLogData.templateType
         : (String(template).toLowerCase().includes('kpi') ? 'kpi_score' : 'notification');
       await logEmailActivity({
@@ -629,7 +629,7 @@ const scheduleEmail = async (to, template, data, scheduledFor, emailLogData = nu
 
     // Log scheduled email
     if (emailLogData) {
-      const normalizedType = ['training','audit','warning'].includes(emailLogData.templateType)
+      const normalizedType = ['training', 'audit', 'warning'].includes(emailLogData.templateType)
         ? emailLogData.templateType
         : (String(template).toLowerCase().includes('kpi') ? 'kpi_score' : 'notification');
       await logEmailActivity({
@@ -683,7 +683,7 @@ const retryFailedEmail = async (emailLogId) => {
     return info;
   } catch (error) {
     console.error('Email retry failed:', error);
-    
+
     // Update email log with failure
     const emailLog = await EmailLog.findById(emailLogId);
     if (emailLog) {
@@ -834,11 +834,11 @@ const emailService = {
   // Send KPI trigger emails (main method for automation)
   sendKPITriggerEmails: async (kpiScore, triggers) => {
     const results = [];
-    
+
     for (const trigger of triggers) {
       try {
         const recipients = await getRecipientsByTrigger(trigger.type, kpiScore.userId);
-        
+
         for (const recipient of recipients) {
           const emailLogData = {
             recipientEmail: recipient.email,
@@ -1014,12 +1014,12 @@ const emailService = {
   },
 
   // NEW: Enhanced Training Email Functions (ADDED WITHOUT TOUCHING EXISTING)
-  
+
   // Send training assignment emails to all stakeholders
   sendTrainingAssignmentEmails: async (trainingData) => {
     try {
       const { userId, userName, employeeId, trainingTypes, reason, priority, dueDate, kpiScore } = trainingData;
-      
+
       // Prepare email data
       const emailData = {
         userName,
@@ -1042,9 +1042,9 @@ const emailService = {
 
       // Get stakeholders (FE, Coordinator, Manager, HOD)
       const stakeholders = await getTrainingStakeholders(userId);
-      
+
       const results = [];
-      
+
       // Send email to Field Executive
       if (user.email) {
         const feResult = await sendEmail(
@@ -1081,10 +1081,10 @@ const emailService = {
               trainingTypes: trainingTypes.join(', ')
             }
           );
-          results.push({ 
-            type: stakeholder.role, 
-            email: stakeholder.email, 
-            result: stakeholderResult 
+          results.push({
+            type: stakeholder.role,
+            email: stakeholder.email,
+            result: stakeholderResult
           });
         }
       }
@@ -1109,7 +1109,7 @@ const emailService = {
   sendAuditNotificationEmails: async (auditData) => {
     try {
       const { userId, userName, employeeId, auditTypes, kpiScore, priority, reason } = auditData;
-      
+
       // Prepare email data
       const emailData = {
         userName,
@@ -1125,10 +1125,10 @@ const emailService = {
       // Get compliance team and HOD emails
       const complianceEmails = await getComplianceTeamEmails();
       const hodEmails = await getHODEmails();
-      
+
       const allRecipients = [...complianceEmails, ...hodEmails];
       const results = [];
-      
+
       // Send emails to all recipients
       for (const recipient of allRecipients) {
         if (recipient.email) {
@@ -1148,10 +1148,10 @@ const emailService = {
               auditTypes: auditTypes.join(', ')
             }
           );
-          results.push({ 
-            type: recipient.role, 
-            email: recipient.email, 
-            result 
+          results.push({
+            type: recipient.role,
+            email: recipient.email,
+            result
           });
         }
       }
@@ -1176,7 +1176,7 @@ const emailService = {
   sendWarningLetterEmails: async (warningData) => {
     try {
       const { userId, userName, employeeId, kpiScore, rating, period, improvementAreas } = warningData;
-      
+
       // Prepare email data
       const emailData = {
         userName,
@@ -1197,9 +1197,9 @@ const emailService = {
 
       // Get stakeholders (FE, Coordinator, Manager, Compliance, HOD)
       const stakeholders = await getWarningStakeholders(userId);
-      
+
       const results = [];
-      
+
       // Send warning letter to Field Executive
       if (user.email) {
         const feResult = await sendEmail(
@@ -1236,10 +1236,10 @@ const emailService = {
               kpiScore
             }
           );
-          results.push({ 
-            type: stakeholder.role, 
-            email: stakeholder.email, 
-            result: stakeholderResult 
+          results.push({
+            type: stakeholder.role,
+            email: stakeholder.email,
+            result: stakeholderResult
           });
         }
       }
@@ -1264,7 +1264,7 @@ const emailService = {
   sendRewardEmails: async (rewardData) => {
     try {
       const { userId, userName, employeeId, awardType, awardTitle, awardDate, description, amount } = rewardData;
-      
+
       // Prepare email data
       const emailData = {
         userName,
@@ -1286,9 +1286,9 @@ const emailService = {
 
       // Get stakeholders (FE, Coordinator, Manager, Compliance, HOD)
       const stakeholders = await getRewardStakeholders(userId);
-      
+
       const results = [];
-      
+
       // Send reward email to Field Executive
       if (user.email) {
         const feResult = await sendEmail(
@@ -1325,10 +1325,10 @@ const emailService = {
               awardType
             }
           );
-          results.push({ 
-            type: stakeholder.role, 
-            email: stakeholder.email, 
-            result: stakeholderResult 
+          results.push({
+            type: stakeholder.role,
+            email: stakeholder.email,
+            result: stakeholderResult
           });
         }
       }
@@ -1360,7 +1360,7 @@ async function getTrainingStakeholders(userId) {
     if (!user) return [];
 
     const stakeholders = [];
-    
+
     // Get coordinator
     if (user.coordinatorId) {
       const coordinator = await User.findById(user.coordinatorId);
@@ -1408,11 +1408,11 @@ async function getTrainingStakeholders(userId) {
 async function getComplianceTeamEmails() {
   try {
     const User = require('../models/User');
-    const complianceUsers = await User.find({ 
-      userType: { $in: ['compliance', 'admin'] }, 
-      isActive: true 
+    const complianceUsers = await User.find({
+      userType: { $in: ['compliance', 'admin'] },
+      isActive: true
     });
-    
+
     return complianceUsers.map(user => ({
       name: user.name,
       email: user.email,
@@ -1428,11 +1428,11 @@ async function getComplianceTeamEmails() {
 async function getHODEmails() {
   try {
     const User = require('../models/User');
-    const hodUsers = await User.find({ 
-      userType: 'hod', 
-      isActive: true 
+    const hodUsers = await User.find({
+      userType: 'hod',
+      isActive: true
     });
-    
+
     return hodUsers.map(user => ({
       name: user.name,
       email: user.email,
@@ -1452,7 +1452,7 @@ async function getWarningStakeholders(userId) {
     if (!user) return [];
 
     const stakeholders = [];
-    
+
     // Get coordinator
     if (user.coordinatorId) {
       const coordinator = await User.findById(user.coordinatorId);
@@ -1500,7 +1500,7 @@ async function getRewardStakeholders(userId) {
     if (!user) return [];
 
     const stakeholders = [];
-    
+
     // Get coordinator
     if (user.coordinatorId) {
       const coordinator = await User.findById(user.coordinatorId);

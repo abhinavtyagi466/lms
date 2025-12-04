@@ -29,6 +29,12 @@ interface DashboardStats {
   averageProgress: number;
   totalWatchTime: number;
   certificatesIssued: number;
+  trends?: {
+    users: number;
+    modules: number;
+    progress: number;
+    certificates: number;
+  };
 }
 
 interface UserProgress {
@@ -260,8 +266,8 @@ export const AdminDashboardEnhanced: React.FC = () => {
           <MetricCard
             title="Total Field Executive"
             value={stats?.totalUsers || 0}
-            change={12}
-            trend="up"
+            change={Math.abs(stats?.trends?.users || 0)}
+            trend={(stats?.trends?.users || 0) >= 0 ? 'up' : 'down'}
             icon={<Users className="w-6 h-6" />}
             description={`${stats?.activeUsers || 0} active`}
             color="info"
@@ -270,8 +276,8 @@ export const AdminDashboardEnhanced: React.FC = () => {
           <MetricCard
             title="Training Modules"
             value={stats?.totalModules || 0}
-            change={8}
-            trend="up"
+            change={Math.abs(stats?.trends?.modules || 0)}
+            trend={(stats?.trends?.modules || 0) >= 0 ? 'up' : 'down'}
             icon={<BookOpen className="w-6 h-6" />}
             description={`${stats?.completedModules || 0} completed`}
             color="success"
@@ -280,8 +286,8 @@ export const AdminDashboardEnhanced: React.FC = () => {
           <MetricCard
             title="Average Progress"
             value={`${Math.round(stats?.averageProgress || 0)}%`}
-            change={5}
-            trend="up"
+            change={Math.abs(stats?.trends?.progress || 0)}
+            trend={(stats?.trends?.progress || 0) >= 0 ? 'up' : 'down'}
             icon={<Target className="w-6 h-6" />}
             description="Platform average"
             color="warning"
@@ -290,8 +296,8 @@ export const AdminDashboardEnhanced: React.FC = () => {
           <MetricCard
             title="Certificates"
             value={stats?.certificatesIssued || 0}
-            change={15}
-            trend="up"
+            change={Math.abs(stats?.trends?.certificates || 0)}
+            trend={(stats?.trends?.certificates || 0) >= 0 ? 'up' : 'down'}
             icon={<Award className="w-6 h-6" />}
             description="Issued this month"
             color="primary"

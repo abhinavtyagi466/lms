@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const LifecycleEvent = require('../models/LifecycleEvent');
+const UserSession = require('../models/UserSession');
 const { generateToken, authenticateToken } = require('../middleware/auth');
 const { validateLogin, validateRegister } = require('../middleware/validation');
 
@@ -14,7 +15,7 @@ const router = express.Router();
 router.post('/login', validateLogin, async (req, res) => {
   try {
     const { email, password, userType } = req.body;
-    
+
     console.log('=== LOGIN REQUEST ===');
     console.log('Email:', email);
     console.log('UserType requested:', userType);
@@ -31,7 +32,7 @@ router.post('/login', validateLogin, async (req, res) => {
 
     // Find user by email
     const user = await User.findOne({ email: email.toLowerCase() });
-    
+
     if (!user) {
       console.log(`❌ User not found: ${email}`);
       return res.status(401).json({
@@ -54,9 +55,9 @@ router.post('/login', validateLogin, async (req, res) => {
     // Enhanced user type validation with enum-based access control
     const adminPanelTypes = ['manager', 'hod', 'hr', 'admin'];
     const userPanelTypes = ['user'];
-    
+
     console.log(`Login attempt: ${email} (userType in DB: ${user.userType}) trying to access ${userType} dashboard`);
-    
+
     // Check if user is trying to access admin dashboard
     if (userType === 'admin' && !adminPanelTypes.includes(user.userType)) {
       console.log(`Access denied: ${user.userType} cannot access admin dashboard`);
@@ -67,7 +68,7 @@ router.post('/login', validateLogin, async (req, res) => {
         attemptedAccess: 'admin'
       });
     }
-    
+
     // Check if user is trying to access user dashboard
     if (userType === 'user' && !userPanelTypes.includes(user.userType)) {
       console.log(`Access denied: ${user.userType} cannot access user dashboard`);
@@ -82,7 +83,7 @@ router.post('/login', validateLogin, async (req, res) => {
     // Check password
     console.log('🔐 Checking password...');
     const isMatch = await bcrypt.compare(password, user.password);
-    
+
     if (!isMatch) {
       console.log(`❌ Password mismatch for: ${user.email}`);
       return res.status(401).json({
@@ -90,23 +91,61 @@ router.post('/login', validateLogin, async (req, res) => {
         message: 'Invalid credentials'
       });
     }
-    
+
     console.log('✅ Password verified');
 
     // Check if user already has an active session
     if (user.sessionId) {
       console.log(`User ${user.email} already has an active session. Invalidating previous session.`);
+      // End previous session in DB if exists
+      await UserSession.findOneAndUpdate(
+        { sessionId: user.sessionId },
+        {
+          isActive: false,
+          endTime: new Date(),
+          terminatedReason: 'new_login'
+        }
+      );
     }
 
     // Generate new session ID and clear any existing session
     const sessionId = user.generateSessionId();
     user.sessionId = sessionId;
     user.lastLogin = new Date();
-    
+
     console.log(`New session created for user ${user.email} with sessionId: ${sessionId}`);
-    
+
     // Save user with sessionId and lastLogin
     await user.save({ validateModifiedOnly: true });
+
+    // Create new UserSession record
+    try {
+      const userAgent = req.get('User-Agent') || 'Unknown';
+      const ipAddress = req.ip || req.connection.remoteAddress || 'Unknown';
+
+      // Simple device detection logic
+      let deviceType = 'desktop';
+      if (/mobile/i.test(userAgent)) deviceType = 'mobile';
+      else if (/tablet/i.test(userAgent)) deviceType = 'tablet';
+
+      await UserSession.create({
+        userId: user._id,
+        sessionId: sessionId,
+        ipAddress: ipAddress,
+        userAgent: userAgent,
+        isActive: true,
+        startTime: new Date(),
+        deviceInfo: {
+          type: deviceType,
+          browser: 'Unknown', // Could be parsed from UA
+          os: 'Unknown'      // Could be parsed from UA
+        }
+      });
+      console.log('✅ UserSession created successfully');
+    } catch (sessionError) {
+      console.error('Error creating UserSession:', sessionError);
+      // Don't block login if session creation fails, but log it
+    }
 
     // Generate JWT token with session ID
     const token = generateToken(user._id, sessionId);
@@ -116,6 +155,17 @@ router.post('/login', validateLogin, async (req, res) => {
     delete userResponse.password;
 
     console.log(`Login successful for user: ${user.email}, userType: ${user.userType}, accessing: ${userType} dashboard`);
+
+    // Emit login event
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('user:login', {
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        loginTime: new Date()
+      });
+    }
 
     return res.json({
       success: true,
@@ -154,7 +204,7 @@ router.post('/register', validateRegister, async (req, res) => {
 
     // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
-    
+
     if (existingUser) {
       return res.status(409).json({
         error: 'Registration Failed',
@@ -200,14 +250,14 @@ router.post('/register', validateRegister, async (req, res) => {
 
   } catch (error) {
     console.error('Registration error:', error);
-    
+
     if (error.code === 11000) {
       return res.status(409).json({
         error: 'Registration Failed',
         message: 'User with this information already exists'
       });
     }
-    
+
     res.status(500).json({
       error: 'Server Error',
       message: 'An error occurred during registration'
@@ -220,9 +270,32 @@ router.post('/register', validateRegister, async (req, res) => {
 // @access  Private
 router.post('/logout', authenticateToken, async (req, res) => {
   try {
+    const currentSessionId = req.user.sessionId;
+
     // Clear the user's session ID to invalidate all tokens
     await req.user.clearSession();
-    
+
+    // End UserSession in DB
+    if (currentSessionId) {
+      await UserSession.findOneAndUpdate(
+        { sessionId: currentSessionId },
+        {
+          isActive: false,
+          endTime: new Date(),
+          terminatedReason: 'normal_logout'
+        }
+      );
+    }
+
+    // Emit logout event
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('user:logout', {
+        userId: req.user._id,
+        lastSeen: new Date()
+      });
+    }
+
     res.json({
       success: true,
       message: 'Logout successful'
@@ -297,7 +370,7 @@ router.post('/forgot-password', async (req, res) => {
     }
 
     const user = await User.findOne({ email: email.toLowerCase() });
-    
+
     if (!user) {
       // Don't reveal if user exists for security
       return res.json({
@@ -310,7 +383,7 @@ router.post('/forgot-password', async (req, res) => {
     // 1. Generate reset token
     // 2. Save token to database with expiration
     // 3. Send email with reset link
-    
+
     res.json({
       success: true,
       message: 'Password reset functionality will be implemented'

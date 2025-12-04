@@ -26,11 +26,11 @@ export const LifecycleDashboard: React.FC = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const res = await apiService.users.listSimple();
+      const res = await apiService.users.listSimple() as any;
       // Handle different response formats safely
       const usersList = res?.data?.users || res?.users || res?.data || res || [];
       setUsers(Array.isArray(usersList) ? usersList : []);
-      
+
       // Load activity data for each user (in background)
       if (Array.isArray(usersList) && usersList.length > 0) {
         loadUserActivities(usersList);
@@ -45,23 +45,23 @@ export const LifecycleDashboard: React.FC = () => {
 
   const loadUserActivities = async (usersList: any[]) => {
     const activityMap = new Map();
-    
+
     console.log('=== LOADING USER ACTIVITIES ===');
     console.log('Total users:', usersList.length);
-    
-    // Load activities for first 15 users to avoid overwhelming the API
-    const usersToLoad = usersList.slice(0, 15);
+
+    // Load activities for all users in the list
+    const usersToLoad = usersList;
     console.log('Loading activities for:', usersToLoad.length, 'users');
-    
+
     // Process users in batches to avoid API overload
-    const batchSize = 3;
+    const batchSize = 5;
     for (let i = 0; i < usersToLoad.length; i += batchSize) {
       const batch = usersToLoad.slice(i, i + batchSize);
-      
+
       await Promise.all(batch.map(async (user) => {
         try {
           console.log(`Fetching activity for user: ${user.name} (${user._id})`);
-          
+
           const [sessionData, loginAttempts] = await Promise.allSettled([
             apiService.userActivity.getSessionData(user._id, 7).catch((err) => {
               console.error(`Session data error for ${user.name}:`, err);
@@ -72,7 +72,7 @@ export const LifecycleDashboard: React.FC = () => {
               return null;
             })
           ]);
-          
+
           console.log(`Session data for ${user.name}:`, sessionData);
           console.log(`Login attempts for ${user.name}:`, loginAttempts);
 
@@ -84,7 +84,7 @@ export const LifecycleDashboard: React.FC = () => {
             successfulLogins: 0,
             lastLogin: null
           };
-          
+
           if (sessionData.status === 'fulfilled' && sessionData.value?.data) {
             const sessions = sessionData.value.data;
             activity.lastSession = sessions.summary?.lastSession;
@@ -92,19 +92,19 @@ export const LifecycleDashboard: React.FC = () => {
             activity.isOnline = sessions.recentSessions?.some((s: any) => s.isActive) || false;
             activity.deviceInfo = sessions.devicePatterns?.[0]?._id?.browser || 'Unknown';
           }
-          
+
           if (loginAttempts.status === 'fulfilled' && loginAttempts.value?.data) {
             const logins = loginAttempts.value.data;
             activity.successfulLogins = logins.statistics?.successfulLogins || 0;
             activity.lastLogin = logins.attempts?.[0]?.createdAt;
           }
-          
+
           // Fallback: Use user's lastLogin if no session data
           if (!activity.lastSession && user.lastLogin) {
             activity.lastLogin = user.lastLogin;
             activity.lastSession = user.lastLogin;
           }
-          
+
           activityMap.set(user._id, activity);
         } catch (error) {
           // Silently handle individual user errors with default values
@@ -118,51 +118,103 @@ export const LifecycleDashboard: React.FC = () => {
           });
         }
       }));
-      
+
       // Small delay between batches to be gentle on the API
       if (i + batchSize < usersToLoad.length) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
-    
+
     setUserActivities(activityMap);
   };
 
   useEffect(() => {
     loadUsers();
-    // connect socket.io without extra dependency (served by backend)
+
+    // Connect socket.io
     const script = document.createElement('script');
     script.src = '/socket.io/socket.io.js';
     script.async = true;
     script.onload = () => {
       const io = (window as any).io ? (window as any).io() : null;
       if (io) {
-        io.on('user:created', () => {
-          loadUsers();
+        console.log('🔌 Socket connected for Lifecycle Dashboard');
+
+        // Listen for new user creation
+        io.on('user:created', (newUser: any) => {
+          console.log('🆕 New user created:', newUser);
+          loadUsers(); // Reload list to include new user
+        });
+
+        // Listen for user login
+        io.on('user:login', (data: any) => {
+          console.log('🟢 User logged in:', data);
+          setUserActivities(prev => {
+            const newMap = new Map(prev);
+            const userActivity = newMap.get(data.userId) || {
+              isOnline: false,
+              lastSession: null,
+              totalSessions: 0,
+              deviceInfo: 'Unknown',
+              successfulLogins: 0,
+              lastLogin: null
+            };
+
+            newMap.set(data.userId, {
+              ...userActivity,
+              isOnline: true,
+              lastLogin: data.loginTime,
+              lastSession: data.loginTime,
+              successfulLogins: (userActivity.successfulLogins || 0) + 1
+            });
+            return newMap;
+          });
+        });
+
+        // Listen for user logout
+        io.on('user:logout', (data: any) => {
+          console.log('🔴 User logged out:', data);
+          setUserActivities(prev => {
+            const newMap = new Map(prev);
+            const userActivity = newMap.get(data.userId);
+
+            if (userActivity) {
+              newMap.set(data.userId, {
+                ...userActivity,
+                isOnline: false,
+                lastSession: data.lastSeen
+              });
+            }
+            return newMap;
+          });
         });
       }
     };
     document.body.appendChild(script);
+
     return () => {
-      document.body.removeChild(script);
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+      // Clean up socket listeners if possible (requires storing io instance)
     };
   }, []);
 
   const formatLastActivity = (lastSession: string, lastLogin: string) => {
     const sessionDate = lastSession ? new Date(lastSession) : null;
     const loginDate = lastLogin ? new Date(lastLogin) : null;
-    
+
     if (!sessionDate && !loginDate) return 'Never';
-    
-    const mostRecent = sessionDate && loginDate 
+
+    const mostRecent = sessionDate && loginDate
       ? (sessionDate > loginDate ? sessionDate : loginDate)
       : (sessionDate || loginDate);
-    
+
     const now = new Date();
     const diffMs = now.getTime() - mostRecent!.getTime();
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
-    
+
     if (diffHours < 1) return 'Just now';
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
@@ -195,7 +247,7 @@ export const LifecycleDashboard: React.FC = () => {
             <Users className="w-8 h-8 text-blue-600 dark:text-blue-400" />
           </div>
         </Card>
-        
+
         <Card className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
           <div className="flex items-center justify-between">
             <div>
@@ -207,7 +259,7 @@ export const LifecycleDashboard: React.FC = () => {
             <Wifi className="w-8 h-8 text-green-600 dark:text-green-400" />
           </div>
         </Card>
-        
+
         <Card className="p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
           <div className="flex items-center justify-between">
             <div>
@@ -224,7 +276,7 @@ export const LifecycleDashboard: React.FC = () => {
             <Activity className="w-8 h-8 text-orange-600 dark:text-orange-400" />
           </div>
         </Card>
-        
+
         <Card className="p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>

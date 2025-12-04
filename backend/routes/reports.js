@@ -295,7 +295,14 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
         completedModules: completedModulesResult.status === 'fulfilled' ? completedModulesResult.value : 0,
         averageProgress,
         totalWatchTime,
-        certificatesIssued: certificatesResult.status === 'fulfilled' ? certificatesResult.value : 0
+        certificatesIssued: certificatesResult.status === 'fulfilled' ? certificatesResult.value : 0,
+        // Trend data (will be calculated in future)
+        trends: {
+          users: 0,
+          modules: 0,
+          progress: 0,
+          certificates: 0
+        }
       }
     });
 
