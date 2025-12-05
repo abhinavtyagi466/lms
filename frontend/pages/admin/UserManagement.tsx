@@ -3,6 +3,7 @@ import {
   Search,
   Plus,
   Eye,
+  EyeOff,
   Edit,
   UserCheck,
   UserX,
@@ -74,6 +75,7 @@ export const UserManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);  // Password visibility toggle
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [showUserDetailsModal, setShowUserDetailsModal] = useState(false);
@@ -1506,17 +1508,26 @@ export const UserManagement: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="password">Password *</Label>
-                        <Input
-                          id="password"
-                          type="password"
-                          value={createUserData.password}
-                          onChange={(e) => {
-                            setCreateUserData(prev => ({ ...prev, password: e.target.value }));
-                            if (validationErrors.password) setValidationErrors(prev => ({ ...prev, password: '' }));
-                          }}
-                          placeholder="Enter password"
-                          className={validationErrors.password ? 'border-red-500' : ''}
-                        />
+                        <div className="relative">
+                          <Input
+                            id="password"
+                            type={showPassword ? "text" : "password"}
+                            value={createUserData.password}
+                            onChange={(e) => {
+                              setCreateUserData(prev => ({ ...prev, password: e.target.value }));
+                              if (validationErrors.password) setValidationErrors(prev => ({ ...prev, password: '' }));
+                            }}
+                            placeholder="Enter password"
+                            className={`pr-10 ${validationErrors.password ? 'border-red-500' : ''}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
                         {validationErrors.password && (
                           <p className="text-xs text-red-500 mt-1">{validationErrors.password}</p>
                         )}
