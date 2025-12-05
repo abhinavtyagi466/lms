@@ -51,24 +51,18 @@ export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
 
   // Helper function to check if current user can manage target user
+  // All admin panel users (admin, hr, manager, hod) have same access - can manage everyone
   const canManageUser = (targetUser: any): boolean => {
     if (!user || !user.userType) return false;
 
     const currentUserRole = user.userType as string;
-    const targetUserRole = targetUser.userType as string;
 
-    // Admin and HR can manage all users
-    if (currentUserRole === 'admin' || currentUserRole === 'hr') {
+    // All admin panel users can manage all users (same access as admin)
+    if (['admin', 'hr', 'manager', 'hod'].includes(currentUserRole)) {
       return true;
     }
 
-    // Manager and HOD cannot manage Field Executives (user role)
-    if (currentUserRole === 'manager' || currentUserRole === 'hod') {
-      // Can manage other roles (manager, hod, hr, admin) but NOT user role
-      return targetUserRole !== 'user';
-    }
-
-    // Other roles don't have access
+    // Regular users don't have access
     return false;
   };
   const [loading, setLoading] = useState(true);

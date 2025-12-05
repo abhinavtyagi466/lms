@@ -15,10 +15,10 @@ const authenticateToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-jwt-secret-key');
-    
+
     // Get user from database
     const user = await User.findById(decoded.userId).select('-password');
-    
+
     if (!user) {
       return res.status(401).json({
         error: 'Access Denied',
@@ -50,7 +50,7 @@ const authenticateToken = async (req, res, next) => {
         message: 'Token has expired'
       });
     }
-    
+
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({
         error: 'Access Denied',
@@ -94,7 +94,7 @@ const requireAdminPanel = (req, res, next) => {
   }
 
   const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
-  
+
   if (!adminPanelRoles.includes(req.user.userType)) {
     return res.status(403).json({
       error: 'Access Denied',
@@ -105,7 +105,7 @@ const requireAdminPanel = (req, res, next) => {
   next();
 };
 
-// Middleware to check if user owns resource or is admin
+// Middleware to check if user owns resource or is admin panel user
 const requireOwnershipOrAdmin = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({
@@ -115,8 +115,10 @@ const requireOwnershipOrAdmin = (req, res, next) => {
   }
 
   const userId = req.params.userId || req.params.id || req.body.userId;
-  
-  if (req.user.userType === 'admin' || req.user._id.toString() === userId) {
+  const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+
+  // All admin panel users can access any user's resources
+  if (adminPanelRoles.includes(req.user.userType) || req.user._id.toString() === userId) {
     return next();
   }
 
@@ -127,8 +129,7 @@ const requireOwnershipOrAdmin = (req, res, next) => {
 };
 
 // Middleware to check if user can edit/manage other users
-// Admin and HR can manage all users
-// Manager and HOD cannot manage Field Executives (user role)
+// All admin panel users (admin, hr, manager, hod) have same full access
 const requireUserManagementAccess = async (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({
@@ -138,47 +139,14 @@ const requireUserManagementAccess = async (req, res, next) => {
   }
 
   const currentUserRole = req.user.userType;
-  
-  // Admin and HR have full access to manage all users
-  if (currentUserRole === 'admin' || currentUserRole === 'hr') {
+  const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+
+  // All admin panel users have full access to manage all users
+  if (adminPanelRoles.includes(currentUserRole)) {
     return next();
   }
 
-  // Manager and HOD can access admin panel but need to check target user
-  if (currentUserRole === 'manager' || currentUserRole === 'hod') {
-    const userId = req.params.id || req.params.userId || req.body.userId;
-    
-    if (!userId) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'User ID is required'
-      });
-    }
-
-    // Get target user to check their role
-    const User = require('../models/User');
-    const targetUser = await User.findById(userId).select('userType');
-    
-    if (!targetUser) {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: 'User not found'
-      });
-    }
-
-    // Manager and HOD cannot manage Field Executives (user role)
-    if (targetUser.userType === 'user') {
-      return res.status(403).json({
-        error: 'Access Denied',
-        message: 'You do not have permission to manage Field Executives. Only Admin and HR can manage Field Executives.'
-      });
-    }
-
-    // Manager and HOD can manage other roles (manager, hod, hr, admin)
-    return next();
-  }
-
-  // Other roles don't have access
+  // Regular users don't have access
   return res.status(403).json({
     error: 'Access Denied',
     message: 'You do not have permission to manage users'
@@ -194,12 +162,12 @@ const optionalAuth = async (req, res, next) => {
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-jwt-secret-key');
       const user = await User.findById(decoded.userId).select('-password');
-      
+
       if (user && user.isActive) {
         req.user = user;
       }
     }
-    
+
     next();
   } catch (error) {
     // Continue without authentication for optional auth
