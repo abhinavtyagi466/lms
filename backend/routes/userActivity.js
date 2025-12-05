@@ -18,9 +18,10 @@ router.get('/summary/:userId', authenticateToken, validateUserId, async (req, re
   try {
     const { userId } = req.params;
     const { days = 30 } = req.query;
-    
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own activity data'
@@ -28,14 +29,14 @@ router.get('/summary/:userId', authenticateToken, validateUserId, async (req, re
     }
 
     const activitySummary = await UserActivity.getUserActivitySummary(userId, parseInt(days));
-    
+
     // Get additional metrics
     const totalActivities = await UserActivity.countDocuments({ userId });
-    const suspiciousActivities = await UserActivity.countDocuments({ 
-      userId, 
-      $or: [{ isSuspicious: true }, { riskScore: { $gte: 70 } }] 
+    const suspiciousActivities = await UserActivity.countDocuments({
+      userId,
+      $or: [{ isSuspicious: true }, { riskScore: { $gte: 70 } }]
     });
-    
+
     const recentActivities = await UserActivity.find({ userId })
       .sort({ createdAt: -1 })
       .limit(10)
@@ -67,13 +68,14 @@ router.get('/login-attempts/:userId', authenticateToken, validateUserId, async (
   try {
     const { userId } = req.params;
     const { days = 30 } = req.query;
-    
+
     console.log(`\n=== FETCHING LOGIN ATTEMPTS ===`);
     console.log(`User ID: ${userId}`);
     console.log(`Days: ${days}`);
-    
-    // Check if user is accessing their own data or is admin
-    if (req.user.id !== userId && req.user.role !== 'admin') {
+
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id?.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own login data'
@@ -81,13 +83,13 @@ router.get('/login-attempts/:userId', authenticateToken, validateUserId, async (
     }
 
     const loginAttempts = await UserActivity.getLoginAttempts(userId, parseInt(days));
-    
+
     // Calculate login statistics
     const totalAttempts = loginAttempts.length;
     const successfulLogins = loginAttempts.filter(attempt => attempt.success).length;
     const failedLogins = totalAttempts - successfulLogins;
     const successRate = totalAttempts > 0 ? (successfulLogins / totalAttempts) * 100 : 0;
-    
+
     // Get unique IPs and devices
     const uniqueIPs = [...new Set(loginAttempts.map(attempt => attempt.ipAddress))];
     const uniqueDevices = [...new Set(loginAttempts.map(attempt => attempt.deviceInfo?.type))];
@@ -123,13 +125,14 @@ router.get('/sessions/:userId', authenticateToken, validateUserId, async (req, r
   try {
     const { userId } = req.params;
     const { days = 7 } = req.query;
-    
+
     console.log(`\n=== FETCHING SESSION DATA ===`);
     console.log(`User ID: ${userId}`);
     console.log(`Days: ${days}`);
-    
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own session data'
@@ -144,7 +147,7 @@ router.get('/sessions/:userId', authenticateToken, validateUserId, async (req, r
     const recentSessions = await UserSession.getRecentSessions(userId, 10);
     const devicePatterns = await UserSession.getDeviceUsagePatterns(userId, parseInt(days));
     const locationPatterns = await UserSession.getLocationPatterns(userId, parseInt(days));
-    
+
     console.log(`Session summary:`, sessionSummary);
     console.log(`Recent sessions count:`, recentSessions?.length || 0);
     console.log(`Device patterns:`, devicePatterns?.length || 0);
@@ -185,9 +188,10 @@ router.get('/suspicious/:userId', authenticateToken, validateUserId, async (req,
   try {
     const { userId } = req.params;
     const { days = 30 } = req.query;
-    
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own activity data'
@@ -195,7 +199,7 @@ router.get('/suspicious/:userId', authenticateToken, validateUserId, async (req,
     }
 
     const suspiciousActivities = await UserActivity.getSuspiciousActivities(userId, parseInt(days));
-    
+
     // Calculate risk metrics
     const totalSuspicious = suspiciousActivities.length;
     const highRiskActivities = suspiciousActivities.filter(activity => activity.riskScore >= 80).length;
@@ -230,9 +234,10 @@ router.get('/recent/:userId', authenticateToken, validateUserId, validatePaginat
   try {
     const { userId } = req.params;
     const { limit = 20, page = 1 } = req.query;
-    
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own activity data'
@@ -240,7 +245,7 @@ router.get('/recent/:userId', authenticateToken, validateUserId, validatePaginat
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     const [activities, total] = await Promise.all([
       UserActivity.find({ userId })
         .sort({ createdAt: -1 })
@@ -294,17 +299,17 @@ router.get('/admin/analytics', authenticateToken, requireAdmin, async (req, res)
     ] = await Promise.all([
       UserActivity.countDocuments({ createdAt: { $gte: startDate } }),
       UserSession.countDocuments({ startTime: { $gte: startDate } }),
-      UserActivity.countDocuments({ 
+      UserActivity.countDocuments({
         createdAt: { $gte: startDate },
         $or: [{ isSuspicious: true }, { riskScore: { $gte: 70 } }]
       }),
-      UserActivity.countDocuments({ 
+      UserActivity.countDocuments({
         createdAt: { $gte: startDate },
         activityType: 'login_failed'
       }),
-      UserSession.distinct('userId', { 
+      UserSession.distinct('userId', {
         startTime: { $gte: startDate },
-        isActive: true 
+        isActive: true
       }),
       UserActivity.aggregate([
         { $match: { createdAt: { $gte: startDate } } },
@@ -312,10 +317,12 @@ router.get('/admin/analytics', authenticateToken, requireAdmin, async (req, res)
         { $sort: { count: -1 } }
       ]),
       UserActivity.aggregate([
-        { $match: { 
-          createdAt: { $gte: startDate },
-          'location.city': { $exists: true, $ne: null }
-        }},
+        {
+          $match: {
+            createdAt: { $gte: startDate },
+            'location.city': { $exists: true, $ne: null }
+          }
+        },
         { $group: { _id: '$location.city', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 }

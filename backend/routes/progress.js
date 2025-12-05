@@ -36,8 +36,9 @@ router.post('/', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if user is updating their own progress or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+    // Check if user is updating their own progress or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only update your own progress'
@@ -46,7 +47,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
     // Find existing progress or create new one
     let progress = await Progress.getVideoProgress(userId, videoId);
-    
+
     if (progress) {
       // Update existing progress
       await progress.updateProgress(currentTime, duration);
@@ -89,8 +90,9 @@ router.get('/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own progress data'
@@ -130,8 +132,9 @@ router.get('/:userId/:videoId', authenticateToken, async (req, res) => {
   try {
     const { userId, videoId } = req.params;
 
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own progress data'

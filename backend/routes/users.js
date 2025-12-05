@@ -727,8 +727,9 @@ router.get('/:id/warnings', authenticateToken, validateObjectId, async (req, res
   try {
     const userId = req.params.id;
 
-    // Check if user can access this data (admin or same user)
-    if (req.user.userType !== 'admin' && req.user._id.toString() !== userId) {
+    // Check if user can access this data (admin panel users or same user)
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (!adminPanelRoles.includes(req.user.userType) && req.user._id.toString() !== userId) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'Access denied'
@@ -3242,7 +3243,8 @@ router.get('/:userId/warnings', authenticateToken, async (req, res) => {
     const { userId } = req.params;
 
     // Check if user can access this data
-    if (req.user.userType !== 'admin' && req.user._id.toString() !== userId) {
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (!adminPanelRoles.includes(req.user.userType) && req.user._id.toString() !== userId) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'Access denied'

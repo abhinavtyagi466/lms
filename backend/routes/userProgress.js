@@ -15,8 +15,9 @@ router.get('/:userId', authenticateToken, validateUserId, async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own progress data'
@@ -46,8 +47,9 @@ router.get('/:userId/:moduleId', authenticateToken, validateObjectId, async (req
   try {
     const { userId, moduleId } = req.params;
 
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own progress data'
@@ -85,8 +87,9 @@ router.put('/:userId/:moduleId/video', authenticateToken, validateObjectId, asyn
     const { userId, moduleId } = req.params;
     const { progress } = req.body;
 
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only update your own progress data'
@@ -112,7 +115,7 @@ router.put('/:userId/:moduleId/video', authenticateToken, validateObjectId, asyn
 
     // Get or create user progress
     let userProgress = await UserProgress.getUserProgress(userId, moduleId);
-    
+
     if (!userProgress) {
       userProgress = new UserProgress({
         userId,
@@ -152,8 +155,9 @@ router.post('/:userId/:moduleId/quiz', authenticateToken, validateObjectId, asyn
     const { userId, moduleId } = req.params;
     const { answers } = req.body;
 
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only submit your own quiz answers'
@@ -194,9 +198,9 @@ router.post('/:userId/:moduleId/quiz', authenticateToken, validateObjectId, asyn
     for (let i = 0; i < questions.length; i++) {
       const question = questions[i];
       const userAnswer = answers[i];
-      
+
       totalMarks += question.marks;
-      
+
       const isCorrect = question.isCorrectAnswer(userAnswer);
       if (isCorrect) {
         score += question.marks;
@@ -215,7 +219,7 @@ router.post('/:userId/:moduleId/quiz', authenticateToken, validateObjectId, asyn
 
     // Get or create user progress
     let userProgress = await UserProgress.getUserProgress(userId, moduleId);
-    
+
     if (!userProgress) {
       userProgress = new UserProgress({
         userId,
@@ -277,8 +281,9 @@ router.get('/:userId/stats', authenticateToken, validateObjectId, async (req, re
   try {
     const { userId } = req.params;
 
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own statistics'
@@ -313,8 +318,9 @@ router.get('/:userId/completed', authenticateToken, validateObjectId, async (req
   try {
     const { userId } = req.params;
 
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own completed modules'

@@ -19,9 +19,10 @@ router.get('/user/:userId', authenticateToken, validateUserId, validatePaginatio
   try {
     const { userId } = req.params;
     const { moduleId, limit = 10, page = 1 } = req.query;
-    
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own quiz attempts'
@@ -32,7 +33,7 @@ router.get('/user/:userId', authenticateToken, validateUserId, validatePaginatio
     if (moduleId) query.moduleId = moduleId;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     const [attempts, total] = await Promise.all([
       QuizAttempt.find(query)
         .populate('moduleId', 'title')
@@ -67,9 +68,10 @@ router.get('/user/:userId', authenticateToken, validateUserId, validatePaginatio
 router.get('/stats/:userId', authenticateToken, validateUserId, async (req, res) => {
   try {
     const { userId } = req.params;
-    
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own quiz statistics'
@@ -101,23 +103,23 @@ router.get('/stats/:userId', authenticateToken, validateUserId, async (req, res)
     const totalAttempts = attempts.length;
     const uniqueModules = new Set(attempts.map(a => a.moduleId._id.toString()));
     const totalQuizzes = uniqueModules.size;
-    
+
     const completedAttempts = attempts.filter(a => a.status === 'completed');
-    const averageScore = completedAttempts.length > 0 
-      ? completedAttempts.reduce((sum, a) => sum + a.score, 0) / completedAttempts.length 
+    const averageScore = completedAttempts.length > 0
+      ? completedAttempts.reduce((sum, a) => sum + a.score, 0) / completedAttempts.length
       : 0;
-    
+
     const passedAttempts = completedAttempts.filter(a => a.passed);
-    const passRate = completedAttempts.length > 0 
-      ? (passedAttempts.length / completedAttempts.length) * 100 
+    const passRate = completedAttempts.length > 0
+      ? (passedAttempts.length / completedAttempts.length) * 100
       : 0;
-    
+
     const totalTimeSpent = attempts.reduce((sum, a) => sum + (a.timeSpent || 0), 0);
     const violations = attempts.reduce((sum, a) => sum + a.violations.length, 0);
-    
+
     // Get recent attempts (last 10)
     const recentAttempts = attempts.slice(0, 10);
-    
+
     // Calculate module-specific stats
     const moduleStats = Array.from(uniqueModules).map(moduleId => {
       const moduleAttempts = attempts.filter(a => a.moduleId._id.toString() === moduleId);
@@ -125,7 +127,7 @@ router.get('/stats/:userId', authenticateToken, validateUserId, async (req, res)
       const bestScore = Math.max(...moduleAttempts.map(a => a.score));
       const lastAttempt = moduleAttempts[0]?.startTime;
       const passed = moduleAttempts.some(a => a.passed);
-      
+
       return {
         moduleId,
         moduleTitle,
@@ -165,9 +167,10 @@ router.get('/history/:userId', authenticateToken, validateUserId, async (req, re
   try {
     const { userId } = req.params;
     const { moduleId } = req.query;
-    
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own quiz history'
@@ -201,18 +204,19 @@ router.get('/history/:userId', authenticateToken, validateUserId, async (req, re
 router.get('/violations/:userId', authenticateToken, validateUserId, async (req, res) => {
   try {
     const { userId } = req.params;
-    
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own quiz violations'
       });
     }
 
-    const attempts = await QuizAttempt.find({ 
-      userId, 
-      'violations.0': { $exists: true } 
+    const attempts = await QuizAttempt.find({
+      userId,
+      'violations.0': { $exists: true }
     })
       .populate('moduleId', 'title')
       .sort({ startTime: -1 });
@@ -240,14 +244,14 @@ router.get('/violations/:userId', authenticateToken, validateUserId, async (req,
 router.get('/', authenticateToken, requireAdmin, validatePagination, async (req, res) => {
   try {
     const { userId, moduleId, status, limit = 20, page = 1 } = req.query;
-    
+
     const query = {};
     if (userId) query.userId = userId;
     if (moduleId) query.moduleId = moduleId;
     if (status) query.status = status;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     const [attempts, total] = await Promise.all([
       QuizAttempt.find(query)
         .populate('userId', 'name email employeeId')
@@ -283,7 +287,7 @@ router.get('/', authenticateToken, requireAdmin, validatePagination, async (req,
 router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { startDate, endDate, moduleId } = req.query;
-    
+
     const query = {};
     if (startDate || endDate) {
       query.startTime = {};
@@ -301,31 +305,31 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
     const totalAttempts = attempts.length;
     const uniqueUsers = new Set(attempts.map(a => a.userId._id.toString()));
     const uniqueModules = new Set(attempts.map(a => a.moduleId._id.toString()));
-    
+
     const completedAttempts = attempts.filter(a => a.status === 'completed');
-    const averageScore = completedAttempts.length > 0 
-      ? completedAttempts.reduce((sum, a) => sum + a.score, 0) / completedAttempts.length 
+    const averageScore = completedAttempts.length > 0
+      ? completedAttempts.reduce((sum, a) => sum + a.score, 0) / completedAttempts.length
       : 0;
-    
+
     const passedAttempts = completedAttempts.filter(a => a.passed);
-    const passRate = completedAttempts.length > 0 
-      ? (passedAttempts.length / completedAttempts.length) * 100 
+    const passRate = completedAttempts.length > 0
+      ? (passedAttempts.length / completedAttempts.length) * 100
       : 0;
-    
+
     const violations = attempts.reduce((sum, a) => sum + a.violations.length, 0);
-    
+
     // User performance ranking
     const userStats = Array.from(uniqueUsers).map(userId => {
       const userAttempts = attempts.filter(a => a.userId._id.toString() === userId);
       const userCompleted = userAttempts.filter(a => a.status === 'completed');
       const userPassed = userCompleted.filter(a => a.passed);
-      const userAvgScore = userCompleted.length > 0 
-        ? userCompleted.reduce((sum, a) => sum + a.score, 0) / userCompleted.length 
+      const userAvgScore = userCompleted.length > 0
+        ? userCompleted.reduce((sum, a) => sum + a.score, 0) / userCompleted.length
         : 0;
-      const userPassRate = userCompleted.length > 0 
-        ? (userPassed.length / userCompleted.length) * 100 
+      const userPassRate = userCompleted.length > 0
+        ? (userPassed.length / userCompleted.length) * 100
         : 0;
-      
+
       return {
         userId,
         userName: userAttempts[0]?.userId?.name || 'Unknown',
@@ -344,13 +348,13 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
       const moduleAttempts = attempts.filter(a => a.moduleId._id.toString() === moduleId);
       const moduleCompleted = moduleAttempts.filter(a => a.status === 'completed');
       const modulePassed = moduleCompleted.filter(a => a.passed);
-      const moduleAvgScore = moduleCompleted.length > 0 
-        ? moduleCompleted.reduce((sum, a) => sum + a.score, 0) / moduleCompleted.length 
+      const moduleAvgScore = moduleCompleted.length > 0
+        ? moduleCompleted.reduce((sum, a) => sum + a.score, 0) / moduleCompleted.length
         : 0;
-      const modulePassRate = moduleCompleted.length > 0 
-        ? (modulePassed.length / moduleCompleted.length) * 100 
+      const modulePassRate = moduleCompleted.length > 0
+        ? (modulePassed.length / moduleCompleted.length) * 100
         : 0;
-      
+
       return {
         moduleId,
         moduleTitle: moduleAttempts[0]?.moduleId?.title || 'Unknown Module',
@@ -393,7 +397,7 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
 router.get('/:attemptId', authenticateToken, validateObjectId, async (req, res) => {
   try {
     const { attemptId } = req.params;
-    
+
     const attempt = await QuizAttempt.findById(attemptId)
       .populate('userId', 'name email employeeId')
       .populate('moduleId', 'title');
@@ -405,8 +409,9 @@ router.get('/:attemptId', authenticateToken, validateObjectId, async (req, res) 
       });
     }
 
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== attempt.userId._id.toString() && req.user.userType !== 'admin') {
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== attempt.userId._id.toString() && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own quiz attempts'
@@ -433,9 +438,10 @@ router.get('/:attemptId', authenticateToken, validateObjectId, async (req, res) 
 router.get('/module-scores/:userId', authenticateToken, validateUserId, async (req, res) => {
   try {
     const { userId } = req.params;
-    
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+
+    // Check if user is accessing their own data or has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (req.user._id.toString() !== userId && !adminPanelRoles.includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own module scores'
@@ -449,11 +455,11 @@ router.get('/module-scores/:userId', authenticateToken, validateUserId, async (r
 
     // Group attempts by module and calculate scores
     const moduleScoresMap = new Map();
-    
+
     attempts.forEach(attempt => {
       const moduleId = attempt.moduleId._id.toString();
       const moduleTitle = attempt.moduleId.title;
-      
+
       if (!moduleScoresMap.has(moduleId)) {
         moduleScoresMap.set(moduleId, {
           moduleId,
@@ -466,23 +472,23 @@ router.get('/module-scores/:userId', authenticateToken, validateUserId, async (r
           scores: []
         });
       }
-      
+
       const moduleData = moduleScoresMap.get(moduleId);
       moduleData.attempts++;
       moduleData.scores.push(attempt.score);
-      
+
       if (attempt.score > moduleData.bestScore) {
         moduleData.bestScore = attempt.score;
       }
-      
+
       if (attempt.passed) {
         moduleData.passed = true;
       }
-      
+
       if (attempt.timeSpent > moduleData.timeSpent) {
         moduleData.timeSpent = attempt.timeSpent;
       }
-      
+
       if (!moduleData.lastAttempt || new Date(attempt.createdAt) > new Date(moduleData.lastAttempt)) {
         moduleData.lastAttempt = attempt.createdAt;
       }
