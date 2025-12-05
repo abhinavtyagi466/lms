@@ -315,8 +315,8 @@ export const UserLifecycle: React.FC = () => {
                       key={user._id}
                       onClick={() => handleUserSelect(user._id)}
                       className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${selectedUser?._id === user._id
-                          ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700'
-                          : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700'
+                        : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700'
                         }`}
                     >
                       <div className="flex items-center justify-between">
@@ -328,16 +328,16 @@ export const UserLifecycle: React.FC = () => {
                         <div className="text-right">
                           <Badge
                             className={`${user.userType === 'admin'
-                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
-                                : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
+                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
                               }`}
                           >
                             {user.userType === 'admin' ? 'Admin' : 'User'}
                           </Badge>
                           <Badge
                             className={`mt-1 ${user.status === 'Active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                                user.status === 'Warning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                                  'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                              user.status === 'Warning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                                'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                               }`}
                           >
                             {user.status}
@@ -566,8 +566,8 @@ export const UserLifecycle: React.FC = () => {
                           <div key={attempt._id} className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-700/50 rounded-lg">
                             <div className="flex items-center space-x-3">
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${attempt.success
-                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                  : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
                                 }`}>
                                 {getActivityIcon(attempt.activityType)}
                               </div>
