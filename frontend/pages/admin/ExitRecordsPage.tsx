@@ -36,6 +36,22 @@ export const ExitRecordsPage: React.FC = () => {
     fetchExitRecords();
   }, [page, mainCategory, verifiedBy, startDate, endDate]);
 
+  // Listen for user-set-inactive event to refresh data in real-time
+  useEffect(() => {
+    const handleUserInactive = () => {
+      console.log('🔄 Exit Records: User set inactive event received, refreshing data...');
+      fetchExitRecords();
+    };
+
+    window.addEventListener('user-set-inactive', handleUserInactive);
+    window.addEventListener('dashboard-refresh', handleUserInactive);
+
+    return () => {
+      window.removeEventListener('user-set-inactive', handleUserInactive);
+      window.removeEventListener('dashboard-refresh', handleUserInactive);
+    };
+  }, [page, mainCategory, verifiedBy, startDate, endDate, searchTerm]);
+
   const fetchExitRecords = async () => {
     setLoading(true);
     try {
@@ -160,11 +176,10 @@ export const ExitRecordsPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Search */}
             <div className="lg:col-span-2">
-              <Label htmlFor="search">Search</Label>
-              <div className="flex gap-2 mt-1">
+              <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Search
-                    className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                    className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none z-10"
                   />
                   <Input
                     id="search"
@@ -172,14 +187,14 @@ export const ExitRecordsPage: React.FC = () => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                    className="pl-10 !text-start"
+                    className="pl-10 h-10"
                   />
                 </div>
 
                 <Button
                   onClick={handleSearch}
                   size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-blue-600 hover:bg-blue-700 text-white h-10 px-4"
                 >
                   Search
                 </Button>

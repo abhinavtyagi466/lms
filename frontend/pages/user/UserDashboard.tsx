@@ -574,7 +574,7 @@ export const UserDashboard: React.FC = () => {
       <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-700/50 sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center space-x-4 sm:space-x-6">
+            <div className="flex items-center space-x-4 sm:space-x-6 pl-14 lg:pl-0">
               <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-500 dark:bg-gradient-to-br dark:from-blue-600 dark:to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-200">
                 <User className="w-6 h-6 sm:w-8 sm:h-8 text-white drop-shadow-lg" />
               </div>

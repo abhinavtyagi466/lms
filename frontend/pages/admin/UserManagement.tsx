@@ -69,7 +69,8 @@ export const UserManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);  // Password visibility toggle
+  const [showPassword, setShowPassword] = useState(false);  // Password visibility toggle for Create User
+  const [showEditPassword, setShowEditPassword] = useState(false);  // Password visibility toggle for Edit User
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [showUserDetailsModal, setShowUserDetailsModal] = useState(false);
@@ -225,11 +226,27 @@ export const UserManagement: React.FC = () => {
         errors.email = validateEmail(createUserData.email).error;
       }
 
+      // Check for duplicate email
+      if (createUserData.email.trim()) {
+        const emailExists = users.some(u => u.email?.toLowerCase() === createUserData.email.toLowerCase());
+        if (emailExists) {
+          errors.email = 'This email is already registered with another user';
+        }
+      }
+
       // Phone Validation (Must be 10 digits)
       if (createUserData.phone.trim()) {
         const phoneRegex = /^\d{10}$/;
         if (!phoneRegex.test(createUserData.phone)) {
           errors.phone = 'Phone number must be exactly 10 digits';
+        }
+      }
+
+      // Check for duplicate phone number
+      if (createUserData.phone.trim()) {
+        const phoneExists = users.some(u => u.phone === createUserData.phone);
+        if (phoneExists) {
+          errors.phone = 'This phone number is already registered with another user';
         }
       }
 
@@ -249,6 +266,20 @@ export const UserManagement: React.FC = () => {
       // PAN Validation
       if (createUserData.panNo && !validatePAN(createUserData.panNo).isValid) {
         errors.panNo = validatePAN(createUserData.panNo).error;
+      }
+
+      // Date of Birth Validation (Must be at least 18 years old)
+      if (createUserData.dateOfBirth) {
+        const today = new Date();
+        const birthDate = new Date(createUserData.dateOfBirth);
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        if (age < 18) {
+          errors.dateOfBirth = 'User must be at least 18 years old';
+        }
       }
 
       // If there are validation errors, show them and return
@@ -417,6 +448,20 @@ export const UserManagement: React.FC = () => {
       if (editUserData.panNo) {
         const panValidation = validatePAN(editUserData.panNo);
         if (!panValidation.isValid) errors.panNo = panValidation.error;
+      }
+
+      // Validate Date of Birth (Must be at least 18 years old)
+      if (editUserData.dateOfBirth) {
+        const today = new Date();
+        const birthDate = new Date(editUserData.dateOfBirth);
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        if (age < 18) {
+          errors.dateOfBirth = 'User must be at least 18 years old';
+        }
       }
 
       // If there are validation errors, show them and return
@@ -791,7 +836,7 @@ export const UserManagement: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between mb-8">
-          <div>
+          <div className="pl-12 lg:pl-0">
             <h1 className="text-4xl font-bold text-blue-600 dark:text-blue-400">
               User Management
             </h1>
@@ -1487,8 +1532,18 @@ export const UserManagement: React.FC = () => {
                           type="email"
                           value={createUserData.email}
                           onChange={(e) => {
-                            setCreateUserData(prev => ({ ...prev, email: e.target.value }));
-                            if (validationErrors.email) setValidationErrors(prev => ({ ...prev, email: '' }));
+                            const emailValue = e.target.value;
+                            setCreateUserData(prev => ({ ...prev, email: emailValue }));
+
+                            // Check for duplicate email
+                            const emailExists = users.some(u => u.email?.toLowerCase() === emailValue.toLowerCase());
+                            if (emailExists) {
+                              setValidationErrors(prev => ({ ...prev, email: 'This email is already registered with another user' }));
+                            } else if (emailValue && !validateEmail(emailValue).isValid) {
+                              setValidationErrors(prev => ({ ...prev, email: validateEmail(emailValue).error }));
+                            } else {
+                              setValidationErrors(prev => ({ ...prev, email: '' }));
+                            }
                           }}
                           placeholder="Enter email address"
                           className={validationErrors.email ? 'border-red-500' : ''}
@@ -1535,8 +1590,20 @@ export const UserManagement: React.FC = () => {
                           onChange={(e) => {
                             const value = sanitizeNumericInput(e.target.value);
                             setCreateUserData(prev => ({ ...prev, phone: value }));
+
+                            // First validate phone format
                             const validation = validatePhone(value);
-                            setValidationErrors(prev => ({ ...prev, phone: validation.error }));
+                            if (!validation.isValid) {
+                              setValidationErrors(prev => ({ ...prev, phone: validation.error }));
+                            } else {
+                              // Check for duplicate phone number
+                              const phoneExists = users.some(u => u.phone === value);
+                              if (phoneExists) {
+                                setValidationErrors(prev => ({ ...prev, phone: 'This phone number is already registered with another user' }));
+                              } else {
+                                setValidationErrors(prev => ({ ...prev, phone: '' }));
+                              }
+                            }
                           }}
                           placeholder="Enter 10-digit phone number"
                           maxLength={10}
@@ -1559,8 +1626,39 @@ export const UserManagement: React.FC = () => {
                             id="dateOfBirth"
                             type="date"
                             value={createUserData.dateOfBirth}
-                            onChange={(e) => setCreateUserData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                            max={(() => {
+                              const today = new Date();
+                              const minAgeDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+                              return minAgeDate.toISOString().split('T')[0];
+                            })()}
+                            onChange={(e) => {
+                              const selectedDate = e.target.value;
+                              setCreateUserData(prev => ({ ...prev, dateOfBirth: selectedDate }));
+
+                              // Validate age (must be at least 18 years)
+                              if (selectedDate) {
+                                const today = new Date();
+                                const birthDate = new Date(selectedDate);
+                                let age = today.getFullYear() - birthDate.getFullYear();
+                                const monthDiff = today.getMonth() - birthDate.getMonth();
+                                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                                  age--;
+                                }
+                                if (age < 18) {
+                                  setValidationErrors(prev => ({ ...prev, dateOfBirth: 'User must be at least 18 years old' }));
+                                } else {
+                                  setValidationErrors(prev => ({ ...prev, dateOfBirth: '' }));
+                                }
+                              } else {
+                                setValidationErrors(prev => ({ ...prev, dateOfBirth: '' }));
+                              }
+                            }}
+                            className={validationErrors.dateOfBirth ? 'border-red-500' : ''}
                           />
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Must be at least 18 years old</p>
+                          {validationErrors.dateOfBirth && (
+                            <p className="text-xs text-red-500 mt-1">{validationErrors.dateOfBirth}</p>
+                          )}
                         </div>
 
                         <div>
@@ -1929,27 +2027,37 @@ export const UserManagement: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="edit-password">Password (Optional)</Label>
-                        <Input
-                          id="edit-password"
-                          type="password"
-                          value={editUserData.password}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setEditUserData(prev => ({ ...prev, password: value }));
-                            if (value) {
-                              const validation = validatePassword(value);
-                              setValidationErrors(prev => ({ ...prev, password: validation.error }));
-                            } else {
-                              setValidationErrors(prev => ({ ...prev, password: '' }));
-                            }
-                          }}
-                          placeholder="Leave empty to keep existing password"
-                        />
+                        <div className="relative">
+                          <Input
+                            id="edit-password"
+                            type={showEditPassword ? "text" : "password"}
+                            value={editUserData.password}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setEditUserData(prev => ({ ...prev, password: value }));
+                              if (value) {
+                                const validation = validatePassword(value);
+                                setValidationErrors(prev => ({ ...prev, password: validation.error }));
+                              } else {
+                                setValidationErrors(prev => ({ ...prev, password: '' }));
+                              }
+                            }}
+                            placeholder="Leave empty to keep existing password"
+                            className={`pr-10 ${validationErrors.password ? 'border-red-500' : ''}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowEditPassword(!showEditPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                          >
+                            {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
                         {validationErrors.password && (
                           <p className="text-xs text-red-500 mt-1">{validationErrors.password}</p>
                         )}
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          Leave empty to keep the existing password
+                          Leave empty to keep the existing password. New password will override the old one.
                         </p>
                       </div>
 
@@ -1985,8 +2093,39 @@ export const UserManagement: React.FC = () => {
                             id="edit-dateOfBirth"
                             type="date"
                             value={editUserData.dateOfBirth}
-                            onChange={(e) => setEditUserData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                            max={(() => {
+                              const today = new Date();
+                              const minAgeDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+                              return minAgeDate.toISOString().split('T')[0];
+                            })()}
+                            onChange={(e) => {
+                              const selectedDate = e.target.value;
+                              setEditUserData(prev => ({ ...prev, dateOfBirth: selectedDate }));
+
+                              // Validate age (must be at least 18 years)
+                              if (selectedDate) {
+                                const today = new Date();
+                                const birthDate = new Date(selectedDate);
+                                let age = today.getFullYear() - birthDate.getFullYear();
+                                const monthDiff = today.getMonth() - birthDate.getMonth();
+                                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                                  age--;
+                                }
+                                if (age < 18) {
+                                  setValidationErrors(prev => ({ ...prev, dateOfBirth: 'User must be at least 18 years old' }));
+                                } else {
+                                  setValidationErrors(prev => ({ ...prev, dateOfBirth: '' }));
+                                }
+                              } else {
+                                setValidationErrors(prev => ({ ...prev, dateOfBirth: '' }));
+                              }
+                            }}
+                            className={validationErrors.dateOfBirth ? 'border-red-500' : ''}
                           />
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Must be at least 18 years old</p>
+                          {validationErrors.dateOfBirth && (
+                            <p className="text-xs text-red-500 mt-1">{validationErrors.dateOfBirth}</p>
+                          )}
                         </div>
 
                         <div>

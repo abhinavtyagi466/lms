@@ -47,7 +47,9 @@ export const ScoreReportsPage: React.FC = () => {
     try {
       const response = await apiService.users.getAllUsers({ limit: 1000 });
       if (response && typeof response === 'object' && 'success' in response && response.success) {
-        setUsers((response as any).users || (response as any).data || []);
+        const allUsers = (response as any).users || (response as any).data || [];
+        const filteredUsers = allUsers.filter((u: any) => u.userType === 'user');
+        setUsers(filteredUsers);
       }
     } catch (error) {
       console.error('Error fetching users:', error);

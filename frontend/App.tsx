@@ -3,7 +3,7 @@ import {
   Users,
   BookOpen,
   BarChart3,
-  Award,
+
   FileText,
   LogOut,
   Home,
@@ -81,7 +81,7 @@ const adminSidebarItems = [
   // { key: 'recipient-groups', label: 'Recipient Groups', icon: Users },
   // { key: 'audit-scheduler', label: 'Audit Scheduler', icon: Calendar }, // TEMPORARILY HIDDEN
   // { key: 'warnings-audit', label: 'Audit Management', icon: FileText }, // MOVED TO KPI AUDIT DASHBOARD
-  { key: 'awards', label: 'Awards & Recognition', icon: Award },
+  // { key: 'awards', label: 'Awards & Recognition', icon: Award },
   { key: 'lifecycle', label: 'Lifecycle Dashboard', icon: Clock },
   // { key: 'mail-preview', label: 'Mail Preview', icon: Mail },
   { key: 'logout', label: 'Logout', icon: LogOut }

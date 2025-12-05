@@ -280,7 +280,7 @@ export const LifecycleDashboard: React.FC = () => {
         <Card className="p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Inactive</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Never Active</p>
               <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">
                 {users.length - Array.from(userActivities.values()).filter(a => a.lastSession).length}
               </p>

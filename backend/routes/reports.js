@@ -18,7 +18,7 @@ const router = express.Router();
 const getUserScoresPipeline = (searchTerm, selectedUser, sortBy, sortOrder) => {
   const pipeline = [
     // Start with all users
-    { $match: {} },
+    { $match: { userType: 'user' } },
     {
       $lookup: {
         from: 'quizattempts',
@@ -188,7 +188,7 @@ router.get('/admin', authenticateToken, requireAdmin, async (req, res) => {
 
     const activeUsers = await User.countDocuments({
       isActive: true,
-      lastLoginAt: { $gte: thirtyDaysAgo }
+      lastLogin: { $gte: thirtyDaysAgo }
     });
 
     // Get completion statistics
@@ -279,7 +279,7 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
       User.countDocuments({
         userType: { $ne: 'admin' },
         isActive: true,
-        lastLoginAt: { $gte: thirtyDaysAgo }
+        lastLogin: { $gte: thirtyDaysAgo }
       }),
       UserProgress.countDocuments({
         status: { $in: ['completed', 'certified'] }

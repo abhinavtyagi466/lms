@@ -169,7 +169,8 @@ export const ModuleManagement: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setIsLoadingUsers(true);
-      const response = await apiService.users.listSimple();
+      // Use getAllUsers with active filter to ensure only active users are fetched
+      const response = await apiService.users.getAllUsers({ filter: 'active', limit: 1000 });
       console.log('Raw API response:', response);
 
       // Handle different response structures
@@ -202,11 +203,6 @@ export const ModuleManagement: React.FC = () => {
 
   // Helper function to get quiz for a module
   const getModuleQuiz = (moduleId: string) => {
-    console.log('=== GET MODULE QUIZ ===');
-    console.log('Looking for quiz with moduleId:', moduleId);
-    console.log('Available quizzes:', quizzes);
-    console.log('Quiz count:', quizzes.length);
-
     // Handle both string and object moduleId formats
     const foundQuiz = quizzes.find(quiz => {
       if (typeof quiz.moduleId === 'string') {
@@ -217,19 +213,19 @@ export const ModuleManagement: React.FC = () => {
       return false;
     });
 
-    console.log('Found quiz:', foundQuiz);
-    if (foundQuiz) {
-      console.log('Quiz details:', {
-        id: foundQuiz._id,
-        moduleId: foundQuiz.moduleId,
-        questionsCount: foundQuiz.questions?.length || 0,
-        isActive: foundQuiz.isActive
-      });
-    }
     return foundQuiz;
   };
 
   const handleDeleteModule = async (moduleId: string) => {
+    // Find the module to check its status
+    const module = modules.find(m => m._id === moduleId);
+
+    // Prevent deletion of published modules
+    if (module?.status === 'published') {
+      toast.error('Cannot delete published modules. Please unpublish it first.');
+      return;
+    }
+
     if (!confirm('Are you sure you want to delete this module? This action cannot be undone.')) {
       return;
     }
@@ -242,6 +238,7 @@ export const ModuleManagement: React.FC = () => {
       }
     } catch (error) {
       console.error('Error deleting module:', error);
+      toast.error('Failed to delete module');
     }
   };
 
@@ -585,12 +582,7 @@ export const ModuleManagement: React.FC = () => {
     }));
   };
 
-  const removeQuestion = (index: number) => {
-    setCreateQuizData(prev => ({
-      ...prev,
-      questions: prev.questions.filter((_, i) => i !== index)
-    }));
-  };
+
 
   const downloadCSVTemplate = () => {
     const template = `question,optionA,optionB,optionC,optionD,correctOption,explanation
@@ -1045,6 +1037,9 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                         size="sm"
                         variant="outline"
                         onClick={() => handleDeleteModule(module._id)}
+                        disabled={module.status === 'published'}
+                        title={module.status === 'published' ? 'Published modules cannot be deleted. Unpublish first.' : 'Delete Module'}
+                        className={module.status === 'published' ? 'opacity-50 cursor-not-allowed' : 'text-red-600 hover:text-red-700 hover:bg-red-50'}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -1437,15 +1432,7 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                 </h2>
 
                 <div className="space-y-4">
-                  {/* Debug info - remove this after fixing */}
-                  <div className="bg-gray-100 p-2 rounded text-xs">
-                    <strong>Debug Info:</strong> Users loaded: {users.length}, Loading: {isLoadingUsers ? 'Yes' : 'No'}
-                    {users.length > 0 && (
-                      <div className="mt-1">
-                        First user: {users[0]?.name} ({users[0]?._id})
-                      </div>
-                    )}
-                  </div>
+
 
                   <div>
                     <Label htmlFor="personalisedUser">Search User</Label>

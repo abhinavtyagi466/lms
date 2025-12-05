@@ -1241,8 +1241,10 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
       }
 
       // Handle password update (only if provided and not empty)
+      // Don't hash here - the model's pre-save hook will handle bcrypt hashing
       if (password !== undefined && password !== null && password !== '') {
-        updateData.password = await bcrypt.hash(password, 10);
+        updateData.password = password; // Raw password - will be hashed by pre-save hook
+        console.log('🔐 Password will be updated (to be hashed by model pre-save hook)');
       }
 
       // Handle avatar file upload

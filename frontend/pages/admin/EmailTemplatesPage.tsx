@@ -492,49 +492,87 @@ export const EmailTemplatesPage: React.FC = () => {
           </div>
 
           <DialogFooter className="px-8 py-6 border-t border-gray-200 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-800">
-            <div className="flex gap-4 w-full justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setIsPreviewModalOpen(false)}
-                className="px-8 py-3 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Close
-              </Button>
-              <Button
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-black shadow-lg hover:shadow-xl transition-all duration-300"
-                onClick={async () => {
-                  try {
-                    const testEmail = prompt('Enter test email address:');
-                    if (!testEmail) return;
+            <div className="flex flex-col w-full gap-4">
+              <div className="flex items-center gap-2 w-full justify-end">
+                <div className="w-64">
+                  <input
+                    type="email"
+                    placeholder="Enter test email address"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    id="test-email-input"
+                  />
+                </div>
+                <Button
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all duration-300"
+                  onClick={async () => {
+                    try {
+                      const emailInput = document.getElementById('test-email-input') as HTMLInputElement;
+                      const testEmail = emailInput?.value;
 
-                    if (!testEmail.includes('@')) {
+                      if (!testEmail) {
+                        toast({
+                          title: 'Email Required',
+                          description: 'Please enter a test email address',
+                          variant: 'destructive',
+                        });
+                        return;
+                      }
+
+                      if (!testEmail.includes('@')) {
+                        toast({
+                          title: 'Invalid Email',
+                          description: 'Please enter a valid email address',
+                          variant: 'destructive',
+                        });
+                        return;
+                      }
+
+                      const btn = document.getElementById('send-test-btn');
+                      if (btn) {
+                        btn.innerHTML = '<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> Sending...';
+                        (btn as HTMLButtonElement).disabled = true;
+                      }
+
+                      await apiService.emailTemplates.sendTest(selectedTemplate?._id || '', testEmail);
+
                       toast({
-                        title: 'Invalid Email',
-                        description: 'Please enter a valid email address',
+                        title: 'Test Email Sent!',
+                        description: `Test email sent to ${testEmail}. Check your inbox.`,
+                        className: 'bg-green-50 border-green-200 text-green-800',
+                      });
+
+                      if (btn) {
+                        btn.innerHTML = '<svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> Send Test Email';
+                        (btn as HTMLButtonElement).disabled = false;
+                      }
+                    } catch (error: any) {
+                      console.error('Error sending test email:', error);
+                      toast({
+                        title: 'Error',
+                        description: error.response?.data?.message || 'Failed to send test email. Please check SMTP configuration.',
                         variant: 'destructive',
                       });
-                      return;
+
+                      const btn = document.getElementById('send-test-btn');
+                      if (btn) {
+                        btn.innerHTML = '<svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> Send Test Email';
+                        (btn as HTMLButtonElement).disabled = false;
+                      }
                     }
-
-                    await apiService.emailTemplates.sendTest(selectedTemplate?._id || '', testEmail);
-
-                    toast({
-                      title: 'Test Email Sent!',
-                      description: `Test email sent to ${testEmail}. Check your inbox.`,
-                    });
-                  } catch (error) {
-                    console.error('Error sending test email:', error);
-                    toast({
-                      title: 'Error',
-                      description: 'Failed to send test email. Please check SMTP configuration.',
-                      variant: 'destructive',
-                    });
-                  }
-                }}
-              >
-                <Send className="w-5 h-5 mr-2" />
-                Send Test Email
-              </Button>
+                  }}
+                  id="send-test-btn"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  Send Test Email
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsPreviewModalOpen(false)}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Close
+                </Button>
+              </div>
             </div>
           </DialogFooter>
         </DialogContent>

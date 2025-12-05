@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Users,
   BookOpen,
-  BarChart3,
   Award,
   Zap,
   Shield,
@@ -243,19 +242,7 @@ export const AdminDashboardEnhanced: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <Badge
-                variant="outline"
-                className="flex items-center bg-gradient-to-r from-gray-800 to-gray-900 
-                          hover:from-gray-900 hover:to-black 
-                          text-blue-700 px-6 py-3 
-                          rounded-xl shadow-lg hover:shadow-xl 
-                          transition-all duration-300 transform hover:scale-105  
-                          border border-indigo-200 dark:border-indigo-500"
-              >
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                <BarChart3 className="w-5 h-5 mr-2" />
-                Real-time Data
-              </Badge>
+
 
               <Button
                 onClick={() => {
@@ -283,8 +270,6 @@ export const AdminDashboardEnhanced: React.FC = () => {
           <MetricCard
             title="Total Field Executive"
             value={stats?.totalUsers || 0}
-            change={Math.abs(stats?.trends?.users || 0)}
-            trend={(stats?.trends?.users || 0) >= 0 ? 'up' : 'down'}
             icon={<Users className="w-6 h-6" />}
             description={`${stats?.activeUsers || 0} active`}
             color="info"
@@ -292,9 +277,7 @@ export const AdminDashboardEnhanced: React.FC = () => {
 
           <MetricCard
             title="Training Modules"
-            value={stats?.totalQuizzes || 0}
-            change={Math.abs(stats?.trends?.modules || 0)}
-            trend={(stats?.trends?.modules || 0) >= 0 ? 'up' : 'down'}
+            value={stats?.totalModules || 0}
             icon={<BookOpen className="w-6 h-6" />}
             description={`${stats?.totalUsers || 0} users, ${stats?.totalQuizAttempts || 0} attempts`}
             color="success"
@@ -303,8 +286,6 @@ export const AdminDashboardEnhanced: React.FC = () => {
           <MetricCard
             title="Average Progress"
             value={`${Math.round(stats?.averageProgress || 0)}%`}
-            change={Math.abs(stats?.trends?.progress || 0)}
-            trend={(stats?.trends?.progress || 0) >= 0 ? 'up' : 'down'}
             icon={<Target className="w-6 h-6" />}
             description={`${stats?.usersWhoAttemptedQuiz || 0} users attempted quiz`}
             color="warning"
@@ -313,8 +294,6 @@ export const AdminDashboardEnhanced: React.FC = () => {
           <MetricCard
             title="Certificates"
             value={stats?.certificatesIssued || 0}
-            change={Math.abs(stats?.trends?.certificates || 0)}
-            trend={(stats?.trends?.certificates || 0) >= 0 ? 'up' : 'down'}
             icon={<Award className="w-6 h-6" />}
             description="Issued this month"
             color="primary"
