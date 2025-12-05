@@ -287,12 +287,15 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
       UserProgress.countDocuments({
         status: 'certified'
       }),
-      UserProgress.aggregate([
+      // Average progress from quiz attempts (completed only)
+      QuizAttempt.aggregate([
+        { $match: { status: 'completed' } },
         {
           $group: {
             _id: null,
-            avgProgress: { $avg: '$videoProgress' },
-            totalWatchTime: { $sum: '$totalWatchTime' }
+            avgScore: { $avg: '$score' },
+            totalAttempts: { $sum: 1 },
+            uniqueUsers: { $addToSet: '$userId' }
           }
         }
       ]),
@@ -312,13 +315,13 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
         status: 'certified',
         updatedAt: { $gte: previousMonthStart, $lte: previousMonthEnd }
       }),
-      // Previous month average progress
-      UserProgress.aggregate([
-        { $match: { updatedAt: { $gte: previousMonthStart, $lte: previousMonthEnd } } },
+      // Previous month average progress (from quiz attempts)
+      QuizAttempt.aggregate([
+        { $match: { status: 'completed', createdAt: { $gte: previousMonthStart, $lte: previousMonthEnd } } },
         {
           $group: {
             _id: null,
-            avgProgress: { $avg: '$videoProgress' }
+            avgScore: { $avg: '$score' }
           }
         }
       ]),
@@ -348,10 +351,12 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
     const completedModules = completedModulesResult.status === 'fulfilled' ? completedModulesResult.value : 0;
     const certificatesIssued = certificatesResult.status === 'fulfilled' ? certificatesResult.value : 0;
 
-    const averageProgress = progressAggregationResult.status === 'fulfilled' && progressAggregationResult.value.length > 0
-      ? Math.round((progressAggregationResult.value[0].avgProgress || 0) * 100) : 0;
-    const totalWatchTime = progressAggregationResult.status === 'fulfilled' && progressAggregationResult.value.length > 0
-      ? progressAggregationResult.value[0].totalWatchTime || 0 : 0;
+    // Average progress from quiz attempts (avgScore is already 0-100)
+    const quizAggData = progressAggregationResult.status === 'fulfilled' && progressAggregationResult.value.length > 0
+      ? progressAggregationResult.value[0] : { avgScore: 0, totalAttempts: 0, uniqueUsers: [] };
+    const averageProgress = Math.round(quizAggData.avgScore || 0);
+    const totalQuizAttempts = quizAggData.totalAttempts || 0;
+    const usersWhoAttemptedQuiz = quizAggData.uniqueUsers?.length || 0;
 
     // Extract trend comparison values
     const prevMonthUsers = prevMonthUsersResult.status === 'fulfilled' ? prevMonthUsersResult.value : 0;
@@ -361,7 +366,7 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
     const prevMonthCertificates = prevMonthCertificatesResult.status === 'fulfilled' ? prevMonthCertificatesResult.value : 0;
     const currentMonthCertificates = currentMonthCertificatesResult.status === 'fulfilled' ? currentMonthCertificatesResult.value : 0;
     const prevMonthProgress = prevMonthProgressResult.status === 'fulfilled' && prevMonthProgressResult.value.length > 0
-      ? Math.round((prevMonthProgressResult.value[0].avgProgress || 0) * 100) : 0;
+      ? Math.round(prevMonthProgressResult.value[0].avgScore || 0) : 0;
 
     // Calculate trend percentages (comparing current vs previous month activity)
     const calculateTrend = (current, previous) => {
@@ -408,8 +413,9 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
         totalQuizzes,
         activeUsers,
         completedModules,
-        averageProgress,
-        totalWatchTime,
+        averageProgress,  // Now from quiz attempts average score
+        totalQuizAttempts,  // NEW: Total quiz attempts
+        usersWhoAttemptedQuiz,  // NEW: Unique users who attempted quiz
         certificatesIssued,
         // Real trend data
         trends: {

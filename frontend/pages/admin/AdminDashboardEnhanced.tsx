@@ -27,7 +27,8 @@ interface DashboardStats {
   activeUsers: number;
   completedModules: number;
   averageProgress: number;
-  totalWatchTime: number;
+  totalQuizAttempts: number;  // NEW: Total quiz attempts
+  usersWhoAttemptedQuiz: number;  // NEW: Unique users who attempted quiz
   certificatesIssued: number;
   trends?: {
     users: number;
@@ -291,11 +292,11 @@ export const AdminDashboardEnhanced: React.FC = () => {
 
           <MetricCard
             title="Training Modules"
-            value={stats?.totalModules || 0}
+            value={stats?.totalQuizzes || 0}
             change={Math.abs(stats?.trends?.modules || 0)}
             trend={(stats?.trends?.modules || 0) >= 0 ? 'up' : 'down'}
             icon={<BookOpen className="w-6 h-6" />}
-            description={`${stats?.completedModules || 0} completed`}
+            description={`${stats?.totalUsers || 0} users, ${stats?.totalQuizAttempts || 0} attempts`}
             color="success"
           />
 
@@ -305,7 +306,7 @@ export const AdminDashboardEnhanced: React.FC = () => {
             change={Math.abs(stats?.trends?.progress || 0)}
             trend={(stats?.trends?.progress || 0) >= 0 ? 'up' : 'down'}
             icon={<Target className="w-6 h-6" />}
-            description="Platform average"
+            description={`${stats?.usersWhoAttemptedQuiz || 0} users attempted quiz`}
             color="warning"
           />
 
