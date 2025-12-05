@@ -140,8 +140,8 @@ router.get('/user/:userId', authenticateToken, validateUserId, requireOwnershipO
 
     // Calculate summary statistics
     const completedModules = modules.filter(m => m.status === 'completed').length;
-    const averageScore = modules.length > 0 
-      ? Math.round(modules.reduce((sum, m) => sum + m.score, 0) / modules.length) 
+    const averageScore = modules.length > 0
+      ? Math.round(modules.reduce((sum, m) => sum + m.score, 0) / modules.length)
       : 0;
     const latestKPI = kpiHistory.length > 0 ? kpiHistory[0] : null;
 
@@ -181,11 +181,11 @@ router.get('/admin', authenticateToken, requireAdmin, async (req, res) => {
     const totalUsers = await User.countDocuments({ isActive: true });
     const totalModules = await Module.countDocuments(); // All modules (including inactive)
     const totalQuizzes = await Quiz.countDocuments();
-    
+
     // Get active users (users who accessed in last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+
     const activeUsers = await User.countDocuments({
       isActive: true,
       lastLoginAt: { $gte: thirtyDaysAgo }
@@ -239,27 +239,45 @@ router.get('/admin', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // @route   GET /api/reports/admin/stats
-// @desc    Get detailed admin statistics
+// @desc    Get detailed admin statistics with real trends
 // @access  Private (Admin only)
 router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res) => {
   try {
+    const now = new Date();
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+
+    // Calculate date ranges for trend comparison
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0); // Last day of previous month
+
     // Run all queries in parallel for better performance
     const [
+      // Current totals
       totalUsersResult,
       totalModulesResult,
       totalQuizzesResult,
       activeUsersResult,
       completedModulesResult,
       certificatesResult,
-      progressAggregationResult
+      progressAggregationResult,
+      // Previous month data for trends
+      prevMonthUsersResult,
+      prevMonthCompletedResult,
+      prevMonthCertificatesResult,
+      prevMonthProgressResult,
+      // Current month data
+      currentMonthUsersResult,
+      currentMonthCompletedResult,
+      currentMonthCertificatesResult
     ] = await Promise.allSettled([
-      User.countDocuments({ isActive: true }),
+      // Current totals
+      User.countDocuments({ userType: 'user', isActive: true }),
       Module.countDocuments(),
       Quiz.countDocuments(),
       User.countDocuments({
+        userType: 'user',
         isActive: true,
         lastLoginAt: { $gte: thirtyDaysAgo }
       }),
@@ -277,31 +295,109 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
             totalWatchTime: { $sum: '$totalWatchTime' }
           }
         }
-      ])
+      ]),
+      // Previous month counts (users created before current month)
+      User.countDocuments({
+        userType: 'user',
+        isActive: true,
+        createdAt: { $lt: currentMonthStart }
+      }),
+      // Previous month completions
+      UserProgress.countDocuments({
+        status: { $in: ['completed', 'certified'] },
+        updatedAt: { $gte: previousMonthStart, $lte: previousMonthEnd }
+      }),
+      // Previous month certificates
+      UserProgress.countDocuments({
+        status: 'certified',
+        updatedAt: { $gte: previousMonthStart, $lte: previousMonthEnd }
+      }),
+      // Previous month average progress
+      UserProgress.aggregate([
+        { $match: { updatedAt: { $gte: previousMonthStart, $lte: previousMonthEnd } } },
+        {
+          $group: {
+            _id: null,
+            avgProgress: { $avg: '$videoProgress' }
+          }
+        }
+      ]),
+      // Current month new users
+      User.countDocuments({
+        userType: 'user',
+        isActive: true,
+        createdAt: { $gte: currentMonthStart }
+      }),
+      // Current month completions
+      UserProgress.countDocuments({
+        status: { $in: ['completed', 'certified'] },
+        updatedAt: { $gte: currentMonthStart }
+      }),
+      // Current month certificates
+      UserProgress.countDocuments({
+        status: 'certified',
+        updatedAt: { $gte: currentMonthStart }
+      })
     ]);
 
+    // Extract current values
+    const totalUsers = totalUsersResult.status === 'fulfilled' ? totalUsersResult.value : 0;
+    const totalModules = totalModulesResult.status === 'fulfilled' ? totalModulesResult.value : 0;
+    const totalQuizzes = totalQuizzesResult.status === 'fulfilled' ? totalQuizzesResult.value : 0;
+    const activeUsers = activeUsersResult.status === 'fulfilled' ? activeUsersResult.value : 0;
+    const completedModules = completedModulesResult.status === 'fulfilled' ? completedModulesResult.value : 0;
+    const certificatesIssued = certificatesResult.status === 'fulfilled' ? certificatesResult.value : 0;
+
     const averageProgress = progressAggregationResult.status === 'fulfilled' && progressAggregationResult.value.length > 0
-      ? Math.round(progressAggregationResult.value[0].avgProgress || 0) : 0;
+      ? Math.round((progressAggregationResult.value[0].avgProgress || 0) * 100) : 0;
     const totalWatchTime = progressAggregationResult.status === 'fulfilled' && progressAggregationResult.value.length > 0
       ? progressAggregationResult.value[0].totalWatchTime || 0 : 0;
+
+    // Extract trend comparison values
+    const prevMonthUsers = prevMonthUsersResult.status === 'fulfilled' ? prevMonthUsersResult.value : 0;
+    const currentMonthNewUsers = currentMonthUsersResult.status === 'fulfilled' ? currentMonthUsersResult.value : 0;
+    const prevMonthCompleted = prevMonthCompletedResult.status === 'fulfilled' ? prevMonthCompletedResult.value : 0;
+    const currentMonthCompleted = currentMonthCompletedResult.status === 'fulfilled' ? currentMonthCompletedResult.value : 0;
+    const prevMonthCertificates = prevMonthCertificatesResult.status === 'fulfilled' ? prevMonthCertificatesResult.value : 0;
+    const currentMonthCertificates = currentMonthCertificatesResult.status === 'fulfilled' ? currentMonthCertificatesResult.value : 0;
+    const prevMonthProgress = prevMonthProgressResult.status === 'fulfilled' && prevMonthProgressResult.value.length > 0
+      ? Math.round((prevMonthProgressResult.value[0].avgProgress || 0) * 100) : 0;
+
+    // Calculate trend percentages (comparing current vs previous month activity)
+    const calculateTrend = (current, previous) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return Math.round(((current - previous) / previous) * 100);
+    };
+
+    // User trend: new users this month vs last month's base
+    const usersTrend = prevMonthUsers > 0 ? calculateTrend(currentMonthNewUsers, Math.max(1, Math.round(prevMonthUsers * 0.1))) : (currentMonthNewUsers > 0 ? 100 : 0);
+
+    // Module completions trend
+    const modulesTrend = calculateTrend(currentMonthCompleted, prevMonthCompleted);
+
+    // Progress trend (difference in average progress)
+    const progressTrend = averageProgress - prevMonthProgress;
+
+    // Certificates trend
+    const certificatesTrend = calculateTrend(currentMonthCertificates, prevMonthCertificates);
 
     res.json({
       success: true,
       data: {
-        totalUsers: totalUsersResult.status === 'fulfilled' ? totalUsersResult.value : 0,
-        totalModules: totalModulesResult.status === 'fulfilled' ? totalModulesResult.value : 0,
-        totalQuizzes: totalQuizzesResult.status === 'fulfilled' ? totalQuizzesResult.value : 0,
-        activeUsers: activeUsersResult.status === 'fulfilled' ? activeUsersResult.value : 0,
-        completedModules: completedModulesResult.status === 'fulfilled' ? completedModulesResult.value : 0,
+        totalUsers,
+        totalModules,
+        totalQuizzes,
+        activeUsers,
+        completedModules,
         averageProgress,
         totalWatchTime,
-        certificatesIssued: certificatesResult.status === 'fulfilled' ? certificatesResult.value : 0,
-        // Trend data (will be calculated in future)
+        certificatesIssued,
+        // Real trend data
         trends: {
-          users: 0,
-          modules: 0,
-          progress: 0,
-          certificates: 0
+          users: usersTrend,
+          modules: modulesTrend,
+          progress: progressTrend,
+          certificates: certificatesTrend
         }
       }
     });
@@ -324,10 +420,10 @@ router.get('/admin/user-progress', authenticateToken, requireAdminPanel, async (
     const { limit = 100, page = 1 } = req.query; // Add pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const limitNum = Math.min(parseInt(limit), 200); // Max 200 records per request
-    
+
     // First check if UserProgress collection exists and has data
     const progressCount = await UserProgress.countDocuments();
-    
+
     if (progressCount === 0) {
       return res.json({
         success: true,
@@ -353,7 +449,7 @@ router.get('/admin/user-progress', authenticateToken, requireAdminPanel, async (
       .exec();
 
     // Filter out any documents with null references
-    const validProgress = userProgress.filter(progress => 
+    const validProgress = userProgress.filter(progress =>
       progress.userId && progress.moduleId
     );
 
@@ -464,9 +560,9 @@ router.get('/analytics/performance', authenticateToken, requireAdmin, async (req
         $group: {
           _id: '$department',
           userCount: { $sum: 1 },
-          averageKPI: { 
-            $avg: { 
-              $ifNull: [{ $arrayElemAt: ['$latestKPI.overallScore', 0] }, 0] 
+          averageKPI: {
+            $avg: {
+              $ifNull: [{ $arrayElemAt: ['$latestKPI.overallScore', 0] }, 0]
             }
           }
         }
@@ -512,7 +608,7 @@ router.get('/export/users', authenticateToken, requireAdmin, async (req, res) =>
       users.map(async (user) => {
         const latestKPI = await KPIScore.getLatestForUser(user._id);
         const moduleProgress = await UserModule.getUserProgress(user._id);
-        
+
         return {
           ...user,
           latestKPIScore: latestKPI ? latestKPI.overallScore : 0,
@@ -590,7 +686,7 @@ router.post('/export-user-scores', authenticateToken, requireAdmin, async (req, 
       const completionRate = score.totalModules > 0 ? Math.round((score.completedModules / score.totalModules) * 100) : 0;
       const status = score.totalModules > 0 ? 'Active' : 'Inactive';
       const lastActivity = score.lastActivity ? new Date(score.lastActivity).toLocaleDateString() : 'Never';
-      
+
       return `"${score.userName || 'Unknown'}","${score.userEmail || ''}","${score.employeeId || ''}",${score.totalModules},${score.completedModules},${Math.round(score.averageScore || 0)}%,${completionRate}%,"${lastActivity}","${status}"`;
     }).join('\n');
 
