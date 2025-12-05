@@ -86,7 +86,7 @@ export const ModuleManagement: React.FC = () => {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState({
     question: '',
-    options: ['', '', '', ''],
+    options: ['', ''],  // Start with 2 options, can add more
     correctOption: 0,
     explanation: '',
     marks: 1
@@ -543,13 +543,46 @@ export const ModuleManagement: React.FC = () => {
     // Reset form
     setCurrentQuestion({
       question: '',
-      options: ['', '', '', ''],
+      options: ['', ''],  // Reset to 2 empty options
       correctOption: 0,
       explanation: '',
       marks: 1
     });
 
     toast.success('Question added successfully!');
+  };
+
+  // Add new option for current question
+  const addQuestionOption = () => {
+    if (currentQuestion.options.length >= 10) {
+      toast.error('Maximum 10 options allowed');
+      return;
+    }
+    setCurrentQuestion(prev => ({
+      ...prev,
+      options: [...prev.options, '']
+    }));
+  };
+
+  // Remove option from current question
+  const removeQuestionOption = (indexToRemove: number) => {
+    if (currentQuestion.options.length <= 2) {
+      toast.error('Minimum 2 options required');
+      return;
+    }
+    const newOptions = currentQuestion.options.filter((_, i) => i !== indexToRemove);
+    // Adjust correctOption if needed
+    let newCorrectOption = currentQuestion.correctOption;
+    if (indexToRemove === newCorrectOption) {
+      newCorrectOption = 0; // Reset to first option if correct was removed
+    } else if (indexToRemove < newCorrectOption) {
+      newCorrectOption--; // Shift down if removed option was before correct
+    }
+    setCurrentQuestion(prev => ({
+      ...prev,
+      options: newOptions,
+      correctOption: newCorrectOption
+    }));
   };
 
   const removeQuestion = (index: number) => {
@@ -1120,9 +1153,23 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Options</Label>
+                        <div className="flex items-center justify-between">
+                          <Label>Options (min 2, max 10)</Label>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={addQuestionOption}
+                            disabled={currentQuestion.options.length >= 10}
+                            className="text-xs h-6 px-2"
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Add Option
+                          </Button>
+                        </div>
                         {currentQuestion.options.map((option, index) => (
-                          <div key={index} className="flex gap-2">
+                          <div key={index} className="flex gap-2 items-center">
+                            <span className="w-6 text-sm text-gray-500">{index + 1}.</span>
                             <Input
                               value={option}
                               onChange={(e) => {
@@ -1131,15 +1178,30 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                                 setCurrentQuestion(prev => ({ ...prev, options: newOptions }));
                               }}
                               placeholder={`Option ${index + 1}`}
+                              className="flex-1"
                             />
                             <input
                               type="radio"
                               name="correctAnswer"
                               checked={currentQuestion.correctOption === index}
                               onChange={() => setCurrentQuestion(prev => ({ ...prev, correctOption: index }))}
+                              title="Mark as correct answer"
+                              className="w-4 h-4"
                             />
+                            {currentQuestion.options.length > 2 && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => removeQuestionOption(index)}
+                                className="text-red-500 hover:text-red-700 p-1 h-6 w-6"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            )}
                           </div>
                         ))}
+                        <p className="text-xs text-gray-500">Select the radio button to mark correct answer</p>
                       </div>
 
                       <div>
