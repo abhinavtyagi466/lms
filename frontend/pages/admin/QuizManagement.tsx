@@ -65,7 +65,7 @@ export const QuizManagement: React.FC = () => {
   const [currentQuestion, setCurrentQuestion] = useState<Question>({
     type: 'mcq',
     prompt: '',
-    options: ['', '', '', ''],
+    options: ['', ''],  // Start with 2 options, can add more
     correctIndex: 0,
     marks: 1
   });
@@ -94,7 +94,7 @@ export const QuizManagement: React.FC = () => {
       }
 
       // Filter out quizzes with invalid module data
-      const validQuizzes = quizzesData.filter(quiz => 
+      const validQuizzes = quizzesData.filter(quiz =>
         quiz.moduleId && quiz.moduleId.title && typeof quiz.moduleId.title === 'string'
       );
 
@@ -194,11 +194,11 @@ export const QuizManagement: React.FC = () => {
         if (parts.length < 3) continue;
 
         const [type, prompt, ...options] = parts;
-        
+
         if (type === 'mcq' && options.length >= 3) {
           const correctIndex = parseInt(options[options.length - 1]) || 0;
           const questionOptions = options.slice(0, -1);
-          
+
           questions.push({
             type: 'mcq',
             prompt,
@@ -267,10 +267,43 @@ export const QuizManagement: React.FC = () => {
     setCurrentQuestion({
       type: 'mcq',
       prompt: '',
-      options: ['', '', '', ''],
+      options: ['', ''],  // Reset to 2 empty options
       correctIndex: 0,
       marks: 1
     });
+  };
+
+  // Add new option
+  const addOption = () => {
+    if ((currentQuestion.options?.length || 0) >= 10) {
+      toast.error('Maximum 10 options allowed');
+      return;
+    }
+    setCurrentQuestion(prev => ({
+      ...prev,
+      options: [...(prev.options || []), '']
+    }));
+  };
+
+  // Remove option
+  const removeOption = (indexToRemove: number) => {
+    if ((currentQuestion.options?.length || 0) <= 2) {
+      toast.error('Minimum 2 options required');
+      return;
+    }
+    const newOptions = currentQuestion.options?.filter((_, i) => i !== indexToRemove) || [];
+    // Adjust correctIndex if needed
+    let newCorrectIndex = currentQuestion.correctIndex || 0;
+    if (indexToRemove === newCorrectIndex) {
+      newCorrectIndex = 0; // Reset to first option if correct was removed
+    } else if (indexToRemove < newCorrectIndex) {
+      newCorrectIndex--; // Shift down if removed option was before correct
+    }
+    setCurrentQuestion(prev => ({
+      ...prev,
+      options: newOptions,
+      correctIndex: newCorrectIndex
+    }));
   };
 
   const removeQuestion = (index: number) => {
@@ -312,178 +345,385 @@ mcq,What is the capital of France?,Paris,London,Berlin,Madrid,0`;
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Quiz Management</h1>
-          <p className="text-gray-600">Manage quizzes for training modules</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Quiz Management</h1>
+            <p className="text-gray-600">Manage quizzes for training modules</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={downloadCSVTemplate}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Download Template
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowCSVModal(true)}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Upload CSV
+            </Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => setShowCreateModal(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add New Quiz
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            onClick={downloadCSVTemplate}
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            Download Template
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={() => setShowCSVModal(true)}
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            Upload CSV
-          </Button>
-          <Button 
-            className="bg-blue-600 hover:bg-blue-700"
-            onClick={() => setShowCreateModal(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add New Quiz
-          </Button>
-        </div>
-      </div>
 
-      {/* Search */}
-      <Card className="p-4">
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Search quizzes by module..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </Card>
+        {/* Search */}
+        <Card className="p-4">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Search quizzes by module..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </Card>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Quizzes</p>
-              <p className="text-2xl font-bold">{quizzes.length}</p>
-            </div>
-            <BookOpen className="w-8 h-8 text-blue-600" />
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Questions</p>
-              <p className="text-2xl font-bold text-green-600">
-                {quizzes.reduce((total, quiz) => total + quiz.questions.length, 0)}
-              </p>
-            </div>
-            <FileText className="w-8 h-8 text-green-600" />
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Avg Pass %</p>
-              <p className="text-2xl font-bold text-yellow-600">
-                {quizzes.length > 0 
-                  ? Math.round(quizzes.reduce((total, quiz) => total + quiz.passPercent, 0) / quizzes.length)
-                  : 0}%
-              </p>
-            </div>
-            <CheckCircle className="w-8 h-8 text-yellow-600" />
-          </div>
-        </Card>
-      </div>
-
-      {/* Quizzes Grid */}
-      {filteredQuizzes.length === 0 ? (
-        <Card className="p-8 text-center">
-          <div className="space-y-4">
-            <BookOpen className="w-16 h-16 mx-auto text-gray-400" />
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No quizzes found</h3>
-              <p className="text-gray-600">
-                {quizzes.length === 0 
-                  ? "You haven't created any quizzes yet. Create your first quiz to get started!"
-                  : "No quizzes match your search criteria. Try adjusting your search term."
-                }
-              </p>
-            </div>
-            {quizzes.length === 0 && (
-              <Button 
-                onClick={() => setShowCreateModal(true)}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Your First Quiz
-              </Button>
-            )}
-          </div>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredQuizzes.map((quiz) => (
-            <Card key={quiz._id} className="overflow-hidden">
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-lg">
-                    {quiz.moduleId?.title || 'Unknown Module'}
-                  </h3>
-                  <Badge variant="outline" className="text-xs">
-                    {quiz.questions.length} questions
-                  </Badge>
-                </div>
-                
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center text-sm text-gray-500">
-                    <FileText className="w-4 h-4 mr-1" />
-                    {quiz.questions.length} questions
-                  </div>
-                  <div className="flex items-center text-sm text-gray-500">
-                    <CheckCircle className="w-4 h-4 mr-1" />
-                    {quiz.passPercent}% pass required
-                  </div>
-                  <div className="flex items-center text-sm text-gray-500">
-                    <Clock className="w-4 h-4 mr-1" />
-                    Created {new Date(quiz.createdAt).toLocaleDateString()}
-                  </div>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      // TODO: View quiz details
-                      toast.info('View quiz details - coming soon');
-                    }}
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDeleteQuiz(quiz.moduleId?._id || quiz._id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Quizzes</p>
+                <p className="text-2xl font-bold">{quizzes.length}</p>
               </div>
-            </Card>
-          ))}
+              <BookOpen className="w-8 h-8 text-blue-600" />
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Questions</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {quizzes.reduce((total, quiz) => total + quiz.questions.length, 0)}
+                </p>
+              </div>
+              <FileText className="w-8 h-8 text-green-600" />
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Avg Pass %</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {quizzes.length > 0
+                    ? Math.round(quizzes.reduce((total, quiz) => total + quiz.passPercent, 0) / quizzes.length)
+                    : 0}%
+                </p>
+              </div>
+              <CheckCircle className="w-8 h-8 text-yellow-600" />
+            </div>
+          </Card>
         </div>
-      )}
 
-      {/* Create Quiz Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-semibold mb-4">Create New Quiz</h2>
-            
+        {/* Quizzes Grid */}
+        {filteredQuizzes.length === 0 ? (
+          <Card className="p-8 text-center">
             <div className="space-y-4">
+              <BookOpen className="w-16 h-16 mx-auto text-gray-400" />
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No quizzes found</h3>
+                <p className="text-gray-600">
+                  {quizzes.length === 0
+                    ? "You haven't created any quizzes yet. Create your first quiz to get started!"
+                    : "No quizzes match your search criteria. Try adjusting your search term."
+                  }
+                </p>
+              </div>
+              {quizzes.length === 0 && (
+                <Button
+                  onClick={() => setShowCreateModal(true)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Your First Quiz
+                </Button>
+              )}
+            </div>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredQuizzes.map((quiz) => (
+              <Card key={quiz._id} className="overflow-hidden">
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-lg">
+                      {quiz.moduleId?.title || 'Unknown Module'}
+                    </h3>
+                    <Badge variant="outline" className="text-xs">
+                      {quiz.questions.length} questions
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center text-sm text-gray-500">
+                      <FileText className="w-4 h-4 mr-1" />
+                      {quiz.questions.length} questions
+                    </div>
+                    <div className="flex items-center text-sm text-gray-500">
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      {quiz.passPercent}% pass required
+                    </div>
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Clock className="w-4 h-4 mr-1" />
+                      Created {new Date(quiz.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        // TODO: View quiz details
+                        toast.info('View quiz details - coming soon');
+                      }}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDeleteQuiz(quiz.moduleId?._id || quiz._id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Create Quiz Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <h2 className="text-xl font-semibold mb-4">Create New Quiz</h2>
+
+              <div className="space-y-4">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="moduleId">Module *</Label>
+                    <Select
+                      value={createQuizData.moduleId}
+                      onValueChange={(value) => setCreateQuizData(prev => ({ ...prev, moduleId: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a module" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {modules.map(module => (
+                          <SelectItem key={module._id} value={module._id}>
+                            {module.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="passPercent">Pass Percentage (%)</Label>
+                      <Input
+                        id="passPercent"
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={createQuizData.passPercent}
+                        onChange={(e) => setCreateQuizData(prev => ({ ...prev, passPercent: parseInt(e.target.value) || 70 }))}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="estimatedTime">Time Limit (minutes) *</Label>
+                      <Input
+                        id="estimatedTime"
+                        type="number"
+                        min="1"
+                        max="180"
+                        value={createQuizData.estimatedTime}
+                        onChange={(e) => setCreateQuizData(prev => ({ ...prev, estimatedTime: parseInt(e.target.value) || 30 }))}
+                        placeholder="30"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Time limit for users to complete this quiz
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Add Questions</h3>
+
+                  <div className="space-y-4 p-4 border rounded-lg">
+                    <div>
+                      <Label htmlFor="questionType">Question Type</Label>
+                      <Select
+                        value={currentQuestion.type}
+                        onValueChange={(value: 'mcq' | 'boolean') => setCurrentQuestion(prev => ({ ...prev, type: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mcq">Multiple Choice</SelectItem>
+                          <SelectItem value="boolean">True/False</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="questionPrompt">Question *</Label>
+                      <Input
+                        id="questionPrompt"
+                        value={currentQuestion.prompt}
+                        onChange={(e) => setCurrentQuestion(prev => ({ ...prev, prompt: e.target.value }))}
+                        placeholder="Enter your question"
+                      />
+                    </div>
+
+                    {currentQuestion.type === 'mcq' && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label>Options (min 2, max 10)</Label>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={addOption}
+                            disabled={(currentQuestion.options?.length || 0) >= 10}
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Add Option
+                          </Button>
+                        </div>
+                        {currentQuestion.options?.map((option, index) => (
+                          <div key={index} className="flex gap-2 items-center">
+                            <span className="w-6 text-sm text-gray-500">{index + 1}.</span>
+                            <Input
+                              value={option}
+                              onChange={(e) => {
+                                const newOptions = [...(currentQuestion.options || [])];
+                                newOptions[index] = e.target.value;
+                                setCurrentQuestion(prev => ({ ...prev, options: newOptions }));
+                              }}
+                              placeholder={`Option ${index + 1}`}
+                              className="flex-1"
+                            />
+                            <input
+                              type="radio"
+                              name="correctAnswer"
+                              checked={currentQuestion.correctIndex === index}
+                              onChange={() => setCurrentQuestion(prev => ({ ...prev, correctIndex: index }))}
+                              title="Mark as correct answer"
+                              className="w-4 h-4"
+                            />
+                            {(currentQuestion.options?.length || 0) > 2 && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => removeOption(index)}
+                                className="text-red-500 hover:text-red-700 p-1"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <p className="text-xs text-gray-500">Select the radio button to mark correct answer</p>
+                      </div>
+                    )}
+
+                    {currentQuestion.type === 'boolean' && (
+                      <div>
+                        <Label>Correct Answer</Label>
+                        <Select
+                          value={currentQuestion.correctBool?.toString() || ''}
+                          onValueChange={(value) => setCurrentQuestion(prev => ({ ...prev, correctBool: value === 'true' }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select correct answer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="true">True</SelectItem>
+                            <SelectItem value="false">False</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    <Button onClick={addQuestion} className="w-full">
+                      Add Question
+                    </Button>
+                  </div>
+                </div>
+
+                {createQuizData.questions.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-3">Added Questions ({createQuizData.questions.length})</h3>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {createQuizData.questions.map((question, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <span className="text-sm truncate flex-1">
+                            {index + 1}. {question.prompt}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => removeQuestion(index)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <Button
+                  onClick={handleCreateQuiz}
+                  className="flex-1"
+                  disabled={createQuizData.questions.length === 0}
+                >
+                  Create Quiz
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CSV Upload Modal */}
+        {showCSVModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
+              <h2 className="text-xl font-semibold mb-4">Upload Questions via CSV</h2>
+
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="moduleId">Module *</Label>
+                  <Label htmlFor="csvModuleId">Module</Label>
                   <Select
-                    value={createQuizData.moduleId}
-                    onValueChange={(value) => setCreateQuizData(prev => ({ ...prev, moduleId: value }))}
+                    value={selectedModuleId}
+                    onValueChange={setSelectedModuleId}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select a module" />
@@ -497,226 +737,47 @@ mcq,What is the capital of France?,Paris,London,Berlin,Madrid,0`;
                     </SelectContent>
                   </Select>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="passPercent">Pass Percentage (%)</Label>
-                    <Input
-                      id="passPercent"
-                      type="number"
-                      min="1"
-                      max="100"
-                      value={createQuizData.passPercent}
-                      onChange={(e) => setCreateQuizData(prev => ({ ...prev, passPercent: parseInt(e.target.value) || 70 }))}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="estimatedTime">Time Limit (minutes) *</Label>
-                    <Input
-                      id="estimatedTime"
-                      type="number"
-                      min="1"
-                      max="180"
-                      value={createQuizData.estimatedTime}
-                      onChange={(e) => setCreateQuizData(prev => ({ ...prev, estimatedTime: parseInt(e.target.value) || 30 }))}
-                      placeholder="30"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Time limit for users to complete this quiz
-                    </p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="border-t pt-4">
-                <h3 className="font-semibold mb-3">Add Questions</h3>
-                
-                <div className="space-y-4 p-4 border rounded-lg">
-                  <div>
-                    <Label htmlFor="questionType">Question Type</Label>
-                    <Select
-                      value={currentQuestion.type}
-                      onValueChange={(value: 'mcq' | 'boolean') => setCurrentQuestion(prev => ({ ...prev, type: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mcq">Multiple Choice</SelectItem>
-                        <SelectItem value="boolean">True/False</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="questionPrompt">Question *</Label>
-                    <Input
-                      id="questionPrompt"
-                      value={currentQuestion.prompt}
-                      onChange={(e) => setCurrentQuestion(prev => ({ ...prev, prompt: e.target.value }))}
-                      placeholder="Enter your question"
-                    />
-                  </div>
-                  
-                  {currentQuestion.type === 'mcq' && (
-                    <div className="space-y-2">
-                      <Label>Options</Label>
-                      {currentQuestion.options?.map((option, index) => (
-                        <div key={index} className="flex gap-2">
-                          <Input
-                            value={option}
-                            onChange={(e) => {
-                              const newOptions = [...(currentQuestion.options || [])];
-                              newOptions[index] = e.target.value;
-                              setCurrentQuestion(prev => ({ ...prev, options: newOptions }));
-                            }}
-                            placeholder={`Option ${index + 1}`}
-                          />
-                          <input
-                            type="radio"
-                            name="correctAnswer"
-                            checked={currentQuestion.correctIndex === index}
-                            onChange={() => setCurrentQuestion(prev => ({ ...prev, correctIndex: index }))}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {currentQuestion.type === 'boolean' && (
-                    <div>
-                      <Label>Correct Answer</Label>
-                      <Select
-                        value={currentQuestion.correctBool?.toString() || ''}
-                        onValueChange={(value) => setCurrentQuestion(prev => ({ ...prev, correctBool: value === 'true' }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select correct answer" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="true">True</SelectItem>
-                          <SelectItem value="false">False</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  
-                  <Button onClick={addQuestion} className="w-full">
-                    Add Question
-                  </Button>
-                </div>
-              </div>
-
-              {createQuizData.questions.length > 0 && (
-                <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-3">Added Questions ({createQuizData.questions.length})</h3>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {createQuizData.questions.map((question, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <span className="text-sm truncate flex-1">
-                          {index + 1}. {question.prompt}
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => removeQuestion(index)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <Button
-                onClick={handleCreateQuiz}
-                className="flex-1"
-                disabled={createQuizData.questions.length === 0}
-              >
-                Create Quiz
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowCreateModal(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CSV Upload Modal */}
-      {showCSVModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
-            <h2 className="text-xl font-semibold mb-4">Upload Questions via CSV</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="csvModuleId">Module</Label>
-                <Select
-                  value={selectedModuleId}
-                  onValueChange={setSelectedModuleId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a module" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {modules.map(module => (
-                      <SelectItem key={module._id} value={module._id}>
-                        {module.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="csvData">CSV Data</Label>
-                <textarea
-                  id="csvData"
-                  value={csvData}
-                  onChange={(e) => setCsvData(e.target.value)}
-                  placeholder={`type,prompt,option1,option2,option3,option4,correctIndex
+                <div>
+                  <Label htmlFor="csvData">CSV Data</Label>
+                  <textarea
+                    id="csvData"
+                    value={csvData}
+                    onChange={(e) => setCsvData(e.target.value)}
+                    placeholder={`type,prompt,option1,option2,option3,option4,correctIndex
 mcq,What is 2+2?,4,3,5,6,0
 boolean,Is the sky blue?,true
 mcq,What is the capital of France?,Paris,London,Berlin,Madrid,0`}
-                  className="w-full h-32 p-2 border rounded-md"
-                />
+                    className="w-full h-32 p-2 border rounded-md"
+                  />
+                </div>
+
+                <div className="text-xs text-gray-600">
+                  <p><strong>CSV Format:</strong></p>
+                  <p>For MCQ: type,prompt,option1,option2,option3,option4,correctIndex</p>
+                  <p>For Boolean: type,prompt,correctAnswer</p>
+                  <p>First row should be headers.</p>
+                </div>
               </div>
-              
-              <div className="text-xs text-gray-600">
-                <p><strong>CSV Format:</strong></p>
-                <p>For MCQ: type,prompt,option1,option2,option3,option4,correctIndex</p>
-                <p>For Boolean: type,prompt,correctAnswer</p>
-                <p>First row should be headers.</p>
+
+              <div className="flex gap-3 mt-6">
+                <Button
+                  onClick={handleUploadCSV}
+                  className="flex-1"
+                >
+                  Upload CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCSVModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
               </div>
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <Button
-                onClick={handleUploadCSV}
-                className="flex-1"
-              >
-                Upload CSV
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowCSVModal(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
     </div>
   );
