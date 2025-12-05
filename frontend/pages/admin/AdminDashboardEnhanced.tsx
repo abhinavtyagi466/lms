@@ -35,6 +35,11 @@ interface DashboardStats {
     progress: number;
     certificates: number;
   };
+  progressStats?: {
+    completed: number;
+    inProgress: number;
+    notStarted: number;
+  };
 }
 
 interface UserProgress {
@@ -179,8 +184,19 @@ export const AdminDashboardEnhanced: React.FC = () => {
   };
 
   const getProgressStats = () => {
+    // Use server-calculated stats if available, otherwise calculate from local data
+    if (stats?.progressStats) {
+      return {
+        completed: stats.progressStats.completed,
+        inProgress: stats.progressStats.inProgress,
+        notStarted: stats.progressStats.notStarted,
+        total: stats.progressStats.completed + stats.progressStats.inProgress + stats.progressStats.notStarted
+      };
+    }
+
+    // Fallback to local calculation
     const filtered = getFilteredProgress();
-    const completed = filtered.filter(p => p.status === 'completed').length;
+    const completed = filtered.filter(p => p.status === 'completed' || p.status === 'certified').length;
     const inProgress = filtered.filter(p => p.status === 'in_progress').length;
     const notStarted = filtered.filter(p => p.status === 'not_started').length;
     const total = filtered.length;

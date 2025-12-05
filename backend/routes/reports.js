@@ -381,6 +381,25 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
     // Certificates trend
     const certificatesTrend = calculateTrend(currentMonthCertificates, prevMonthCertificates);
 
+    // Calculate progress stats for User Progress Overview
+    const [
+      completedCountResult,
+      inProgressCountResult,
+      usersWithProgressResult
+    ] = await Promise.allSettled([
+      UserProgress.countDocuments({ status: { $in: ['completed', 'certified'] } }),
+      UserProgress.countDocuments({ status: 'in_progress' }),
+      UserProgress.distinct('userId') // Get unique users with any progress
+    ]);
+
+    const completedCount = completedCountResult.status === 'fulfilled' ? completedCountResult.value : 0;
+    const inProgressCount = inProgressCountResult.status === 'fulfilled' ? inProgressCountResult.value : 0;
+    const usersWithProgress = usersWithProgressResult.status === 'fulfilled' ? usersWithProgressResult.value.length : 0;
+
+    // Not started = Total users who haven't started any module yet
+    // This is calculated as: Total FE users - Users who have any progress record
+    const notStartedCount = Math.max(0, totalUsers - usersWithProgress);
+
     res.json({
       success: true,
       data: {
@@ -398,6 +417,12 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
           modules: modulesTrend,
           progress: progressTrend,
           certificates: certificatesTrend
+        },
+        // Progress stats for User Progress Overview section
+        progressStats: {
+          completed: completedCount,
+          inProgress: inProgressCount,
+          notStarted: notStartedCount
         }
       }
     });
