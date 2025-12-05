@@ -159,10 +159,10 @@ export const UserManagement: React.FC = () => {
 
 
   useEffect(() => {
-    // Only fetch data if user is authenticated and is admin
-    if (user && userType === 'admin') {
+    // Fetch data if user is authenticated and has admin panel access
+    const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
+    if (user && adminPanelRoles.includes(userType || '')) {
       fetchUsers();
-      // fetchUserStats(); // No longer needed - using roleStats instead
     } else {
       setLoading(false);
     }
