@@ -272,12 +272,12 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
       currentMonthCompletedResult,
       currentMonthCertificatesResult
     ] = await Promise.allSettled([
-      // Current totals
-      User.countDocuments({ userType: 'user', isActive: true }),
+      // Current totals - Count all active users except admins
+      User.countDocuments({ userType: { $ne: 'admin' }, isActive: true }),
       Module.countDocuments(),
       Quiz.countDocuments(),
       User.countDocuments({
-        userType: 'user',
+        userType: { $ne: 'admin' },
         isActive: true,
         lastLoginAt: { $gte: thirtyDaysAgo }
       }),
@@ -298,7 +298,7 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
       ]),
       // Previous month counts (users created before current month)
       User.countDocuments({
-        userType: 'user',
+        userType: { $ne: 'admin' },
         isActive: true,
         createdAt: { $lt: currentMonthStart }
       }),
@@ -324,7 +324,7 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
       ]),
       // Current month new users
       User.countDocuments({
-        userType: 'user',
+        userType: { $ne: 'admin' },
         isActive: true,
         createdAt: { $gte: currentMonthStart }
       }),
