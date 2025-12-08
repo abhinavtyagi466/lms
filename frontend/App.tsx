@@ -3,7 +3,6 @@ import {
   Users,
   BookOpen,
   BarChart3,
-
   FileText,
   LogOut,
   Home,
@@ -29,8 +28,6 @@ const TrainingModule = lazy(() => import('./pages/user/TrainingModule').then(mod
 const ModulesPage = lazy(() => import('./pages/user/ModulesPage').then(module => ({ default: module.ModulesPage })));
 const NotificationsPage = lazy(() => import('./pages/user/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 const QuizPage = lazy(() => import('./pages/user/QuizPage').then(module => ({ default: module.QuizPage })));
-// TEMPORARILY HIDDEN: Email Center for User
-// const UserEmailCenter = lazy(() => import('./pages/user/UserEmailCenter').then(module => ({ default: module.default })));
 
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin').then(module => ({ default: module.AdminLogin })));
 const AdminDashboardEnhanced = lazy(() => import('./pages/admin/AdminDashboardEnhanced').then(module => ({ default: module.AdminDashboardEnhanced })));
@@ -45,23 +42,17 @@ const KPITriggerDashboard = lazy(() => import('./pages/admin/KPITriggerDashboard
 const UserDetailsPage = lazy(() => import('./pages/admin/UserDetailsPage').then(module => ({ default: module.UserDetailsPage })));
 const KPIScoresPage = lazy(() => import('./pages/admin/KPIScoresPage').then(module => ({ default: module.KPIScoresPage })));
 const UserKPIScoresPage = lazy(() => import('./pages/user/KPIScoresPage').then(module => ({ default: module.KPIScoresPage })));
-const EmailTemplatesPage = lazy(() => import('./pages/admin/EmailTemplatesPage').then(module => ({ default: module.EmailTemplatesPage })));
-// TEMPORARILY HIDDEN: Email Center and Recipient Groups
-// const EmailNotificationCenter = lazy(() => import('./pages/admin/EmailNotificationCenter').then(module => ({ default: module.default })));
-// const RecipientGroupsPage = lazy(() => import('./pages/admin/RecipientGroupsPage').then(module => ({ default: module.default })));
+const EmailTemplatesPage = lazy(() => import('./pages/admin/EmailTemplatesPageEnhanced').then(module => ({ default: module.EmailTemplatesPageEnhanced })));
 const KPIConfigurationPage = lazy(() => import('./pages/admin/KPIConfigurationPage').then(module => ({ default: module.KPIConfigurationPage })));
 const ScoreReportsPage = lazy(() => import('./pages/admin/ScoreReportsPage').then(module => ({ default: module.ScoreReportsPage })));
 const ExitRecordsPage = lazy(() => import('./pages/admin/ExitRecordsPage').then(module => ({ default: module.ExitRecordsPage })));
 const KPIAuditDashboard = lazy(() => import('./pages/admin/KPIAuditDashboard').then(module => ({ default: module.default })));
-// Temporarily commented out unused components
-// const AuditManager = lazy(() => import('./pages/admin/AuditSchedulerDashboardV2'));
 
 // Navigation items
 const userSidebarItems = [
   { key: 'user-dashboard', label: 'Dashboard', icon: Home },
   { key: 'user-profile', label: 'My Profile', icon: Users },
   { key: 'modules', label: 'Modules', icon: BookOpen },
-  // { key: 'quizzes', label: 'Quizzes', icon: FileQuestion },
   { key: 'notifications', label: 'Notifications', icon: Bell },
   { key: 'logout', label: 'Logout', icon: LogOut }
 ];
@@ -76,18 +67,9 @@ const adminSidebarItems = [
   { key: 'kpi-audit-dashboard', label: 'KPI Dashboard', icon: BarChart3 },
   { key: 'kpi-configuration', label: 'KPI Settings', icon: BarChart3 },
   { key: 'email-templates', label: 'Email Templates', icon: Mail },
-  // TEMPORARILY HIDDEN: Email Center and Recipient Groups
-  // { key: 'email-center', label: 'Email Center', icon: Mail },
-  // { key: 'recipient-groups', label: 'Recipient Groups', icon: Users },
-  // { key: 'audit-scheduler', label: 'Audit Scheduler', icon: Calendar }, // TEMPORARILY HIDDEN
-  // { key: 'warnings-audit', label: 'Audit Management', icon: FileText }, // MOVED TO KPI AUDIT DASHBOARD
-  // { key: 'awards', label: 'Awards & Recognition', icon: Award },
   { key: 'lifecycle', label: 'Lifecycle Dashboard', icon: Clock },
-  // { key: 'mail-preview', label: 'Mail Preview', icon: Mail },
   { key: 'logout', label: 'Logout', icon: LogOut }
 ];
-
-
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<
@@ -254,8 +236,6 @@ const AppContent: React.FC = () => {
         case 'quizzes': return <QuizPage />;
         case 'notifications': return <NotificationsPage />;
         case 'kpi-scores': return <UserKPIScoresPage />;
-        // TEMPORARILY HIDDEN: User Email Center
-        // case 'user-emails': return <UserEmailCenter />;
         case 'admin-login': return <AdminLogin />;
         case 'admin-dashboard': return <AdminDashboardEnhanced />;
         case 'user-management': return <UserManagement />;
@@ -267,10 +247,6 @@ const AppContent: React.FC = () => {
         case 'kpi-audit-dashboard': return <KPIAuditDashboard />;
         case 'kpi-configuration': return <KPIConfigurationPage />;
         case 'email-templates': return <EmailTemplatesPage />;
-        // TEMPORARILY HIDDEN: Email Center and Recipient Groups
-        // case 'email-center': return <EmailNotificationCenter />;
-        // case 'recipient-groups': return <RecipientGroupsPage />;
-        // case 'audit-scheduler': return <AuditManager />; // TEMPORARILY HIDDEN
         case 'warnings-audit': return <WarningAuditRecord />;
         case 'awards': return <AwardsRecognition />;
         case 'lifecycle': return <LifecycleDashboard />;
@@ -279,22 +255,20 @@ const AppContent: React.FC = () => {
       }
     };
 
+    // Check if current page is a login/register page (auth pages)
+    const isAuthPage = ['user-login', 'admin-login', 'user-register'].includes(currentPage);
+
+    // If user is logged in and tries to access login pages, redirect to appropriate dashboard
+    if (user && isAuthPage) {
+      const dashboardPage = userType === 'user' ? 'user-dashboard' : 'admin-dashboard';
+      setCurrentPage(dashboardPage);
+    }
+
     return (
       <div className="h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300">
 
-        {user ? (
-          <div className="flex h-full">
-            <Sidebar
-              items={userType === 'user' ? userSidebarItems : adminSidebarItems}
-              onItemClick={handleNavigation}
-            />
-            <div className="flex-1 h-full overflow-y-auto scroll-smooth">
-              <Suspense fallback={<LoadingSpinner size="lg" fullScreen={false} text="Loading page..." />}>
-                {renderPage()}
-              </Suspense>
-            </div>
-          </div>
-        ) : (
+        {/* Auth pages (login/register) should always render standalone without sidebar */}
+        {isAuthPage && !user ? (
           <div>
             {currentPage === 'user-login' && (
               <div className="fixed top-4 right-20 z-10 flex space-x-2">
@@ -318,6 +292,26 @@ const AppContent: React.FC = () => {
                 </Button>
               </div>
             )}
+            <Suspense fallback={<LoadingSpinner size="lg" fullScreen={false} text="Loading page..." />}>
+              {renderPage()}
+            </Suspense>
+          </div>
+        ) : user ? (
+          /* Logged in user - show sidebar + content */
+          <div className="flex h-full">
+            <Sidebar
+              items={userType === 'user' ? userSidebarItems : adminSidebarItems}
+              onItemClick={handleNavigation}
+            />
+            <div className="flex-1 h-full overflow-y-auto scroll-smooth">
+              <Suspense fallback={<LoadingSpinner size="lg" fullScreen={false} text="Loading page..." />}>
+                {renderPage()}
+              </Suspense>
+            </div>
+          </div>
+        ) : (
+          /* Not logged in and not on auth page - show standalone content */
+          <div>
             <Suspense fallback={<LoadingSpinner size="lg" fullScreen={false} text="Loading page..." />}>
               {renderPage()}
             </Suspense>

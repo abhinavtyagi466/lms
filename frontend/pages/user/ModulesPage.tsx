@@ -15,17 +15,12 @@ export const ModulesPage: React.FC = () => {
 
   // Function to get YouTube thumbnail URL
   const getYouTubeThumbnail = (videoId: string, quality: 'default' | 'medium' | 'high' | 'standard' | 'maxres' = 'medium') => {
-    if (!videoId) {
-      console.log('getYouTubeThumbnail: No videoId provided');
-      return null;
-    }
+    if (!videoId) return null;
 
     const cleanVideoId = videoId.trim();
-    console.log('getYouTubeThumbnail input:', cleanVideoId);
 
     // If it's already an 11-character video ID, use directly
     if (/^[a-zA-Z0-9_-]{11}$/.test(cleanVideoId)) {
-      console.log('Direct video ID detected:', cleanVideoId);
       return `https://img.youtube.com/vi/${cleanVideoId}/${quality}default.jpg`;
     }
 
@@ -41,12 +36,10 @@ export const ModulesPage: React.FC = () => {
     for (const pattern of patterns) {
       const match = cleanVideoId.match(pattern);
       if (match && match[1]) {
-        console.log('Extracted video ID:', match[1], 'from URL using pattern:', pattern);
         return `https://img.youtube.com/vi/${match[1]}/${quality}default.jpg`;
       }
     }
 
-    console.log('Could not extract video ID from:', cleanVideoId);
     return null;
   };
   const [modules, setModules] = useState<ModuleWithProgress[]>([]);
@@ -241,7 +234,7 @@ export const ModulesPage: React.FC = () => {
               const isCompleted = progressPercent >= 95;
 
               return (
-                <Card key={module._id} className={`overflow-hidden ${isCompleted ? 'border-2 border-green-400' : 'border-2 border-purple-300'}`}>
+                <Card key={(module as any)._id} className={`overflow-hidden ${isCompleted ? 'border-2 border-green-400' : 'border-2 border-purple-300'}`}>
                   <div className="p-4 border-b relative">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -303,7 +296,7 @@ export const ModulesPage: React.FC = () => {
                     <div className="flex gap-2">
                       <Button
                         onClick={() => {
-                          setSelectedModuleId(module._id);
+                          setSelectedModuleId((module as any)._id);
                           setCurrentPage('training-module');
                         }}
                         className="flex-1 bg-purple-600 hover:bg-purple-700"
@@ -312,10 +305,10 @@ export const ModulesPage: React.FC = () => {
                         {isCompleted ? 'Review Module' : 'Start Training Module'}
                       </Button>
 
-                      {module.hasQuiz && (
+                      {(module as any).hasQuiz && (
                         <Button
                           onClick={() => {
-                            setSelectedModuleId(module._id);
+                            setSelectedModuleId((module as any)._id);
                             setCurrentPage('quiz');
                           }}
                           variant="outline"

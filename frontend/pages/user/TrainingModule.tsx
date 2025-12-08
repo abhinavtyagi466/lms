@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   BookOpen,
   Clock,
   CheckCircle,
@@ -18,7 +18,7 @@ import { apiService } from '../../services/apiService';
 
 export const TrainingModule: React.FC = () => {
   const { user, selectedModuleId, setCurrentPage } = useAuth();
-  
+
   const [module, setModule] = useState<any>(null);
   const [quiz, setQuiz] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -41,16 +41,16 @@ export const TrainingModule: React.FC = () => {
     try {
       setLoading(true);
       console.log('TrainingModule: Loading module ID:', selectedModuleId);
-      
+
       // Load module and quiz data
       const [moduleResponse, quizResponse] = await Promise.allSettled([
         apiService.modules.getModule(selectedModuleId!),
         apiService.quizzes.getQuiz(selectedModuleId!).catch(() => null)
       ]);
-      
+
       console.log('Module response:', moduleResponse);
       console.log('Quiz response:', quizResponse);
-      
+
       // Handle module response
       let moduleData = null;
       if (moduleResponse.status === 'fulfilled' && moduleResponse.value) {
@@ -65,7 +65,7 @@ export const TrainingModule: React.FC = () => {
           moduleData = response;
         }
       }
-      
+
       // Handle quiz response
       let quizData = null;
       if (quizResponse.status === 'fulfilled' && quizResponse.value) {
@@ -78,24 +78,23 @@ export const TrainingModule: React.FC = () => {
           quizData = response.quiz;
         }
       }
-      
+
       console.log('Extracted module data:', moduleData);
       console.log('Extracted quiz data:', quizData);
-      
+
       if (moduleData) {
         // Check if we have either a video ID or a full YouTube URL
         const hasVideoContent = moduleData.ytVideoId && (
-          moduleData.ytVideoId.includes('youtube.com') || 
-          moduleData.ytVideoId.includes('youtu.be') || 
+          moduleData.ytVideoId.includes('youtube.com') ||
+          moduleData.ytVideoId.includes('youtu.be') ||
           /^[a-zA-Z0-9_-]{11}$/.test(moduleData.ytVideoId)
         );
-        
+
         if (hasVideoContent) {
           setModule(moduleData);
           setQuiz(quizData);
           console.log('Module loaded successfully:', moduleData);
           console.log('Quiz loaded successfully:', quizData);
-          toast.success('Module loaded! 🎥');
         } else {
           console.error('No valid video content found:', moduleData.ytVideoId);
           toast.error('Module has no valid video content. Please check the video URL.');
@@ -107,7 +106,7 @@ export const TrainingModule: React.FC = () => {
         toast.error('Failed to load module data. Please check if the backend is running.');
         setModule(null);
       }
-      
+
     } catch (error) {
       console.error('Error loading module:', error);
       toast.error('Failed to load module. Please check your connection.');
@@ -127,21 +126,20 @@ export const TrainingModule: React.FC = () => {
   // Handle progress updates from YouTube player
   const handleProgressUpdate = (videoId: string, currentTime: number, duration: number) => {
     console.log(`Progress update received for ${videoId}: ${currentTime}s / ${duration}s (${Math.round((currentTime / duration) * 100)}%)`);
-    
+
     const progressPercent = Math.round((currentTime / duration) * 100);
     setVideoProgress(progressPercent);
-    
+
     // Show quiz button when video is 95% complete
     if (progressPercent >= 95 && quiz && !showQuizButton) {
       setShowQuizButton(true);
-      toast.success('Video nearly complete! Quiz is now available 🎯');
+      toast.success('Quiz is now available!');
     }
-    
+
     if (progressPercent >= 100) {
-      toast.success('Module completed! 🎉');
       setShowQuizButton(true);
     }
-    
+
     // Update backend progress
     const userId = (user as any)._id || (user as any).id;
     if (userId) {
@@ -158,9 +156,8 @@ export const TrainingModule: React.FC = () => {
 
   // Handle video completion
   const handleVideoComplete = () => {
-    toast.success('Video completed! Great job!');
     setShowQuizButton(true);
-    
+
     // Update backend progress
     const userId = (user as any)._id || (user as any).id;
     if (userId && selectedModuleId) {
@@ -177,17 +174,15 @@ export const TrainingModule: React.FC = () => {
   const updateProgress = async (progress: number) => {
     try {
       setVideoProgress(progress);
-      
+
       // Show quiz button when video is 95% complete
       if (progress >= 95 && quiz && !showQuizButton) {
         setShowQuizButton(true);
-        toast.success('Video nearly complete! Quiz is now available 🎯');
       }
-      
+
       if (progress >= 100) {
-        toast.success('Module completed! 🎉');
         setShowQuizButton(true);
-        
+
         // Update backend progress
         if (user?.id && selectedModuleId) {
           try {
@@ -198,7 +193,7 @@ export const TrainingModule: React.FC = () => {
           }
         }
       }
-      
+
       console.log('Video progress updated:', progress);
     } catch (error) {
       console.error('Error updating progress:', error);
@@ -212,19 +207,19 @@ export const TrainingModule: React.FC = () => {
     console.log('Quiz data:', quiz);
     console.log('Video progress:', videoProgress);
     console.log('Show quiz button:', showQuizButton);
-    
+
     if (!quiz || !quiz.questions || quiz.questions.length === 0) {
       console.log('No quiz available');
       toast.error('No quiz available for this module');
       return;
     }
-    
+
     if (videoProgress < 95) {
       console.log('Video not complete enough');
       toast.error('Please complete watching the video before taking the quiz');
       return;
     }
-    
+
     // Store quiz data for the quiz modal
     if (selectedModuleId) {
       localStorage.setItem('currentModuleId', selectedModuleId);
@@ -232,11 +227,10 @@ export const TrainingModule: React.FC = () => {
       localStorage.setItem('currentQuizData', JSON.stringify(quiz));
       console.log('Quiz data stored in localStorage');
     }
-    
+
     // Navigate to quiz page
     console.log('Navigating to quiz page');
     setCurrentPage('quiz');
-    toast.success('Starting quiz... Good luck! 🎯');
   };
 
   if (loading) {
@@ -260,8 +254,8 @@ export const TrainingModule: React.FC = () => {
               <Button onClick={() => window.history.back()}>
                 Go Back
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setCurrentPage('modules')}
                 className="ml-3"
               >
@@ -292,7 +286,7 @@ export const TrainingModule: React.FC = () => {
               <p className="text-sm text-gray-600">{module.description}</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Badge variant={module.status === 'published' ? 'default' : 'secondary'}>
               {module.status}
@@ -330,7 +324,7 @@ export const TrainingModule: React.FC = () => {
               />
             </div>
           </Card>
-          
+
           {/* Module Info */}
           <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -344,7 +338,7 @@ export const TrainingModule: React.FC = () => {
                 )}
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="flex items-center space-x-3">
                 <BookOpen className="w-5 h-5 text-blue-600" />
@@ -353,7 +347,7 @@ export const TrainingModule: React.FC = () => {
                   <p className="text-gray-600">{module.title}</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-3">
                 <Clock className="w-5 h-5 text-green-600" />
                 <div>
@@ -364,12 +358,12 @@ export const TrainingModule: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="mb-6">
               <p className="text-sm font-medium mb-2">Description</p>
               <p className="text-gray-600">{module.description}</p>
             </div>
-            
+
             {module.tags && module.tags.length > 0 && (
               <div className="mb-6">
                 <p className="text-sm font-medium mb-2">Tags</p>
@@ -382,7 +376,7 @@ export const TrainingModule: React.FC = () => {
                 </div>
               </div>
             )}
-            
+
             {/* Action Buttons */}
             <div className="flex gap-3">
               {/* Quiz Button - Only show after video completion */}
@@ -394,7 +388,7 @@ export const TrainingModule: React.FC = () => {
                   videoProgress,
                   quizQuestions: quiz?.questions?.length
                 });
-                
+
                 return showQuizButton && quiz && quiz.questions && quiz.questions.length > 0 ? (
                   <Button
                     onClick={startQuiz}
@@ -414,7 +408,7 @@ export const TrainingModule: React.FC = () => {
                   </Button>
                 );
               })()}
-              
+
               <Button
                 variant="outline"
                 onClick={() => {
@@ -426,7 +420,7 @@ export const TrainingModule: React.FC = () => {
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Mark Complete
               </Button>
-              
+
               {/* Temporary debug button */}
               {quiz && quiz.questions && quiz.questions.length > 0 && (
                 <Button
@@ -442,7 +436,7 @@ export const TrainingModule: React.FC = () => {
                 </Button>
               )}
             </div>
-            
+
             {/* Quiz Status */}
             {quiz && quiz.questions && quiz.questions.length > 0 ? (
               <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">

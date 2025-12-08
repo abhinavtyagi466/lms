@@ -55,17 +55,16 @@ export const UserStats: React.FC<UserStatsProps> = ({ userId }) => {
         apiService.progress.getUserProgress(userId),
         apiService.quizzes.getQuizResults(userId)
       ]);
-      
-      if (progressResponse.status === 'fulfilled' && progressResponse.value?.success) {
-        setProgressData(progressResponse.value.progress || {});
+
+      if (progressResponse.status === 'fulfilled' && (progressResponse.value as any)?.success) {
+        setProgressData((progressResponse.value as any).progress || {});
       }
-      
-      if (quizResponse.status === 'fulfilled' && quizResponse.value?.success) {
-        setQuizResults(quizResponse.value.results || []);
+
+      if (quizResponse.status === 'fulfilled' && (quizResponse.value as any)?.success) {
+        setQuizResults((quizResponse.value as any).results || []);
       }
-      
+
       setShowStats(true);
-      toast.success('User stats loaded successfully!');
     } catch (error) {
       console.error('Error fetching user stats:', error);
       toast.error('Failed to load user stats. Please try again.');
@@ -100,22 +99,22 @@ export const UserStats: React.FC<UserStatsProps> = ({ userId }) => {
       const progress = progressData[videoId];
       return isVideoCompleted(progress.currentTime, progress.duration);
     }).length;
-    
+
     const totalWatchTime = videoIds.reduce((total, videoId) => {
       const progress = progressData[videoId];
       return total + progress.currentTime;
     }, 0);
-    
+
     const totalDuration = videoIds.reduce((total, videoId) => {
       const progress = progressData[videoId];
       return total + progress.duration;
     }, 0);
-    
-    const averageProgress = totalVideos > 0 
+
+    const averageProgress = totalVideos > 0
       ? Math.round(videoIds.reduce((total, videoId) => {
-          const progress = progressData[videoId];
-          return total + calculateWatchedPercentage(progress.currentTime, progress.duration);
-        }, 0) / totalVideos)
+        const progress = progressData[videoId];
+        return total + calculateWatchedPercentage(progress.currentTime, progress.duration);
+      }, 0) / totalVideos)
       : 0;
 
     return {
@@ -131,7 +130,7 @@ export const UserStats: React.FC<UserStatsProps> = ({ userId }) => {
   const getQuizStats = () => {
     const totalQuizzes = quizResults.length;
     const passedQuizzes = quizResults.filter(result => result.passed).length;
-    const averageScore = totalQuizzes > 0 
+    const averageScore = totalQuizzes > 0
       ? Math.round(quizResults.reduce((total, result) => total + result.percentage, 0) / totalQuizzes)
       : 0;
     const totalAttempts = quizResults.reduce((total, result) => total + result.attemptNumber, 0);
@@ -154,7 +153,7 @@ export const UserStats: React.FC<UserStatsProps> = ({ userId }) => {
           <BarChart3 className="w-5 h-5 text-blue-600" />
           <h2 className="text-xl font-semibold">User Statistics</h2>
         </div>
-        
+
         <Button
           onClick={fetchUserStats}
           disabled={loading}
@@ -205,17 +204,17 @@ export const UserStats: React.FC<UserStatsProps> = ({ userId }) => {
                 <div className="text-2xl font-bold text-blue-600">{stats.totalVideos}</div>
                 <div className="text-sm text-blue-700">Total Videos</div>
               </div>
-              
+
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">{stats.completedVideos}</div>
                 <div className="text-sm text-green-700">Completed</div>
               </div>
-              
+
               <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <div className="text-2xl font-bold text-purple-600">{stats.averageProgress}%</div>
                 <div className="text-sm text-purple-700">Avg Progress</div>
               </div>
-              
+
               <div className="text-center p-4 bg-orange-50 rounded-lg">
                 <div className="text-2xl font-bold text-orange-600">
                   {formatTime(stats.totalWatchTime)}
@@ -229,17 +228,17 @@ export const UserStats: React.FC<UserStatsProps> = ({ userId }) => {
                 <div className="text-2xl font-bold text-blue-600">{quizStats.totalQuizzes}</div>
                 <div className="text-sm text-blue-700">Quizzes Taken</div>
               </div>
-              
+
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">{quizStats.passedQuizzes}</div>
                 <div className="text-sm text-green-700">Passed</div>
               </div>
-              
+
               <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <div className="text-2xl font-bold text-purple-600">{quizStats.averageScore}%</div>
                 <div className="text-sm text-purple-700">Avg Score</div>
               </div>
-              
+
               <div className="text-center p-4 bg-orange-50 rounded-lg">
                 <div className="text-2xl font-bold text-orange-600">
                   {quizStats.totalAttempts}
@@ -259,7 +258,7 @@ export const UserStats: React.FC<UserStatsProps> = ({ userId }) => {
             Object.keys(progressData).length > 0 ? (
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">Video Progress Details</h3>
-                
+
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -275,11 +274,11 @@ export const UserStats: React.FC<UserStatsProps> = ({ userId }) => {
                     {Object.entries(progressData).map(([videoId, progress]) => {
                       const watchedPercentage = calculateWatchedPercentage(progress.currentTime, progress.duration);
                       const completed = isVideoCompleted(progress.currentTime, progress.duration);
-                      
+
                       return (
                         <TableRow key={videoId}>
                           <TableCell className="font-mono text-sm">{videoId}</TableCell>
-                          
+
                           <TableCell className="w-48">
                             <div className="space-y-2">
                               <div className="flex items-center justify-between text-sm">
@@ -289,22 +288,22 @@ export const UserStats: React.FC<UserStatsProps> = ({ userId }) => {
                               <Progress value={watchedPercentage} className="h-2" />
                             </div>
                           </TableCell>
-                          
+
                           <TableCell>
                             <div className="text-sm">
                               <div className="font-medium">{formatTime(progress.currentTime)}</div>
                               <div className="text-gray-500">of {formatTime(progress.duration)}</div>
                             </div>
                           </TableCell>
-                          
+
                           <TableCell>
                             <div className="text-sm text-gray-600">
                               {formatTime(progress.duration)}
                             </div>
                           </TableCell>
-                          
+
                           <TableCell>
-                            <Badge 
+                            <Badge
                               variant={completed ? 'default' : 'secondary'}
                               className={completed ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}
                             >
@@ -323,7 +322,7 @@ export const UserStats: React.FC<UserStatsProps> = ({ userId }) => {
                               </div>
                             </Badge>
                           </TableCell>
-                          
+
                           <TableCell>
                             <div className="flex gap-2">
                               <Button
@@ -354,7 +353,7 @@ export const UserStats: React.FC<UserStatsProps> = ({ userId }) => {
             quizResults.length > 0 ? (
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">Quiz Results Details</h3>
-                
+
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -373,34 +372,34 @@ export const UserStats: React.FC<UserStatsProps> = ({ userId }) => {
                         <TableCell>
                           <div className="font-medium">{result.moduleId.title}</div>
                         </TableCell>
-                        
+
                         <TableCell>
                           <div className="text-sm">
                             <div className="font-medium">{result.score}/{result.total}</div>
                           </div>
                         </TableCell>
-                        
+
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Progress value={result.percentage} className="w-16 h-2" />
                             <span className="text-sm font-medium">{result.percentage}%</span>
                           </div>
                         </TableCell>
-                        
+
                         <TableCell>
                           <div className="text-sm text-gray-600">
                             {formatTime(result.timeTaken)}
                           </div>
                         </TableCell>
-                        
+
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
                             #{result.attemptNumber}
                           </Badge>
                         </TableCell>
-                        
+
                         <TableCell>
-                          <Badge 
+                          <Badge
                             variant={result.passed ? 'default' : 'secondary'}
                             className={result.passed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
                           >
@@ -419,7 +418,7 @@ export const UserStats: React.FC<UserStatsProps> = ({ userId }) => {
                             </div>
                           </Badge>
                         </TableCell>
-                        
+
                         <TableCell>
                           <div className="text-sm text-gray-600">
                             {new Date(result.completedAt).toLocaleDateString()}

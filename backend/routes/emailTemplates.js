@@ -7,7 +7,7 @@ const { authenticateToken, requireAdmin, requireAdminPanel } = require('../middl
 router.get('/', authenticateToken, requireAdminPanel, async (req, res) => {
   try {
     const templates = await EmailTemplateService.getAllTemplates();
-    
+
     res.json({
       success: true,
       count: templates.length,
@@ -27,7 +27,7 @@ router.get('/', authenticateToken, requireAdminPanel, async (req, res) => {
 router.get('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const template = await EmailTemplateService.getTemplateById(req.params.id);
-    
+
     if (!template) {
       return res.status(404).json({
         success: false,
@@ -66,7 +66,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating template:', error);
-    
+
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
@@ -193,7 +193,7 @@ router.post('/:id/preview', authenticateToken, requireAdmin, async (req, res) =>
 router.post('/:id/send-test', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { testEmail } = req.body;
-    
+
     if (!testEmail) {
       return res.status(400).json({
         success: false,
@@ -211,7 +211,7 @@ router.post('/:id/send-test', authenticateToken, requireAdmin, async (req, res) 
 
     // Send test email using the template
     const result = await EmailTemplateService.sendEmail({
-      templateType: template.category,
+      templateType: template.type,
       variables: {
         userName: 'Test User',
         employeeId: 'TEST001',
@@ -264,7 +264,7 @@ router.post('/:id/send-test', authenticateToken, requireAdmin, async (req, res) 
 router.post('/send-custom', authenticateToken, async (req, res) => {
   try {
     const { to, subject, content, fromUserId, fromUserEmail } = req.body;
-    
+
     if (!to || !subject || !content) {
       return res.status(400).json({
         success: false,
@@ -306,7 +306,7 @@ router.post('/send-custom', authenticateToken, async (req, res) => {
 router.get('/stats/usage', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const EmailTemplate = require('../models/EmailTemplate');
-    
+
     const stats = await EmailTemplate.aggregate([
       {
         $group: {
@@ -356,7 +356,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 
     // Update template using service
     const updatedTemplate = await EmailTemplateService.updateTemplate(id, updateData);
-    
+
     if (!updatedTemplate) {
       return res.status(404).json({
         success: false,

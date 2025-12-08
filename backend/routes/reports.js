@@ -17,8 +17,8 @@ const router = express.Router();
 // Shared pipeline for user scores aggregation
 const getUserScoresPipeline = (searchTerm, selectedUser, sortBy, sortOrder) => {
   const pipeline = [
-    // Start with all users
-    { $match: { userType: 'user' } },
+    // Start with only active users (case-insensitive)
+    { $match: { userType: 'user', status: { $regex: /^active$/i } } },
     {
       $lookup: {
         from: 'quizattempts',
@@ -270,7 +270,8 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
       // Current month data
       currentMonthUsersResult,
       currentMonthCompletedResult,
-      currentMonthCertificatesResult
+      currentMonthCertificatesResult,
+      warningUsersResult
     ] = await Promise.allSettled([
       // Current totals - Count all active users except admins
       User.countDocuments({ userType: { $ne: 'admin' }, isActive: true }),
@@ -340,7 +341,9 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
       UserProgress.countDocuments({
         status: 'certified',
         updatedAt: { $gte: currentMonthStart }
-      })
+      }),
+      // Warning users count
+      User.countDocuments({ status: 'Warning', isActive: true })
     ]);
 
     // Extract current values
@@ -429,7 +432,8 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
           completed: completedCount,
           inProgress: inProgressCount,
           notStarted: notStartedCount
-        }
+        },
+        warningUsers: warningUsersResult.status === 'fulfilled' ? warningUsersResult.value : 0
       }
     });
 

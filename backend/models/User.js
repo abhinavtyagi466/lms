@@ -63,18 +63,21 @@ const userSchema = new mongoose.Schema({
     trim: true,
     maxlength: [100, 'Region cannot be more than 100 characters']
   },
+  // Identity Documents with UNIQUE validation
   aadhaarNo: {
     type: String,
     trim: true,
     match: [/^[0-9]{12}$/, 'Aadhaar number must be exactly 12 digits'],
-    sparse: true
+    sparse: true,
+    unique: true  // Prevent duplicate Aadhaar numbers
   },
   panNo: {
     type: String,
     trim: true,
     uppercase: true,
     match: [/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'PAN number must be in format: ABCDE1234F'],
-    sparse: true
+    sparse: true,
+    unique: true  // Prevent duplicate PAN numbers
   },
   password: {
     type: String,
@@ -281,6 +284,10 @@ userSchema.index({ employeeId: 1 }); // Employee ID lookups
 userSchema.index({ userType: 1, isActive: 1 }); // Filter by role and status
 userSchema.index({ createdAt: -1 }); // Sort by creation date
 userSchema.index({ sessionId: 1 }, { sparse: true }); // Session lookups
+// Unique indexes for Aadhaar and PAN (sparse to allow null values)
+userSchema.index({ aadhaarNo: 1 }, { unique: true, sparse: true });
+userSchema.index({ panNo: 1 }, { unique: true, sparse: true });
+userSchema.index({ 'exitDetails.exitDate': -1 }); // Optimize exit records sorting
 
 // Pre-save middleware to hash password
 userSchema.pre('save', async function (next) {
@@ -397,6 +404,7 @@ userSchema.statics.findByStatus = function (status) {
 };
 
 module.exports = mongoose.model('User', userSchema);
+
 // Emit socket event when a new user is created
 userSchema.post('save', function (doc) {
   if (this.isNew) {

@@ -14,18 +14,21 @@ const router = express.Router();
 // @access  Private (All authenticated users)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    // Admin gets all quizzes, users get only quizzes for published modules
+    // Admin gets all quizzes (including inactive), users get only active quizzes for published modules
     // Always exclude quizzes with null moduleId (orphaned quizzes)
     let query = {
-      isActive: true,
       moduleId: { $ne: null, $exists: true }
     };
 
-    if (req.user.userType !== 'admin') {
-      // For users, only show quizzes for published modules
+    // Admin users (admin, hr, manager, hod) can see ALL quizzes including inactive
+    const isAdminUser = ['admin', 'hr', 'manager', 'hod'].includes(req.user.userType);
+
+    if (!isAdminUser) {
+      // For regular users, only show active quizzes for published modules
+      query.isActive = true;
       const publishedModules = await Module.find({ status: 'published' }).select('_id');
       const publishedModuleIds = publishedModules.map(m => m._id);
-      query = { ...query, moduleId: { $in: publishedModuleIds, $ne: null, $exists: true } };
+      query.moduleId = { $in: publishedModuleIds, $ne: null, $exists: true };
     }
 
     console.log('Fetching quizzes with query:', query);

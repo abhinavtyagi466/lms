@@ -3,20 +3,19 @@ import {
   Users,
   BookOpen,
   CheckCircle,
-  TrendingUp,
-  BarChart3,
   Award,
-  FileText,
+  Star,
   Zap,
   Shield,
+  BarChart3,
+  FileText,
   Lightbulb,
-  Star
+  AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Progress } from '../../components/ui/progress';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
@@ -28,8 +27,9 @@ interface DashboardStats {
   activeUsers: number;
   completedModules: number;
   averageProgress: number;
-  totalWatchTime: number;
   certificatesIssued: number;
+  totalWatchTime?: number;
+  warningUsers?: number;
 }
 
 interface UserProgress {
@@ -51,7 +51,6 @@ interface UserProgress {
   completedAt?: string;
 }
 
-
 export const AdminDashboard: React.FC = () => {
   const { user, userType } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -60,50 +59,8 @@ export const AdminDashboard: React.FC = () => {
   const [selectedModule, setSelectedModule] = useState<string>('all');
 
   useEffect(() => {
-    // Only fetch data if user is authenticated and is admin
     if (user && (userType === 'admin' || userType === 'hr' || userType === 'manager' || userType === 'hod')) {
-      fetchDashboardData(true); // Initial load with loading state
-
-      // Set up auto-refresh interval for real-time updates from MongoDB Atlas
-      const refreshInterval = setInterval(() => {
-        console.log('🔄 Auto-refreshing dashboard data...');
-        fetchDashboardData();
-      }, 300000); // Refresh every 5 minutes (300 seconds)
-
-      // Refresh when page becomes visible
-      const handleVisibilityChange = () => {
-        if (!document.hidden) {
-          console.log('👁️ Page visible, refreshing dashboard...');
-          fetchDashboardData();
-        }
-      };
-
-      // Refresh when window gains focus
-      const handleFocus = () => {
-        console.log('🎯 Window focused, refreshing dashboard...');
-        fetchDashboardData();
-      };
-
-      // Listen for data update events
-      const handleDataUpdate = () => {
-        console.log('📊 Data update event received, refreshing dashboard...');
-        fetchDashboardData();
-      };
-
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      window.addEventListener('focus', handleFocus);
-      window.addEventListener('dashboard-refresh', handleDataUpdate);
-      window.addEventListener('user-updated', handleDataUpdate);
-      window.addEventListener('user-created', handleDataUpdate);
-
-      return () => {
-        clearInterval(refreshInterval);
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener('focus', handleFocus);
-        window.removeEventListener('dashboard-refresh', handleDataUpdate);
-        window.removeEventListener('user-updated', handleDataUpdate);
-        window.removeEventListener('user-created', handleDataUpdate);
-      };
+      fetchDashboardData(true);
     } else {
       setLoading(false);
     }
@@ -115,51 +72,44 @@ export const AdminDashboard: React.FC = () => {
         setLoading(true);
       }
 
-      // Fetch dashboard data in parallel with pagination (limit to 100 for faster load)
-      const [
-        statsResponse,
-        progressResponse
-      ] = await Promise.allSettled([
+      const [statsResponse, progressResponse] = await Promise.allSettled([
         apiService.reports.getAdminStats(),
-        apiService.reports.getAllUserProgress(1, 100) // Only fetch first 100 records for faster load
+        apiService.reports.getAllUserProgress(1, 100)
       ]);
 
-      // Handle stats data
       if (statsResponse.status === 'fulfilled' && statsResponse.value?.data) {
         setStats(statsResponse.value.data);
       }
 
-      // Handle user progress data
       if (progressResponse.status === 'fulfilled' && progressResponse.value?.data) {
         setUserProgress(progressResponse.value.data);
       }
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
-      // Don't show error toast for auth failures, let the auth system handle it
       if (!error.message?.includes('Authentication failed')) {
         toast.error('Failed to load dashboard data');
       }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'in_progress': return 'bg-blue-100 text-blue-800';
-      case 'not_started': return 'bg-gray-100 text-gray-800';
-      case 'certified': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'completed': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+      case 'in_progress': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+      case 'not_started': return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400';
+      case 'certified': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400';
     }
   };
-
-
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
-        <LoadingSpinner size="lg" />
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -171,111 +121,99 @@ export const AdminDashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-6">
-              <div className="w-16 h-16 bg-blue-500 dark:bg-gradient-to-br dark:from-indigo-600 dark:to-purple-700 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-200">
+              <div className="w-16 h-16 bg-blue-500 dark:bg-gradient-to-br dark:from-indigo-600 dark:to-purple-700 rounded-2xl flex items-center justify-center shadow-lg">
                 <Shield className="w-8 h-8 text-white drop-shadow-lg" />
               </div>
               <div>
                 <h1 className="text-4xl font-bold text-indigo-600 dark:text-indigo-400">
                   Admin Dashboard
                 </h1>
-                <p className="text-gray-600 dark:text-gray-300 mt-2 text-lg">Monitor platform performance and user engagement</p>
+                <p className="text-gray-600 dark:text-gray-300 mt-2 text-lg">
+                  Monitor platform performance and user engagement
+                </p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <Badge
-                variant="outline"
-                className="flex items-center bg-gradient-to-r from-gray-800 to-gray-900 
-              hover:from-gray-900 hover:to-black 
-              text-blue-700 px-6 py-3 
-              rounded-xl shadow-lg hover:shadow-xl 
-              transition-all duration-300 transform hover:scale-105  
-              border border-indigo-200 dark:border-indigo-500"
-              >
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                <BarChart3 className="w-5 h-5 mr-2" />
-                Real-time Data
-              </Badge>
-
-              <Button
-                onClick={() => window.location.reload()}
-                className="flex items-center bg-gradient-to-r from-gray-800 to-gray-900 
-              hover:from-gray-900 hover:to-black 
-              text-blue-700 px-6 py-3 
-              rounded-xl shadow-lg hover:shadow-xl 
-              transition-all duration-300 transform hover:scale-105  
-              border border-indigo-200 dark:border-indigo-500"
-              >
-                <Zap className="w-5 h-5 mr-2" />
-                Refresh Data
-              </Button>
-            </div>
-
+            <Button
+              onClick={() => fetchDashboardData(true)}
+              variant="outline"
+              className="flex items-center border-2 border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-6 py-3 rounded-xl shadow-lg"
+              disabled={loading}
+            >
+              <Zap className={`w-5 h-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Refreshing...' : 'Refresh Data'}
+            </Button>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Key Metrics Overview */}
+        {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+          {/* Total Users Card */}
+          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Total Users</p>
                   <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats?.totalUsers || 0}</p>
                 </div>
-                <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-blue-500 dark:to-blue-600 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-blue-500 dark:to-indigo-600 rounded-xl flex items-center justify-center">
                   <Users className="w-6 h-6 text-white drop-shadow-lg" />
                 </div>
               </div>
               <div className="mt-4">
                 <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                  <TrendingUp className="w-4 h-4 mr-1 text-green-500 dark:text-green-400" />
-                  {stats?.activeUsers || 0} active
+                  <CheckCircle className="w-4 h-4 mr-1 text-green-500 dark:text-green-400" />
+                  {stats?.activeUsers || 0} active users
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+          {/* Users on Warning Card */}
+          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Users on Warning</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats?.warningUsers || 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-red-500 dark:bg-gradient-to-br dark:from-red-500 dark:to-orange-600 rounded-xl flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-white drop-shadow-lg" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                  <Shield className="w-4 h-4 mr-1 text-red-500 dark:text-red-400" />
+                  Requires attention
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Training Modules Card */}
+          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Training Modules</p>
                   <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats?.totalModules || 0}</p>
                 </div>
-                <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-green-500 dark:to-emerald-600 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-green-500 dark:bg-gradient-to-br dark:from-green-500 dark:to-emerald-600 rounded-xl flex items-center justify-center">
                   <BookOpen className="w-6 h-6 text-white drop-shadow-lg" />
                 </div>
               </div>
               <div className="mt-4">
                 <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                  <CheckCircle className="w-4 h-4 mr-1 text-green-500 dark:text-green-400" />
+                  <Zap className="w-4 h-4 mr-1 text-yellow-500 dark:text-yellow-400" />
                   {stats?.completedModules || 0} completed
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Average Progress</p>
-                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats?.averageProgress || 0}%</p>
-                </div>
-                <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-purple-500 dark:to-violet-600 rounded-xl flex items-center justify-center">
-                  <BarChart3 className="w-6 h-6 text-white drop-shadow-lg" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <Progress value={stats?.averageProgress || 0} className="h-2" />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Platform average</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+          {/* Certificates Card */}
+          <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -319,8 +257,8 @@ export const AdminDashboard: React.FC = () => {
                     className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="all">All Modules</option>
-                    {Array.from(new Set(userProgress.map(p => p.moduleId.title))).map((title, index) => (
-                      <option key={index} value={title}>{title}</option>
+                    {Array.from(new Set(userProgress.map((p: UserProgress) => p.moduleId.title))).map((title, index) => (
+                      <option key={index} value={title as string}>{title as string}</option>
                     ))}
                   </select>
                   <Button
@@ -337,19 +275,19 @@ export const AdminDashboard: React.FC = () => {
                 <div className="grid grid-cols-3 gap-4 mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <div className="text-center">
                     <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {userProgress.filter(p => p.status === 'completed' || p.status === 'certified').length}
+                      {userProgress.filter((p: UserProgress) => p.status === 'completed' || p.status === 'certified').length}
                     </p>
                     <p className="text-xs text-gray-600 dark:text-gray-300">Completed</p>
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {userProgress.filter(p => p.status === 'in_progress').length}
+                      {userProgress.filter((p: UserProgress) => p.status === 'in_progress').length}
                     </p>
                     <p className="text-xs text-gray-600 dark:text-gray-300">In Progress</p>
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-gray-600 dark:text-gray-400">
-                      {userProgress.filter(p => p.status === 'not_started').length}
+                      {userProgress.filter((p: UserProgress) => p.status === 'not_started').length}
                     </p>
                     <p className="text-xs text-gray-600 dark:text-gray-300">Not Started</p>
                   </div>
@@ -357,9 +295,9 @@ export const AdminDashboard: React.FC = () => {
 
                 <div className="space-y-3">
                   {userProgress
-                    .filter(progress => selectedModule === 'all' || progress.moduleId.title === selectedModule)
+                    .filter((progress: UserProgress) => selectedModule === 'all' || progress.moduleId.title === selectedModule)
                     .slice(0, 8)
-                    .map((progress) => (
+                    .map((progress: UserProgress) => (
                       <div key={progress._id} className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100/50 dark:hover:bg-gray-600/50 transition-colors">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 bg-blue-500 dark:bg-gradient-to-br dark:from-indigo-500 dark:to-purple-600 rounded-lg flex items-center justify-center">
@@ -558,3 +496,5 @@ export const AdminDashboard: React.FC = () => {
     </div>
   );
 };
+
+export default AdminDashboard;

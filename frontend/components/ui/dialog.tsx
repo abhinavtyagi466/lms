@@ -34,72 +34,71 @@ function DialogClose({
 }
 
 // Overlay (background blur and dim)
-function DialogOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
-  return (
-    <DialogPrimitive.Overlay
-      data-slot="dialog-overlay"
+const DialogOverlay = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Overlay
+    ref={ref}
+    data-slot="dialog-overlay"
+    className={cn(
+      "fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm",
+      "data-[state=open]:animate-in data-[state=closed]:animate-out",
+      "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      className
+    )}
+    {...props}
+  />
+));
+DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
+
+// Main Content (PERFECTLY CENTERED with PROPER SPACING)
+const DialogContent = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+  <DialogPortal>
+    <DialogOverlay />
+    <DialogPrimitive.Content
+      ref={ref}
+      data-slot="dialog-content"
       className={cn(
-        "fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm",
+        // --- PERFECT POSITIONING with PROPER SPACING ---
+        "fixed z-[100]",
+
+        // Top: 80px from top (below browser nav) + centered vertically in remaining space
+        "top-[80px] h-[calc(100vh-160px)]", // 80px top + 80px bottom = 160px total margin
+
+        // Left: Start after sidebar (288px) + equal margins on both sides
+        "left-[calc(288px+2rem)] right-[2rem]", // 2rem = 32px margin on both sides
+
+        // --- Animation ---
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
-        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
+        "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
+
+        // --- Layout & look ---
+        "w-auto max-w-none rounded-xl border bg-background shadow-2xl",
+        "duration-300 ease-out",
+
+        // --- Content Management ---
+        "overflow-hidden flex flex-col",
+
         className
       )}
       {...props}
-    />
-  );
-}
-
-// Main Content (PERFECTLY CENTERED with PROPER SPACING)
-function DialogContent({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>) {
-  return (
-    <DialogPortal>
-      <DialogOverlay />
-      <DialogPrimitive.Content
-        data-slot="dialog-content"
-        className={cn(
-          // --- PERFECT POSITIONING with PROPER SPACING ---
-          "fixed z-[100]",
-          
-          // Top: 80px from top (below browser nav) + centered vertically in remaining space
-          "top-[80px] h-[calc(100vh-160px)]", // 80px top + 80px bottom = 160px total margin
-          
-          // Left: Start after sidebar (288px) + equal margins on both sides
-          "left-[calc(288px+2rem)] right-[2rem]", // 2rem = 32px margin on both sides
-          
-          // --- Animation ---
-          "data-[state=open]:animate-in data-[state=closed]:animate-out",
-          "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
-          "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
-
-          // --- Layout & look ---
-          "w-auto max-w-none rounded-xl border bg-background shadow-2xl",
-          "duration-300 ease-out",
-
-          // --- Content Management ---
-          "overflow-hidden flex flex-col",
-
-          className
-        )}
-        {...props}
+    >
+      {children}
+      <DialogPrimitive.Close
+        className="absolute right-4 top-4 rounded-md opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
       >
-        {children}
-        <DialogPrimitive.Close
-          className="absolute right-4 top-4 rounded-md opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
-        >
-          <XIcon className="h-4 w-4" />
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
-      </DialogPrimitive.Content>
-    </DialogPortal>
-  );
-}
+        <XIcon className="h-4 w-4" />
+        <span className="sr-only">Close</span>
+      </DialogPrimitive.Close>
+    </DialogPrimitive.Content>
+  </DialogPortal>
+));
+DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 // Header
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Search,
   Download,
   Award,
   CheckCircle,
@@ -48,7 +47,7 @@ export const ScoreReportsPage: React.FC = () => {
       const response = await apiService.users.getAllUsers({ limit: 1000 });
       if (response && typeof response === 'object' && 'success' in response && response.success) {
         const allUsers = (response as any).users || (response as any).data || [];
-        const filteredUsers = allUsers.filter((u: any) => u.userType === 'user');
+        const filteredUsers = allUsers.filter((u: any) => u.userType === 'user' && (u.status === 'active' || u.status === 'Active'));
         setUsers(filteredUsers);
       }
     } catch (error) {
@@ -68,16 +67,20 @@ export const ScoreReportsPage: React.FC = () => {
         const userScoresData = response.data || [];
 
         // Transform the data to match our component's expected format
-        const transformedData = userScoresData.map((score: any) => ({
-          userId: score.userId,
-          userName: score.userName,
-          userEmail: score.userEmail,
-          employeeId: score.employeeId,
-          totalModules: score.totalModules || 0,
-          completedModules: score.completedModules || 0,
-          averageScore: Math.round(score.averageScore || 0),
-          lastActivity: score.lastActivity
-        }));
+        // Filter only active users
+        const transformedData = userScoresData
+          .filter((score: any) => score.userStatus === 'active' || !score.userStatus)
+          .map((score: any) => ({
+            userId: score.userId,
+            userName: score.userName,
+            userEmail: score.userEmail,
+            employeeId: score.employeeId,
+            totalModules: score.totalModules || 0,
+            completedModules: score.completedModules || 0,
+            averageScore: Math.round(score.averageScore || 0),
+            lastActivity: score.lastActivity,
+            userStatus: score.userStatus || 'active'
+          }));
 
         setUserScores(transformedData);
       } else {
@@ -120,52 +123,6 @@ export const ScoreReportsPage: React.FC = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast.success('CSV report exported successfully!');
-    } catch (error) {
-      console.error('Error exporting report:', error);
-      toast.error('Failed to export report');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleExportPDF = async () => {
-    try {
-      setIsExporting(true);
-
-      // Use local filtered data for export
-      const dataToExport = filteredAndSortedScores;
-
-      // Generate PDF content (simplified - in real implementation, use a PDF library)
-      const pdfContent = `
-        User Score Report
-        Generated on: ${new Date().toLocaleDateString()}
-        
-        Total Users: ${dataToExport.length}
-        Average Score: ${dataToExport.length > 0 ? Math.round(dataToExport.reduce((sum, score) => sum + (score.averageScore || 0), 0) / dataToExport.length) : 0}%
-        
-        User Details:
-        ${dataToExport.map(score => `
-          Name: ${score.userName || 'Unknown'}
-          Email: ${score.userEmail || ''}
-          Employee ID: ${score.employeeId || ''}
-          Total Modules: ${score.totalModules}
-          Completed Modules: ${score.completedModules}
-          Average Score: ${score.averageScore}%
-          Last Activity: ${score.lastActivity ? new Date(score.lastActivity).toLocaleDateString() : 'Never'}
-          ---
-        `).join('')}
-      `;
-
-      const blob = new Blob([pdfContent], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `user-scores-report-${new Date().toISOString().split('T')[0]}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success('Report exported successfully!');
     } catch (error) {
       console.error('Error exporting report:', error);
       toast.error('Failed to export report');
@@ -259,8 +216,8 @@ export const ScoreReportsPage: React.FC = () => {
           <Card className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Users</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{users.length}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Active Users</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{userScores.length}</p>
               </div>
               <Users className="h-8 w-8 text-blue-600" />
             </div>
@@ -269,9 +226,9 @@ export const ScoreReportsPage: React.FC = () => {
           <Card className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Users</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Users with Activity</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {userScores.filter(s => s.totalModules > 0).length}
+                  {userScores.filter(s => s.totalModules > 0 || s.completedModules > 0).length}
                 </p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-600" />
@@ -310,16 +267,12 @@ export const ScoreReportsPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <Label htmlFor="search">Search</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                <Input
-                  id="search"
-                  placeholder="Name, Email, Employee ID..."
-                  className="pl-9"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
+              <Input
+                id="search"
+                placeholder="Name, Email, Employee ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
 
             <div>

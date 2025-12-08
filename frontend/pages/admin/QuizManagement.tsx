@@ -9,7 +9,11 @@ import {
   CheckCircle,
   Upload,
   FileText,
-  Edit
+  Edit,
+  Power,
+  ToggleLeft,
+  ToggleRight,
+  XCircle
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -39,6 +43,7 @@ interface Quiz {
   questions: Question[];
   passPercent: number;
   createdAt: string;
+  isActive: boolean;
 }
 
 interface Module {
@@ -172,6 +177,28 @@ export const QuizManagement: React.FC = () => {
     } catch (error) {
       console.error('Error deleting quiz:', error);
       toast.error('Failed to delete quiz');
+    }
+  };
+
+  // Toggle quiz active/inactive status
+  const handleToggleQuizStatus = async (moduleId: string, currentStatus: boolean) => {
+    const action = currentStatus ? 'deactivate' : 'reactivate';
+    if (!confirm(`Are you sure you want to ${action} this quiz?`)) {
+      return;
+    }
+
+    try {
+      const response = await apiService.quizzes.updateQuiz(moduleId, {
+        isActive: !currentStatus
+      });
+
+      if (response && (response.success || response.data?.success)) {
+        toast.success(`Quiz ${currentStatus ? 'deactivated' : 'reactivated'} successfully`);
+        fetchQuizzes();
+      }
+    } catch (error) {
+      console.error('Error toggling quiz status:', error);
+      toast.error(`Failed to ${action} quiz`);
     }
   };
 
@@ -389,7 +416,7 @@ mcq,What is the capital of France?,Paris,London,Berlin,Madrid,0`;
         </Card>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -402,25 +429,34 @@ mcq,What is the capital of France?,Paris,London,Berlin,Madrid,0`;
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Questions</p>
+                <p className="text-sm text-gray-600">Active Quizzes</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {quizzes.reduce((total, quiz) => total + quiz.questions.length, 0)}
+                  {quizzes.filter(q => q.isActive !== false).length}
                 </p>
               </div>
-              <FileText className="w-8 h-8 text-green-600" />
+              <ToggleRight className="w-8 h-8 text-green-600" />
             </div>
           </Card>
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Avg Pass %</p>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {quizzes.length > 0
-                    ? Math.round(quizzes.reduce((total, quiz) => total + quiz.passPercent, 0) / quizzes.length)
-                    : 0}%
+                <p className="text-sm text-gray-600">Inactive Quizzes</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {quizzes.filter(q => q.isActive === false).length}
                 </p>
               </div>
-              <CheckCircle className="w-8 h-8 text-yellow-600" />
+              <ToggleLeft className="w-8 h-8 text-red-600" />
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Questions</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {quizzes.reduce((total, quiz) => total + quiz.questions.length, 0)}
+                </p>
+              </div>
+              <FileText className="w-8 h-8 text-purple-600" />
             </div>
           </Card>
         </div>
@@ -453,15 +489,29 @@ mcq,What is the capital of France?,Paris,London,Berlin,Madrid,0`;
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredQuizzes.map((quiz) => (
-              <Card key={quiz._id} className="overflow-hidden">
+              <Card key={quiz._id} className={`overflow-hidden transition-opacity duration-200 ${!quiz.isActive ? 'opacity-60 border-red-200 dark:border-red-800' : ''}`}>
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-semibold text-lg">
                       {quiz.moduleId?.title || 'Unknown Module'}
                     </h3>
-                    <Badge variant="outline" className="text-xs">
-                      {quiz.questions.length} questions
-                    </Badge>
+                    <div className="flex gap-2">
+                      {/* Status Badge */}
+                      {quiz.isActive !== false ? (
+                        <Badge className="bg-green-100 text-green-700 border-green-300 text-xs">
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-red-100 text-red-700 border-red-300 text-xs">
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Inactive
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className="text-xs">
+                        {quiz.questions.length} questions
+                      </Badge>
+                    </div>
                   </div>
 
                   <div className="space-y-2 mb-4">
@@ -479,7 +529,7 @@ mcq,What is the capital of France?,Paris,London,Berlin,Madrid,0`;
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Button
                       size="sm"
                       variant="outline"
@@ -490,9 +540,36 @@ mcq,What is the capital of France?,Paris,London,Berlin,Madrid,0`;
                     >
                       <Eye className="w-4 h-4" />
                     </Button>
+
+                    {/* Deactivate/Reactivate Toggle Button */}
+                    {quiz.isActive !== false ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-300"
+                        onClick={() => handleToggleQuizStatus(quiz.moduleId?._id || quiz._id, true)}
+                        title="Deactivate Quiz"
+                      >
+                        <ToggleRight className="w-4 h-4 mr-1" />
+                        Deactivate
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-green-600 hover:text-green-700 hover:bg-green-50 border-green-300"
+                        onClick={() => handleToggleQuizStatus(quiz.moduleId?._id || quiz._id, false)}
+                        title="Reactivate Quiz"
+                      >
+                        <ToggleLeft className="w-4 h-4 mr-1" />
+                        Reactivate
+                      </Button>
+                    )}
+
                     <Button
                       size="sm"
                       variant="outline"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       onClick={() => handleDeleteQuiz(quiz.moduleId?._id || quiz._id)}
                     >
                       <Trash2 className="w-4 h-4" />

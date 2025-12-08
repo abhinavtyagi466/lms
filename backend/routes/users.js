@@ -357,6 +357,32 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
       });
     }
 
+    // Check for duplicate Aadhaar number
+    if (aadhaarNo && aadhaarNo.trim()) {
+      const existingAadhaar = await User.findOne({ aadhaarNo: aadhaarNo.trim() });
+      if (existingAadhaar) {
+        console.log('Duplicate Aadhaar number:', aadhaarNo);
+        return res.status(409).json({
+          error: 'Duplicate Aadhaar',
+          message: 'This Aadhaar number is already registered with another user',
+          field: 'aadhaarNo'
+        });
+      }
+    }
+
+    // Check for duplicate PAN number
+    if (panNo && panNo.trim()) {
+      const existingPan = await User.findOne({ panNo: panNo.trim().toUpperCase() });
+      if (existingPan) {
+        console.log('Duplicate PAN number:', panNo);
+        return res.status(409).json({
+          error: 'Duplicate PAN',
+          message: 'This PAN number is already registered with another user',
+          field: 'panNo'
+        });
+      }
+    }
+
     console.log('Creating new user...');
 
     // Custom validation: Reporting manager required for users only
@@ -860,6 +886,22 @@ router.post('/:id/certificate', authenticateToken, requireAdminPanel, validateOb
       });
     }
 
+    // Check if user is active - certificates can only be sent to active users
+    if (!user.isActive) {
+      // Clean up uploaded file
+      if (req.file) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (unlinkError) {
+          console.error('Error cleaning up file:', unlinkError);
+        }
+      }
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Certificates can only be sent to active users'
+      });
+    }
+
     const certificateTitle = title || certificateType || 'Performance Excellence Certificate';
     const certificateMessage = message || `Congratulations! You have been awarded a ${certificateTitle} certificate.`;
 
@@ -1234,9 +1276,33 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
         updateData.region = region.trim();
       }
       if (aadhaarNo !== undefined && aadhaarNo !== null && aadhaarNo !== '') {
+        // Check for duplicate Aadhaar (excluding current user)
+        const existingAadhaar = await User.findOne({
+          aadhaarNo: aadhaarNo.trim(),
+          _id: { $ne: userId }
+        });
+        if (existingAadhaar) {
+          return res.status(409).json({
+            error: 'Duplicate Aadhaar',
+            message: 'This Aadhaar number is already registered with another user',
+            field: 'aadhaarNo'
+          });
+        }
         updateData.aadhaarNo = aadhaarNo.trim();
       }
       if (panNo !== undefined && panNo !== null && panNo !== '') {
+        // Check for duplicate PAN (excluding current user)
+        const existingPan = await User.findOne({
+          panNo: panNo.trim().toUpperCase(),
+          _id: { $ne: userId }
+        });
+        if (existingPan) {
+          return res.status(409).json({
+            error: 'Duplicate PAN',
+            message: 'This PAN number is already registered with another user',
+            field: 'panNo'
+          });
+        }
         updateData.panNo = panNo.trim().toUpperCase();
       }
 
@@ -2037,7 +2103,8 @@ router.put('/:id/deactivate', authenticateToken, requireUserManagementAccess, va
       const cacheKeys = [
         '__express__/api/users?filter=all',
         '__express__/api/reports/admin/stats',
-        '__express__/api/reports/admin/user-progress'
+        '__express__/api/reports/admin/user-progress',
+        '__express__/api/users/exit-records?page=1&limit=20'
       ];
       cacheKeys.forEach(key => {
         global.appCache.del(key);
@@ -2088,7 +2155,7 @@ router.put('/:id/deactivate', authenticateToken, requireUserManagementAccess, va
           },
           {
             recipientEmail: user.email,
-            recipientRole: user.userType || 'fe',
+            recipientRole: (user.userType === 'user' ? 'fe' : user.userType) || 'fe',
             templateType: 'notification',
             userId: user._id
           }
@@ -2488,7 +2555,8 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
       const cacheKeys = [
         '__express__/api/users?filter=all',
         '__express__/api/reports/admin/stats',
-        '__express__/api/reports/admin/user-progress'
+        '__express__/api/reports/admin/user-progress',
+        '__express__/api/users/exit-records?page=1&limit=20'
       ];
       cacheKeys.forEach(key => {
         global.appCache.del(key);
@@ -2561,7 +2629,7 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
               },
               {
                 recipientEmail: user.email,
-                recipientRole: user.userType || 'fe',
+                recipientRole: (user.userType === 'user' ? 'fe' : user.userType) || 'fe',
                 templateType: 'notification',
                 userId: user._id
               }

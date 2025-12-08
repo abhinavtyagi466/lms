@@ -117,6 +117,7 @@ router.post('/login', validateLogin, async (req, res) => {
 
     // Save user with sessionId and lastLogin
     await user.save({ validateModifiedOnly: true });
+    console.log(`✅ User saved with sessionId: ${user.sessionId}`);
 
     // Create new UserSession record
     try {

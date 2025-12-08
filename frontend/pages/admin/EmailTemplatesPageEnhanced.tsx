@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Plus, Trash2, Eye, Send, BarChart3, Edit, Copy, Settings, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { Mail, Trash2, Eye, Send, BarChart3, Edit, Copy, AlertCircle, CheckCircle2, Clock, Maximize2, Minimize2 } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Label } from '../../components/ui/label';
 import { Input } from '../../components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { 
+
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -15,7 +15,7 @@ import {
   DialogFooter,
 } from '../../components/ui/dialog';
 import { apiService } from '../../services/apiService';
-import { useToast } from '../../components/ui/use-toast';
+
 import { toast as sonnerToast } from 'sonner';
 
 interface EmailTemplate {
@@ -37,16 +37,21 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [previewContent, setPreviewContent] = useState<{ subject: string; content: string } | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
-  const { toast } = useToast();
+
 
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isEditFullscreen, setIsEditFullscreen] = useState(false);
 
   // Filter State
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Test Email State
+  const [testEmail, setTestEmail] = useState('');
+  const [isSendingTest, setIsSendingTest] = useState(false);
 
   useEffect(() => {
     fetchTemplates();
@@ -68,13 +73,40 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
 
   const handlePreview = async (template: EmailTemplate) => {
     try {
-      // Call the preview API with sample data
-      const sampleData = getSampleData();
+      // Sample data for preview
+      const sampleData = {
+        userName: 'John Doe',
+        employeeId: 'EMP001',
+        email: 'john.doe@company.com',
+        kpiScore: '85.50',
+        rating: 'Excellent',
+        period: 'Oct-2025',
+        tatPercentage: '92.50',
+        majorNegPercentage: '2.30',
+        qualityPercentage: '0.45',
+        neighborCheckPercentage: '88.00',
+        generalNegPercentage: '18.00',
+        onlinePercentage: '85.00',
+        insuffPercentage: '1.20',
+        trainingType: 'Basic Training Module',
+        trainingReason: 'Performance improvement required',
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        trainingDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        priority: 'High',
+        auditType: 'Audit Call + Cross-check',
+        auditScope: 'Last 3 months performance review',
+        scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        preAuditDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        auditDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        performanceConcerns: 'Low TAT, Quality issues, Insufficiency rate above target',
+        improvementAreas: 'TAT Management, Quality Control, Documentation'
+      };
       const response: any = await apiService.emailTemplates.preview(template._id, sampleData);
-      
+
       const previewData = response?.data || response;
       setPreviewContent(previewData);
       setSelectedTemplate(template);
+      setTestEmail(''); // Reset email input
       setIsPreviewModalOpen(true);
     } catch (error) {
       console.error('Error previewing template:', error);
@@ -82,18 +114,50 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
     }
   };
 
-  const handleDelete = async (templateId: string) => {
-    if (!confirm('Are you sure you want to delete this template?')) {
+  const handleSendTestEmail = async () => {
+    if (!selectedTemplate) return;
+
+    if (!testEmail) {
+      sonnerToast.error('Please enter a test email address');
+      return;
+    }
+
+    if (!testEmail.includes('@')) {
+      sonnerToast.error('Please enter a valid email address');
       return;
     }
 
     try {
-      await apiService.emailTemplates.delete(templateId);
-      setTemplates(prev => prev.filter(t => t._id !== templateId));
+      setIsSendingTest(true);
+      await apiService.emailTemplates.sendTest(selectedTemplate._id, testEmail);
+      sonnerToast.success(`Test email sent to ${testEmail}`);
+      setTestEmail(''); // Clear input after success
+    } catch (error: any) {
+      console.error('Error sending test email:', error);
+      sonnerToast.error(error.response?.data?.message || 'Failed to send test email');
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
+
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ isOpen: boolean; templateId: string | null }>({ isOpen: false, templateId: null });
+
+  const handleDelete = (templateId: string) => {
+    setDeleteConfirmation({ isOpen: true, templateId });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmation.templateId) return;
+
+    try {
+      await apiService.emailTemplates.delete(deleteConfirmation.templateId);
+      setTemplates(prev => prev.filter(t => t._id !== deleteConfirmation.templateId));
       sonnerToast.success('Template deleted successfully');
     } catch (error) {
       console.error('Error deleting template:', error);
       sonnerToast.error('Failed to delete template');
+    } finally {
+      setDeleteConfirmation({ isOpen: false, templateId: null });
     }
   };
 
@@ -108,9 +172,9 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
     try {
       setIsUpdating(true);
       const response = await apiService.emailTemplates.update(editingTemplate._id, editingTemplate);
-      
+
       if (response && (response as any).success) {
-        setTemplates(prev => prev.map(t => 
+        setTemplates(prev => prev.map(t =>
           t._id === editingTemplate._id ? editingTemplate : t
         ));
         setIsEditModalOpen(false);
@@ -133,9 +197,9 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
         name: `${template.name} (Copy)`,
         _id: undefined
       };
-      
+
       const response = await apiService.emailTemplates.create(duplicateTemplate);
-      
+
       if (response && (response as any).success) {
         await fetchTemplates();
         sonnerToast.success('Template duplicated successfully');
@@ -158,46 +222,11 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
     return colors[category] || colors.general;
   };
 
-  // Sample data for preview
-  const getSampleData = () => ({
-    userName: 'John Doe',
-    employeeId: 'EMP001',
-    email: 'john.doe@company.com',
-    kpiScore: '85.50',
-    rating: 'Excellent',
-    period: 'Oct-2025',
-    tatPercentage: '92.50',
-    majorNegPercentage: '2.30',
-    qualityPercentage: '0.45',
-    neighborCheckPercentage: '88.00',
-    generalNegPercentage: '18.00',
-    onlinePercentage: '85.00',
-    insuffPercentage: '1.20',
-    trainingType: 'Basic Training Module',
-    trainingReason: 'Performance improvement required',
-    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-    trainingDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-    priority: 'High',
-    auditType: 'Audit Call + Cross-check',
-    auditScope: 'Last 3 months performance review',
-    scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-    preAuditDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-    auditDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-    performanceConcerns: 'Low TAT, Quality issues, Insufficiency rate above target',
-    improvementAreas: 'TAT Management, Quality Control, Documentation'
-  });
-
-  // Function to get sample value for a variable
-  const getSampleValue = (variable: string) => {
-    const sampleData = getSampleData();
-    return sampleData[variable as keyof typeof sampleData] || `Sample ${variable}`;
-  };
-
   // Filter templates
   const filteredTemplates = templates.filter(template => {
     const matchesFilter = activeFilter === 'all' || template.category === activeFilter;
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         template.subject.toLowerCase().includes(searchTerm.toLowerCase());
+      template.subject.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
@@ -219,7 +248,7 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg">
+                <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
                   <Mail className="w-9 h-9 text-white" />
                 </div>
                 <div>
@@ -231,22 +260,14 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <div className="flex gap-3">
-                <Button 
-                  variant="outline"
-                  className="bg-white dark:bg-gray-800 border-2"
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  SMTP Settings
-                </Button>
-              </div>
+
             </div>
           </div>
         </div>
 
         {/* Enhanced Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+          <div className="rounded-xl relative overflow-hidden bg-blue-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
             <div className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -259,9 +280,9 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
               </div>
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/30"></div>
-          </Card>
+          </div>
 
-          <Card className="relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+          <div className="rounded-xl relative overflow-hidden bg-green-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
             <div className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -274,9 +295,9 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
               </div>
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/30"></div>
-          </Card>
+          </div>
 
-          <Card className="relative overflow-hidden bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+          <div className="rounded-xl relative overflow-hidden bg-purple-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
             <div className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -291,9 +312,9 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
               </div>
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/30"></div>
-          </Card>
+          </div>
 
-          <Card className="relative overflow-hidden bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+          <div className="rounded-xl relative overflow-hidden bg-orange-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
             <div className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -308,7 +329,7 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
               </div>
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/30"></div>
-          </Card>
+          </div>
         </div>
 
         {/* Filters & Search */}
@@ -362,11 +383,11 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
                   {categoryTemplates.length} template{categoryTemplates.length !== 1 ? 's' : ''}
                 </span>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {categoryTemplates.map((template) => (
-                  <Card 
-                    key={template._id} 
+                  <Card
+                    key={template._id}
                     className="group relative overflow-hidden bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all duration-300 hover:shadow-2xl hover:scale-105"
                   >
                     {/* Status Badge */}
@@ -387,7 +408,7 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
                     <div className="p-6">
                       {/* Template Header */}
                       <div className="flex items-start gap-4 mb-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                        <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
                           <Mail className="w-6 h-6 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -403,17 +424,17 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
                       {/* Variables */}
                       <div className="flex flex-wrap gap-2 mb-4 min-h-[32px]">
                         {template.variables.slice(0, 3).map((variable) => (
-                          <Badge 
-                            key={variable} 
-                            variant="outline" 
+                          <Badge
+                            key={variable}
+                            variant="outline"
                             className="text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800"
                           >
                             {`{{${variable}}}`}
                           </Badge>
                         ))}
                         {template.variables.length > 3 && (
-                          <Badge 
-                            variant="outline" 
+                          <Badge
+                            variant="outline"
                             className="text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800"
                           >
                             +{template.variables.length - 3}
@@ -487,127 +508,158 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
 
         {/* Preview Modal */}
         <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
-          <DialogContent className="p-0">
-            <DialogHeader className="px-8 pt-8 pb-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
-              <div className="flex items-start justify-between">
+          <DialogContent className="p-0 max-h-[90vh]">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-900">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                  <Mail className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
                 <div className="flex-1">
-                  <DialogTitle className="text-3xl font-bold flex items-center gap-4 text-gray-900 dark:text-white">
-                    <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
-                      <Mail className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                    </div>
+                  <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
                     {selectedTemplate?.name}
                   </DialogTitle>
-                  <DialogDescription className="mt-2 flex items-center gap-2">
+                  <DialogDescription className="mt-1 flex items-center gap-2">
                     <Badge className={getCategoryColor(selectedTemplate?.category || '')}>
                       {selectedTemplate?.category}
                     </Badge>
-                    <span>•</span>
-                    <span>Email Preview</span>
+                    <span className="text-gray-400">•</span>
+                    <span className="text-gray-600 dark:text-gray-400">Email Preview</span>
                   </DialogDescription>
                 </div>
               </div>
             </DialogHeader>
 
-            <div className="overflow-y-auto flex-1 py-6 px-2">
+            <div className="overflow-y-auto flex-1 p-6 bg-gray-50 dark:bg-gray-800/50">
               {previewContent && (
-                <div className="max-w-4xl mx-auto space-y-6">
+                <div className="max-w-3xl mx-auto space-y-4">
                   {/* Subject */}
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-5 rounded-xl border-2 border-blue-200 dark:border-blue-800">
-                    <Label className="text-sm font-bold text-blue-900 dark:text-blue-100 mb-2 block">
+                  <div className="bg-white dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <Label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1 block">
                       Subject Line
                     </Label>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                    <p className="text-base font-medium text-gray-900 dark:text-white">
                       {previewContent.subject}
                     </p>
                   </div>
 
                   {/* Email Content */}
-                  <div className="bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-2xl">
-                    <div className="p-8">
-                      <div 
-                        className="prose prose-lg max-w-none dark:prose-invert
-                                  prose-headings:text-gray-900 dark:prose-headings:text-white prose-headings:font-bold prose-headings:mb-4
-                                  prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:text-base prose-p:leading-relaxed prose-p:mb-4
-                                  prose-strong:text-gray-900 dark:prose-strong:text-white prose-strong:font-bold
-                                  prose-ul:text-gray-700 dark:prose-ul:text-gray-300 prose-li:my-2 prose-li:leading-relaxed
-                                  prose-ol:text-gray-700 dark:prose-ol:text-gray-300 prose-li:my-2 prose-li:leading-relaxed
+                  <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm">
+                    <div className="p-6">
+                      <div
+                        className="prose prose-sm max-w-none dark:prose-invert
+                                  prose-headings:text-gray-900 dark:prose-headings:text-white prose-headings:font-bold prose-headings:mb-3
+                                  prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:text-sm prose-p:leading-relaxed prose-p:mb-3
+                                  prose-strong:text-gray-900 dark:prose-strong:text-white prose-strong:font-semibold
+                                  prose-ul:text-gray-700 dark:prose-ul:text-gray-300 prose-li:my-1 prose-li:leading-relaxed
+                                  prose-ol:text-gray-700 dark:prose-ol:text-gray-300
                                   prose-table:text-gray-700 dark:prose-table:text-gray-300 prose-th:bg-gray-100 dark:prose-th:bg-gray-800
                                   prose-td:border-gray-200 dark:prose-td:border-gray-700 prose-a:text-blue-600 dark:prose-a:text-blue-400"
                         style={{
                           fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                          lineHeight: '1.7',
-                          fontSize: '16px'
+                          lineHeight: '1.6',
+                          fontSize: '14px'
                         }}
                         dangerouslySetInnerHTML={{ __html: previewContent.content }}
                       />
                     </div>
                   </div>
-                </div>
 
-                {/* Template Variables with Sample Values */}
-                {selectedTemplate && selectedTemplate.variables.length > 0 && (
-                  <div className="bg-purple-50 dark:bg-purple-900/20 p-6 rounded-xl border-2 border-purple-200 dark:border-purple-800">
-                    <Label className="text-lg font-bold text-purple-900 dark:text-purple-100 mb-4 block">
-                      Template Variables ({selectedTemplate.variables.length})
-                    </Label>
-                    <div className="space-y-3">
-                      {selectedTemplate.variables.map((variable) => (
-                        <div key={variable} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-700">
-                          <div className="flex items-center gap-3">
-                            <Badge 
-                              variant="outline" 
-                              className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-600 font-mono text-xs"
-                            >
-                              {`{{${variable}}}`}
-                            </Badge>
-                            <span className="text-sm text-gray-600 dark:text-gray-400">→</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                              {getSampleValue(variable)}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                  {/* Template Variables */}
+                  {selectedTemplate && selectedTemplate.variables.length > 0 && (
+                    <div className="bg-white dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                      <Label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3 block">
+                        Template Variables ({selectedTemplate.variables.length})
+                      </Label>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedTemplate.variables.map((variable) => (
+                          <Badge
+                            key={variable}
+                            variant="outline"
+                            className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700 font-mono text-xs"
+                          >
+                            {`{{${variable}}}`}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                      <p className="text-xs text-blue-700 dark:text-blue-300">
-                        <strong>Note:</strong> These are sample values used for preview. Actual emails will use real data from the system.
-                      </p>
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               )}
             </div>
 
-            <DialogFooter className="border-t pt-4">
-              <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)}>
-                Close
-              </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                <Send className="w-4 h-4 mr-2" />
-                Send Test Email
-              </Button>
+            <DialogFooter className="border-t border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-900 flex-shrink-0">
+              <div className="flex flex-col sm:flex-row gap-3 w-full">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Enter test email address..."
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)}>
+                    Close
+                  </Button>
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={handleSendTestEmail}
+                    disabled={isSendingTest}
+                  >
+                    {isSendingTest ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Send Test Email
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         {/* Edit Modal */}
-        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-          <DialogContent className="p-0">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold">Edit Email Template</DialogTitle>
-              <DialogDescription>
-                Customize the email template content and settings
-              </DialogDescription>
+        <Dialog open={isEditModalOpen} onOpenChange={(open) => { setIsEditModalOpen(open); if (!open) setIsEditFullscreen(false); }}>
+          <DialogContent className={`p-0 transition-all duration-300 ${isEditFullscreen ? 'fixed inset-4 max-w-none max-h-none w-auto h-auto' : 'max-h-[90vh]'}`}>
+            <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-900">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
+                  <Edit className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div className="flex-1">
+                  <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">Edit Email Template</DialogTitle>
+                  <DialogDescription className="mt-1 text-gray-600 dark:text-gray-400">
+                    Customize the email template content and settings
+                  </DialogDescription>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditFullscreen(!isEditFullscreen)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                  title={isEditFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                >
+                  {isEditFullscreen ? (
+                    <Minimize2 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  ) : (
+                    <Maximize2 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  )}
+                </Button>
+              </div>
             </DialogHeader>
-            
+
             {editingTemplate && (
-              <div className="space-y-6">
+              <div className={`overflow-y-auto flex-1 p-6 bg-gray-50 dark:bg-gray-800/50 space-y-5 ${isEditFullscreen ? 'grid grid-cols-1 lg:grid-cols-2 gap-6' : ''}`}>
                 {/* Basic Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="editName" className="text-sm font-semibold mb-2 block">
+                  <div className="bg-white dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <Label htmlFor="editName" className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 block">
                       Template Name
                     </Label>
                     <Input
@@ -617,15 +669,15 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
                       className="w-full"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="editCategory" className="text-sm font-semibold mb-2 block">
+                  <div className="bg-white dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <Label htmlFor="editCategory" className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 block">
                       Category
                     </Label>
                     <select
                       id="editCategory"
                       value={editingTemplate.category}
                       onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, category: e.target.value } : null)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
                     >
                       <option value="kpi">KPI</option>
                       <option value="training">Training</option>
@@ -638,7 +690,7 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
                 </div>
 
                 {/* Active Toggle */}
-                <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                <div className="flex items-center gap-3 p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
                   <input
                     id="editActive"
                     type="checkbox"
@@ -646,14 +698,14 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
                     onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, isActive: e.target.checked } : null)}
                     className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <Label htmlFor="editActive" className="text-sm font-semibold cursor-pointer">
+                  <Label htmlFor="editActive" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
                     Template is active and can be used
                   </Label>
                 </div>
 
                 {/* Subject */}
-                <div>
-                  <Label htmlFor="editSubject" className="text-sm font-semibold mb-2 block">
+                <div className="bg-white dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <Label htmlFor="editSubject" className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 block">
                     Email Subject
                   </Label>
                   <Input
@@ -666,47 +718,47 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
                 </div>
 
                 {/* Variables */}
-                <div>
-                  <Label htmlFor="editVariables" className="text-sm font-semibold mb-2 block">
+                <div className="bg-white dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <Label htmlFor="editVariables" className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 block">
                     Template Variables (comma-separated)
                   </Label>
                   <Input
                     id="editVariables"
                     value={editingTemplate.variables.join(', ')}
-                    onChange={(e) => setEditingTemplate(prev => prev ? { 
-                      ...prev, 
-                      variables: e.target.value.split(',').map(v => v.trim()).filter(v => v) 
+                    onChange={(e) => setEditingTemplate(prev => prev ? {
+                      ...prev,
+                      variables: e.target.value.split(',').map(v => v.trim()).filter(v => v)
                     } : null)}
                     className="w-full"
                     placeholder="userName, employeeId, kpiScore..."
                   />
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     Use these variables in content with double braces: {`{{userName}}`}
                   </p>
                 </div>
 
                 {/* Content */}
-                <div>
-                  <Label htmlFor="editContent" className="text-sm font-semibold mb-2 block">
+                <div className={`bg-white dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700 ${isEditFullscreen ? 'lg:col-span-1 flex flex-col' : ''}`}>
+                  <Label htmlFor="editContent" className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 block">
                     Email Content (HTML Supported)
                   </Label>
                   <textarea
                     id="editContent"
                     value={editingTemplate.content}
                     onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, content: e.target.value } : null)}
-                    rows={12}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                    rows={isEditFullscreen ? 20 : 10}
+                    className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm text-gray-900 dark:text-white ${isEditFullscreen ? 'flex-1 min-h-[300px]' : ''}`}
                     placeholder="Enter HTML content..."
                   />
                 </div>
 
                 {/* Live Preview */}
-                <div>
-                  <Label className="text-sm font-semibold mb-2 block">
+                <div className={`bg-white dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-700 ${isEditFullscreen ? 'lg:col-span-1 flex flex-col' : ''}`}>
+                  <Label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 block">
                     Live Preview
                   </Label>
-                  <div className="border-2 border-gray-300 dark:border-gray-600 rounded-lg p-6 bg-gray-50 dark:bg-gray-900 max-h-80 overflow-y-auto">
-                    <div 
+                  <div className={`border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800 overflow-y-auto ${isEditFullscreen ? 'flex-1 min-h-[300px]' : 'max-h-60'}`}>
+                    <div
                       dangerouslySetInnerHTML={{ __html: editingTemplate.content }}
                       className="prose prose-sm max-w-none dark:prose-invert"
                     />
@@ -715,26 +767,59 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
               </div>
             )}
 
-            <DialogFooter className="border-t pt-4 mt-6">
-              <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+            <DialogFooter className="border-t border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-900 flex-shrink-0">
+              <div className="flex gap-2 w-full justify-end">
+                <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleUpdateTemplate}
+                  disabled={isUpdating}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isUpdating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Update Template
+                    </>
+                  )}
+                </Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteConfirmation.isOpen} onOpenChange={(open) => !open && setDeleteConfirmation({ isOpen: false, templateId: null })}>
+          <DialogContent className="sm:max-w-[400px] flex flex-col items-center justify-center text-center p-6">
+            <DialogHeader className="items-center justify-center w-full">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white mb-2">Delete Template</DialogTitle>
+              <DialogDescription className="text-center text-gray-500 dark:text-gray-400 max-w-[280px] mx-auto">
+                Are you sure you want to delete this template? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex flex-col sm:flex-row gap-3 w-full mt-6 sm:justify-center">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteConfirmation({ isOpen: false, templateId: null })}
+                className="w-full sm:w-32"
+              >
                 Cancel
               </Button>
-              <Button 
-                onClick={handleUpdateTemplate}
-                disabled={isUpdating}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+              <Button
+                variant="destructive"
+                onClick={confirmDelete}
+                className="w-full sm:w-32 bg-red-600 hover:bg-red-700 text-white shadow-md hover:shadow-lg transition-all"
               >
-                {isUpdating ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Updating...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Update Template
-                  </>
-                )}
+                Delete
               </Button>
             </DialogFooter>
           </DialogContent>

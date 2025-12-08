@@ -393,7 +393,18 @@ export const UserManagement: React.FC = () => {
       console.error('Error response:', error.response);
 
       // Handle specific error cases
-      if (error.message?.includes('User already exists') || error.message?.includes('email already exists')) {
+      if (error.response && error.response.status === 409 && error.response.field) {
+        // Handle field-specific duplicate errors (Aadhaar, PAN)
+        const fieldName = error.response.field;
+        const errorMessage = error.response.message;
+
+        setValidationErrors(prev => ({
+          ...prev,
+          [fieldName]: errorMessage
+        }));
+
+        toast.error(`❌ ${errorMessage}`);
+      } else if (error.message?.includes('User already exists') || error.message?.includes('email already exists')) {
         toast.error('❌ A user with this email already exists. Please use a different email address.');
       } else if (error.message?.includes('Backend server is not running')) {
         toast.error('❌ Backend server is not running. Please start the backend server.');
@@ -549,7 +560,21 @@ export const UserManagement: React.FC = () => {
 
     } catch (error: any) {
       console.error('Error updating user:', error);
-      toast.error(error.message || 'Failed to update user');
+
+      // Handle field-specific duplicate errors (Aadhaar, PAN)
+      if (error.response && error.response.status === 409 && error.response.field) {
+        const fieldName = error.response.field;
+        const errorMessage = error.response.message;
+
+        setValidationErrors(prev => ({
+          ...prev,
+          [fieldName]: errorMessage
+        }));
+
+        toast.error(`❌ ${errorMessage}`);
+      } else {
+        toast.error(error.message || 'Failed to update user');
+      }
     } finally {
       setIsEditingUser(false);
     }
@@ -618,9 +643,13 @@ export const UserManagement: React.FC = () => {
       setShowCertificateModal(false);
       setSelectedUser(null);
       setCertificateData({ title: '', message: '', attachment: null });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending certificate:', error);
-      toast.error('Failed to send certificate');
+      if (error.response && error.response.status === 400 && error.response.data.message === 'Certificates can only be sent to active users') {
+        toast.error('Certificates cannot be sent to inactive users. Please reactivate the user first.');
+      } else {
+        toast.error('Failed to send certificate');
+      }
     }
   };
 
@@ -669,6 +698,11 @@ export const UserManagement: React.FC = () => {
           break;
         case 'sendWarning':
           const warningUser = users.find(u => u._id === userId);
+          // Check if user is inactive
+          if (warningUser && (warningUser.status === 'inactive' || warningUser.isActive === false)) {
+            toast.error('You cannot send warning to inactive user. Please reactivate the user first.');
+            return;
+          }
           setSelectedUser(warningUser);
           setWarningData({ message: '', attachment: null });
           setShowWarningModal(true);
@@ -682,6 +716,12 @@ export const UserManagement: React.FC = () => {
         case 'edit':
           const editUser = users.find(u => u._id === userId);
           if (editUser) {
+            // Check if user is inactive
+            if (editUser.status === 'inactive' || editUser.isActive === false) {
+              toast.error('User is inactive. Please reactivate the user to edit details.');
+              return;
+            }
+
             setSelectedUser(editUser);
             setEditUserData({
               name: editUser.name || '',
@@ -910,8 +950,6 @@ export const UserManagement: React.FC = () => {
                 >
                   <option value="all">All Users</option>
                   <option value="active">Active</option>
-                  <option value="warning">Warning</option>
-                  <option value="audited">Audited</option>
                   <option value="inactive">Inactive</option>
                 </select>
               </div>
@@ -1045,14 +1083,12 @@ export const UserManagement: React.FC = () => {
                           <TableCell>
                             <div className="space-y-1">
                               <Badge variant={
-                                user.status === 'Active' ? 'default' :
-                                  user.status === 'Warning' ? 'secondary' : 'destructive'
+                                user.isActive ? 'default' : 'destructive'
                               } className={
-                                user.status === 'Active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
-                                  user.status === 'Warning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' :
-                                    'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
+                                user.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
+                                  'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
                               }>
-                                {user.status}
+                                {user.isActive ? 'Active' : 'Inactive'}
                               </Badge>
                               {user.status === 'Inactive' && user.inactiveReason && (
                                 <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -1079,19 +1115,27 @@ export const UserManagement: React.FC = () => {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleUserAction(user._id, 'sendWarning')}
-                                title="Send Warning"
-                                className="h-8 w-8 p-0 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 hover:border-yellow-300 dark:hover:border-yellow-600 transition-all duration-200"
+                                disabled={user.status === 'inactive' || user.isActive === false}
+                                title={user.status === 'inactive' || user.isActive === false ? "Cannot send warning to inactive user" : "Send Warning"}
+                                className={`h-8 w-8 p-0 border-gray-300 dark:border-gray-600 transition-all duration-200 ${user.status === 'inactive' || user.isActive === false
+                                  ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-50'
+                                  : 'bg-white dark:bg-gray-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 hover:border-yellow-300 dark:hover:border-yellow-600'
+                                  }`}
                               >
-                                <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                                <AlertTriangle className={`w-4 h-4 ${user.status === 'inactive' || user.isActive === false ? 'text-gray-400' : 'text-yellow-600 dark:text-yellow-400'}`} />
                               </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleUserAction(user._id, 'sendCertificate')}
-                                title="Send Certificate"
-                                className="h-8 w-8 p-0 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 dark:hover:border-green-600 transition-all duration-200"
+                                disabled={user.status === 'inactive' || user.isActive === false}
+                                title={user.status === 'inactive' || user.isActive === false ? "Cannot send certificate to inactive user" : "Send Certificate"}
+                                className={`h-8 w-8 p-0 border-gray-300 dark:border-gray-600 transition-all duration-200 ${user.status === 'inactive' || user.isActive === false
+                                  ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-50'
+                                  : 'bg-white dark:bg-gray-700 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 dark:hover:border-green-600'
+                                  }`}
                               >
-                                <Award className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                <Award className={`w-4 h-4 ${user.status === 'inactive' || user.isActive === false ? 'text-gray-400' : 'text-green-600 dark:text-green-400'}`} />
                               </Button>
                               {canManageUser(user) && (
                                 <>
@@ -1120,10 +1164,14 @@ export const UserManagement: React.FC = () => {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => handleUserAction(user._id, 'edit')}
-                                    title="Edit User Details"
-                                    className="h-8 w-8 p-0 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
+                                    disabled={user.status === 'inactive' || user.isActive === false}
+                                    title={user.status === 'inactive' || user.isActive === false ? "Cannot edit inactive user" : "Edit User Details"}
+                                    className={`h-8 w-8 p-0 border-gray-300 dark:border-gray-600 transition-all duration-200 ${user.status === 'inactive' || user.isActive === false
+                                      ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-50'
+                                      : 'bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-600'
+                                      }`}
                                   >
-                                    <Edit className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                    <Edit className={`w-4 h-4 ${user.status === 'inactive' || user.isActive === false ? 'text-gray-400' : 'text-blue-600 dark:text-blue-400'}`} />
                                   </Button>
                                 </>
                               )}

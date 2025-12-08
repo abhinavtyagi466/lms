@@ -35,6 +35,10 @@ const authenticateToken = async (req, res, next) => {
 
     // Check session validity - only allow one active session per user
     if (!decoded.sessionId || user.sessionId !== decoded.sessionId) {
+      console.log(`❌ Session mismatch for user ${user.email}`);
+      console.log(`   Token sessionId: ${decoded.sessionId}`);
+      console.log(`   DB sessionId:    ${user.sessionId}`);
+
       return res.status(401).json({
         error: 'Access Denied',
         message: 'Session expired or invalid - please login again'
