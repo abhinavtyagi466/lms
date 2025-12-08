@@ -505,6 +505,18 @@ export const apiService = {
     getQuizResults: async (userId: string) => {
       const response = await apiClient.get(`/quiz/results/${userId}`);
       return response;
+    },
+
+    // Cleanup orphaned/corrupted quizzes from database
+    cleanupOrphanedQuizzes: async () => {
+      const response = await apiClient.delete('/quizzes/cleanup/orphaned');
+      return response;
+    },
+
+    // Alias for CSV upload
+    uploadCSV: async (moduleId: string, csvData: any[]) => {
+      const response = await apiClient.post(`/quizzes/${moduleId}/upload-csv`, { csvData });
+      return response;
     }
   },
 

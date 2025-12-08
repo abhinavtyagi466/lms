@@ -61,6 +61,67 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// @route   DELETE /api/quizzes/cleanup/orphaned
+// @desc    Delete all orphaned/corrupted quizzes (Admin only) - MUST be before :moduleId routes
+// @access  Private (Admin only)
+router.delete('/cleanup/orphaned', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    console.log('=== CLEANUP ORPHANED QUIZZES ===');
+    console.log('User:', req.user?.email);
+
+    // Find all orphaned quizzes (null moduleId, invalid moduleId, or empty questions)
+    const orphanedByNull = await Quiz.deleteMany({
+      $or: [
+        { moduleId: null },
+        { moduleId: { $exists: false } }
+      ]
+    });
+
+    // Find quizzes with empty questions array
+    const orphanedByEmpty = await Quiz.deleteMany({
+      questions: { $size: 0 }
+    });
+
+    // Find quizzes where moduleId references a deleted module
+    const allQuizzes = await Quiz.find({}).select('moduleId');
+    const existingModules = await Module.find({}).select('_id');
+    const existingModuleIds = existingModules.map(m => m._id.toString());
+
+    let deletedOrphanedModules = 0;
+    for (const quiz of allQuizzes) {
+      if (quiz.moduleId && !existingModuleIds.includes(quiz.moduleId.toString())) {
+        await Quiz.findByIdAndDelete(quiz._id);
+        deletedOrphanedModules++;
+      }
+    }
+
+    const totalDeleted = orphanedByNull.deletedCount + orphanedByEmpty.deletedCount + deletedOrphanedModules;
+
+    console.log('Orphaned by null moduleId:', orphanedByNull.deletedCount);
+    console.log('Orphaned by empty questions:', orphanedByEmpty.deletedCount);
+    console.log('Orphaned by deleted module:', deletedOrphanedModules);
+    console.log('Total deleted:', totalDeleted);
+
+    res.json({
+      success: true,
+      message: `Cleanup complete. ${totalDeleted} orphaned quiz(es) deleted.`,
+      details: {
+        nullModuleId: orphanedByNull.deletedCount,
+        emptyQuestions: orphanedByEmpty.deletedCount,
+        deletedModule: deletedOrphanedModules,
+        total: totalDeleted
+      }
+    });
+
+  } catch (error) {
+    console.error('Cleanup orphaned quizzes error:', error);
+    res.status(500).json({
+      error: 'Server Error',
+      message: 'Error cleaning up orphaned quizzes'
+    });
+  }
+});
+
 // @route   GET /api/quizzes/:moduleId
 // @desc    Get quiz for specific module (All authenticated users)
 // @access  Private (All authenticated users)
@@ -121,10 +182,19 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       });
     }
 
-    // Use upsert logic - update if exists, create if not
+    // First, delete any orphaned quizzes for this module (those with isActive: false or corrupted)
+    await Quiz.deleteMany({
+      moduleId: moduleId,
+      $or: [
+        { isActive: false },
+        { questions: { $size: 0 } }
+      ]
+    });
+
+    // Find existing active quiz for this module
     let quiz = await Quiz.findOne({
-      moduleId,
-      moduleId: { $ne: null, $exists: true }
+      moduleId: moduleId,
+      isActive: true
     });
 
     let isUpdate = false;
@@ -135,19 +205,31 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       quiz.questions = questions;
       quiz.passPercent = passPercent || quiz.passPercent || 70;
       quiz.estimatedTime = estimatedTime || quiz.estimatedTime || 10;
+      quiz.isActive = true; // Ensure active
     } else {
+      // Check if there's any quiz at all for this module (even inactive)
+      const anyExisting = await Quiz.findOne({ moduleId: moduleId });
+      if (anyExisting) {
+        // Delete the old one and create fresh
+        console.log('Deleting old quiz and creating fresh:', anyExisting._id);
+        await Quiz.findByIdAndDelete(anyExisting._id);
+      }
+
       // Create new quiz
       console.log('Creating new quiz for module:', moduleId);
       quiz = new Quiz({
-        moduleId,
+        moduleId: moduleId,
         questions,
         passPercent: passPercent || 70,
-        estimatedTime: estimatedTime || 10
+        estimatedTime: estimatedTime || 10,
+        isActive: true
       });
     }
 
     await quiz.save();
     console.log('Quiz saved successfully:', quiz._id);
+    console.log('Quiz isActive:', quiz.isActive);
+    console.log('Quiz questions count:', quiz.questions?.length);
 
     res.status(isUpdate ? 200 : 201).json({
       success: true,
@@ -203,24 +285,43 @@ router.put('/:moduleId', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // @route   DELETE /api/quizzes/:moduleId
-// @desc    Delete quiz (Admin only)
+// @desc    Delete quiz permanently (Admin only) - Progress data is preserved
 // @access  Private (Admin only)
 router.delete('/:moduleId', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const quiz = await Quiz.findOne({ moduleId: req.params.moduleId });
+    console.log('=== QUIZ DELETE REQUEST ===');
+    console.log('Module ID:', req.params.moduleId);
+    console.log('User:', req.user?.email);
 
-    if (!quiz) {
+    // Delete ALL quizzes for this module (handles duplicates and orphaned records)
+    const deleteResult = await Quiz.deleteMany({ moduleId: req.params.moduleId });
+
+    console.log('Quizzes deleted:', deleteResult.deletedCount);
+
+    if (deleteResult.deletedCount === 0) {
+      // Try to find by quiz ID if moduleId didn't match
+      const quizById = await Quiz.findById(req.params.moduleId);
+      if (quizById) {
+        await Quiz.findByIdAndDelete(req.params.moduleId);
+        console.log('Quiz deleted by ID:', req.params.moduleId);
+        return res.json({
+          success: true,
+          message: 'Quiz deleted successfully',
+          deletedCount: 1
+        });
+      }
+
       return res.status(404).json({
         error: 'Quiz not found',
-        message: 'Quiz does not exist'
+        message: 'No quiz found for this module'
       });
     }
 
-    await Quiz.findByIdAndDelete(quiz._id);
-
+    // Note: QuizResult and QuizAttempt are NOT deleted - progress is preserved
     res.json({
       success: true,
-      message: 'Quiz deleted successfully'
+      message: `${deleteResult.deletedCount} quiz(es) deleted successfully. User progress data is preserved.`,
+      deletedCount: deleteResult.deletedCount
     });
 
   } catch (error) {
