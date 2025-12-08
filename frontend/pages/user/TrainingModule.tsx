@@ -147,7 +147,9 @@ export const TrainingModule: React.FC = () => {
         userId,
         videoId,
         currentTime,
-        duration
+        duration,
+        assignmentId: localStorage.getItem('currentAssignmentId') || undefined,
+        isPersonalised: localStorage.getItem('isPersonalisedModule') === 'true'
       }).catch(error => {
         console.error('Failed to update progress:', error);
       });

@@ -33,15 +33,59 @@ moduleSchema.index({ tags: 1 });
 moduleSchema.index({ isPersonalised: 1, assignedTo: 1 });
 moduleSchema.index({ assignedTo: 1, status: 1 });
 
+// Helper function to extract video ID from YouTube URL or return as-is if already an ID
+const extractVideoId = (ytVideoId) => {
+  if (!ytVideoId) return null;
+
+  const input = ytVideoId.trim();
+
+  // If it's already an 11-character video ID, return directly
+  if (/^[a-zA-Z0-9_-]{11}$/.test(input)) {
+    return input;
+  }
+
+  // Try to extract video ID from various YouTube URL formats
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtube\.com\/watch\?.*&v=)([a-zA-Z0-9_-]{11})/i,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/i,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/i,
+    /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/i,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/i,
+    /[?&]v=([a-zA-Z0-9_-]{11})(?:&|$)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = input.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+
+  // Last resort: find any 11-character alphanumeric sequence
+  const lastResort = input.match(/([a-zA-Z0-9_-]{11})/);
+  if (lastResort && lastResort[1]) {
+    return lastResort[1];
+  }
+
+  return input; // Return original if nothing matches
+};
+
 // Virtual for YouTube embed URL
-moduleSchema.virtual('embedUrl').get(function() {
-  return `https://www.youtube.com/embed/${this.ytVideoId}`;
+moduleSchema.virtual('embedUrl').get(function () {
+  const videoId = extractVideoId(this.ytVideoId);
+  return `https://www.youtube.com/embed/${videoId}`;
 });
 
 // Virtual for YouTube thumbnail
-moduleSchema.virtual('thumbnailUrl').get(function() {
-  return `https://img.youtube.com/vi/${this.ytVideoId}/maxresdefault.jpg`;
+moduleSchema.virtual('thumbnailUrl').get(function () {
+  const videoId = extractVideoId(this.ytVideoId);
+  return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 });
+
+// Also add a method to get the clean video ID
+moduleSchema.methods.getCleanVideoId = function () {
+  return extractVideoId(this.ytVideoId);
+};
 
 // Set virtuals when converting to JSON
 moduleSchema.set('toJSON', { virtuals: true });

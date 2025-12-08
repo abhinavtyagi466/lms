@@ -10,7 +10,7 @@ const router = express.Router();
 // @access  Private
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { userId, videoId, currentTime, duration } = req.body;
+    const { userId, videoId, currentTime, duration, assignmentId, isPersonalised } = req.body;
 
     // Validate required fields
     if (!userId || !videoId || currentTime === undefined || duration === undefined) {
@@ -45,8 +45,11 @@ router.post('/', authenticateToken, async (req, res) => {
       });
     }
 
+    // Determine the assignmentId to use (null for regular modules)
+    const effectiveAssignmentId = isPersonalised && assignmentId ? assignmentId : null;
+
     // Find existing progress or create new one
-    let progress = await Progress.getVideoProgress(userId, videoId);
+    let progress = await Progress.getVideoProgress(userId, videoId, effectiveAssignmentId);
 
     if (progress) {
       // Update existing progress
@@ -57,7 +60,9 @@ router.post('/', authenticateToken, async (req, res) => {
         userId,
         videoId,
         currentTime,
-        duration
+        duration,
+        assignmentId: effectiveAssignmentId,
+        isPersonalised: isPersonalised || false
       });
       await progress.save();
     }
@@ -70,7 +75,9 @@ router.post('/', authenticateToken, async (req, res) => {
         videoId: progress.videoId,
         currentTime: progress.currentTime,
         duration: progress.duration,
-        lastUpdated: progress.lastUpdated
+        lastUpdated: progress.lastUpdated,
+        assignmentId: progress.assignmentId,
+        isPersonalised: progress.isPersonalised
       }
     });
 
@@ -84,7 +91,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // @route   GET /api/progress/:userId
-// @desc    Get all progress for a user
+// @desc    Get all progress for a user (separated by regular and personalised)
 // @access  Private
 router.get('/:userId', authenticateToken, async (req, res) => {
   try {
@@ -101,19 +108,34 @@ router.get('/:userId', authenticateToken, async (req, res) => {
 
     const progressRecords = await Progress.getUserProgress(userId);
 
-    // Format response as requested
-    const progress = {};
+    // Separate regular and personalised progress
+    const regularProgress = {};
+    const personalisedProgress = {};
+
     progressRecords.forEach(record => {
-      progress[record.videoId] = {
+      const progressData = {
         currentTime: record.currentTime,
-        duration: record.duration
+        duration: record.duration,
+        lastUpdated: record.lastUpdated
       };
+
+      if (record.isPersonalised && record.assignmentId) {
+        // Key by assignmentId for personalised modules
+        if (!personalisedProgress[record.assignmentId.toString()]) {
+          personalisedProgress[record.assignmentId.toString()] = {};
+        }
+        personalisedProgress[record.assignmentId.toString()][record.videoId] = progressData;
+      } else {
+        // Key by videoId for regular modules
+        regularProgress[record.videoId] = progressData;
+      }
     });
 
     res.json({
       success: true,
       userId: userId,
-      progress: progress
+      progress: regularProgress, // Backward compatible
+      personalisedProgress: personalisedProgress // New: separate personalised progress
     });
 
   } catch (error) {

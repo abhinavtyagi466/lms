@@ -13,33 +13,49 @@ import { FileQuestion, Lock, CheckCircle } from 'lucide-react';
 export const ModulesPage: React.FC = () => {
   const { user, setCurrentPage, setSelectedModuleId } = useAuth();
 
-  // Function to get YouTube thumbnail URL
-  const getYouTubeThumbnail = (videoId: string, quality: 'default' | 'medium' | 'high' | 'standard' | 'maxres' = 'medium') => {
-    if (!videoId) return null;
-
-    const cleanVideoId = videoId.trim();
-
-    // If it's already an 11-character video ID, use directly
-    if (/^[a-zA-Z0-9_-]{11}$/.test(cleanVideoId)) {
-      return `https://img.youtube.com/vi/${cleanVideoId}/${quality}default.jpg`;
+  // Function to get YouTube thumbnail URL - improved to handle more URL formats
+  const getYouTubeThumbnail = (videoIdOrUrl: string, quality: 'default' | 'medium' | 'high' | 'standard' | 'maxres' = 'medium') => {
+    if (!videoIdOrUrl) {
+      console.log('Thumbnail: No video ID provided');
+      return null;
     }
 
-    // Try to extract from various YouTube URL formats
+    const input = videoIdOrUrl.trim();
+    console.log('Thumbnail: Processing input:', input);
+
+    // If it's already an 11-character video ID, use directly
+    if (/^[a-zA-Z0-9_-]{11}$/.test(input)) {
+      console.log('Thumbnail: Direct video ID match');
+      return `https://img.youtube.com/vi/${input}/${quality}default.jpg`;
+    }
+
+    // Try to extract video ID from various YouTube URL formats
     const patterns = [
-      /[?&]v=([a-zA-Z0-9_-]{11})/i,      // ?v=xxx or &v=xxx
+      /(?:youtube\.com\/watch\?v=|youtube\.com\/watch\?.*&v=)([a-zA-Z0-9_-]{11})/i, // youtube.com/watch?v=xxx
       /youtu\.be\/([a-zA-Z0-9_-]{11})/i,  // youtu.be/xxx
-      /embed\/([a-zA-Z0-9_-]{11})/i,      // embed/xxx
-      /\/v\/([a-zA-Z0-9_-]{11})/i,        // /v/xxx
-      /watch\?.*v=([a-zA-Z0-9_-]{11})/i,  // watch?v=xxx (more flexible)
+      /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/i, // youtube.com/embed/xxx
+      /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/i, // youtube.com/v/xxx
+      /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/i, // youtube.com/shorts/xxx
+      /[?&]v=([a-zA-Z0-9_-]{11})(?:&|$)/i, // ?v=xxx or &v=xxx
+      /\/([a-zA-Z0-9_-]{11})(?:\?|$)/i, // Last path segment that's 11 chars
     ];
 
     for (const pattern of patterns) {
-      const match = cleanVideoId.match(pattern);
+      const match = input.match(pattern);
       if (match && match[1]) {
+        console.log('Thumbnail: Pattern matched, extracted ID:', match[1]);
         return `https://img.youtube.com/vi/${match[1]}/${quality}default.jpg`;
       }
     }
 
+    // Last resort: try to find any 11-character alphanumeric sequence
+    const lastResort = input.match(/([a-zA-Z0-9_-]{11})/);
+    if (lastResort && lastResort[1]) {
+      console.log('Thumbnail: Last resort match, extracted ID:', lastResort[1]);
+      return `https://img.youtube.com/vi/${lastResort[1]}/${quality}default.jpg`;
+    }
+
+    console.log('Thumbnail: No match found for input:', input);
     return null;
   };
   const [modules, setModules] = useState<ModuleWithProgress[]>([]);
@@ -263,13 +279,16 @@ export const ModulesPage: React.FC = () => {
                   {/* Video Thumbnail */}
                   <div className="relative">
                     <img
-                      src={getYouTubeThumbnail(module.ytVideoId || module.title, 'medium') || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDMyMCAxODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMjAiIGhlaWdodD0iMTgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjE2MCIgY3k9IjkwIiByPSIzMCIgZmlsbD0iIzZCNzI4MCIvPgo8cGF0aCBkPSJNMTQ1IDc1TDE3NSA5MEwxNDUgMTA1Vjc1WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+'}
+                      src={(module as any).thumbnailUrl || getYouTubeThumbnail(module.ytVideoId, 'medium') || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDMyMCAxODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMjAiIGhlaWdodD0iMTgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjE2MCIgY3k9IjkwIiByPSIzMCIgZmlsbD0iIzZCNzI4MCIvPgo8cGF0aCBkPSJNMTQ1IDc1TDE3NSA5MEwxNDUgMTA1Vjc1WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+'}
                       alt={`Training video thumbnail for personalised module`}
                       className="w-full h-48 object-cover cursor-pointer"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDMyMCAxODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMjAiIGhlaWdodD0iMTgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjE2MCIgY3k9IjkwIiByPSIzMCIgZmlsbD0iIzZCNzI4MCIvPgo8cGF0aCBkPSJNMTQ1IDc1TDE3NSA5MEwxNDUgMTA1Vjc1WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+';
                       }}
                       onClick={() => {
+                        // Store personalised module info for progress tracking
+                        localStorage.setItem('currentAssignmentId', (module as any).assignmentId || '');
+                        localStorage.setItem('isPersonalisedModule', 'true');
                         setSelectedModuleId((module as any)._id || module.moduleId);
                         setCurrentPage('training-module');
                       }}
@@ -400,6 +419,9 @@ export const ModulesPage: React.FC = () => {
                       className={`w-full h-48 bg-gray-200 ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'} group relative overflow-hidden border-b`}
                       onClick={() => {
                         if (!isLocked) {
+                          // Clear personalised module info for regular progress tracking
+                          localStorage.removeItem('currentAssignmentId');
+                          localStorage.setItem('isPersonalisedModule', 'false');
                           setSelectedModuleId(module.moduleId);
                           setCurrentPage('training-module');
                         } else {
@@ -408,7 +430,7 @@ export const ModulesPage: React.FC = () => {
                       }}
                     >
                       <img
-                        src={getYouTubeThumbnail(module.ytVideoId || module.title, 'medium') || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDMyMCAxODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMjAiIGhlaWdodD0iMTgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjE2MCIgY3k9IjkwIiByPSIzMCIgZmlsbD0iIzZCNzI4MCIvPgo8cGF0aCBkPSJNMTQ1IDc1TDE3NSA5MEwxNDUgMTA1Vjc1WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+'}
+                        src={(module as any).thumbnailUrl || getYouTubeThumbnail(module.ytVideoId, 'medium') || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDMyMCAxODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMjAiIGhlaWdodD0iMTgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjE2MCIgY3k9IjkwIiByPSIzMCIgZmlsbD0iIzZCNzI4MCIvPgo8cGF0aCBkPSJNMTQ1IDc1TDE3NSA5MEwxNDUgMTA1Vjc1WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+'}
                         alt={`Training video thumbnail for ${module.title} - Click to start training module`}
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         onError={(e) => {
@@ -445,6 +467,9 @@ export const ModulesPage: React.FC = () => {
                     <Button
                       onClick={() => {
                         if (!isLocked) {
+                          // Clear personalised module info for regular progress tracking
+                          localStorage.removeItem('currentAssignmentId');
+                          localStorage.setItem('isPersonalisedModule', 'false');
                           setSelectedModuleId(module.moduleId);
                           setCurrentPage('training-module');
                         } else {

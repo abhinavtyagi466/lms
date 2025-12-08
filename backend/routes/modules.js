@@ -210,6 +210,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
         title: module.title,
         description: module.description,
         ytVideoId: module.ytVideoId,
+        thumbnailUrl: module.thumbnailUrl,
         tags: module.tags,
         status: module.status,
         progress: progressPercent,
