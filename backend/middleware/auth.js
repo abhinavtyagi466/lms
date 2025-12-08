@@ -7,7 +7,12 @@ const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
+    // Enhanced logging for debugging auth issues
+    console.log(`[AUTH] Request to: ${req.method} ${req.originalUrl}`);
+    console.log(`[AUTH] Token present: ${!!token}`);
+
     if (!token) {
+      console.log('[AUTH] ❌ No token provided');
       return res.status(401).json({
         error: 'Access Denied',
         message: 'No token provided'
@@ -15,11 +20,13 @@ const authenticateToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-jwt-secret-key');
+    console.log(`[AUTH] Token decoded for userId: ${decoded.userId}`);
 
     // Get user from database
     const user = await User.findById(decoded.userId).select('-password');
 
     if (!user) {
+      console.log(`[AUTH] ❌ User not found for userId: ${decoded.userId}`);
       return res.status(401).json({
         error: 'Access Denied',
         message: 'Invalid token - user not found'
@@ -27,6 +34,7 @@ const authenticateToken = async (req, res, next) => {
     }
 
     if (!user.isActive) {
+      console.log(`[AUTH] ❌ User ${user.email} is deactivated`);
       return res.status(401).json({
         error: 'Access Denied',
         message: 'Account is deactivated'
@@ -35,9 +43,9 @@ const authenticateToken = async (req, res, next) => {
 
     // Check session validity - only allow one active session per user
     if (!decoded.sessionId || user.sessionId !== decoded.sessionId) {
-      console.log(`❌ Session mismatch for user ${user.email}`);
-      console.log(`   Token sessionId: ${decoded.sessionId}`);
-      console.log(`   DB sessionId:    ${user.sessionId}`);
+      console.log(`[AUTH] ❌ Session mismatch for user ${user.email}`);
+      console.log(`[AUTH]    Token sessionId: ${decoded.sessionId}`);
+      console.log(`[AUTH]    DB sessionId:    ${user.sessionId}`);
 
       return res.status(401).json({
         error: 'Access Denied',
@@ -45,9 +53,12 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
+    console.log(`[AUTH] ✅ User authenticated: ${user.email} (${user.userType})`);
     req.user = user;
     next();
   } catch (error) {
+    console.log(`[AUTH] ❌ Token verification error: ${error.name} - ${error.message}`);
+
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         error: 'Access Denied',

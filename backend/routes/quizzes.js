@@ -93,11 +93,16 @@ router.get('/:moduleId', authenticateToken, async (req, res) => {
 });
 
 // @route   POST /api/quizzes
-// @desc    Create new quiz (Admin only)
+// @desc    Create or update quiz (Admin only) - Uses upsert logic
 // @access  Private (Admin only)
 router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { moduleId, questions, passPercent, estimatedTime } = req.body;
+
+    console.log('=== QUIZ CREATE/UPDATE REQUEST ===');
+    console.log('Module ID:', moduleId);
+    console.log('Questions count:', questions?.length);
+    console.log('User:', req.user?.email);
 
     // Validate required fields
     if (!moduleId || !questions || !Array.isArray(questions)) {
@@ -116,40 +121,45 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       });
     }
 
-    // Check if quiz already exists for this module (only check valid moduleIds)
-    if (moduleId) {
-      const existingQuiz = await Quiz.findOne({
-        moduleId,
-        moduleId: { $ne: null, $exists: true }
-      });
-      if (existingQuiz) {
-        return res.status(409).json({
-          error: 'Quiz already exists',
-          message: 'A quiz already exists for this module'
-        });
-      }
-    }
-
-    const quiz = new Quiz({
+    // Use upsert logic - update if exists, create if not
+    let quiz = await Quiz.findOne({
       moduleId,
-      questions,
-      passPercent: passPercent || 70,
-      estimatedTime: estimatedTime || 10
+      moduleId: { $ne: null, $exists: true }
     });
 
-    await quiz.save();
+    let isUpdate = false;
+    if (quiz) {
+      // Update existing quiz
+      console.log('Updating existing quiz:', quiz._id);
+      isUpdate = true;
+      quiz.questions = questions;
+      quiz.passPercent = passPercent || quiz.passPercent || 70;
+      quiz.estimatedTime = estimatedTime || quiz.estimatedTime || 10;
+    } else {
+      // Create new quiz
+      console.log('Creating new quiz for module:', moduleId);
+      quiz = new Quiz({
+        moduleId,
+        questions,
+        passPercent: passPercent || 70,
+        estimatedTime: estimatedTime || 10
+      });
+    }
 
-    res.status(201).json({
+    await quiz.save();
+    console.log('Quiz saved successfully:', quiz._id);
+
+    res.status(isUpdate ? 200 : 201).json({
       success: true,
-      message: 'Quiz created successfully',
+      message: isUpdate ? 'Quiz updated successfully' : 'Quiz created successfully',
       quiz: quiz
     });
 
   } catch (error) {
-    console.error('Create quiz error:', error);
+    console.error('Create/Update quiz error:', error);
     res.status(500).json({
       error: 'Server Error',
-      message: 'Error creating quiz'
+      message: 'Error creating/updating quiz'
     });
   }
 });

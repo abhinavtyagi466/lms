@@ -290,14 +290,26 @@ userSchema.index({ panNo: 1 }, { unique: true, sparse: true });
 userSchema.index({ 'exitDetails.exitDate': -1 }); // Optimize exit records sorting
 
 // Pre-save middleware to hash password
+// Pre-save middleware to hash password
 userSchema.pre('save', async function (next) {
+  // Debug logging for password modification
+  if (this.isModified('password')) {
+    console.log('🔐 Password modified for user:', this.email);
+    console.log('   - Is New User:', this.isNew);
+    console.log('   - Password length:', this.password ? this.password.length : 0);
+  } else {
+    // console.log('ℹ️ Password NOT modified for user:', this.email);
+  }
+
   if (!this.isModified('password')) return next();
 
   try {
     const salt = await bcrypt.genSalt(parseInt(process.env.BCRYPT_ROUNDS) || 12);
     this.password = await bcrypt.hash(this.password, salt);
+    console.log('✅ Password hashed successfully');
     next();
   } catch (error) {
+    console.error('❌ Password hashing error:', error);
     next(error);
   }
 });

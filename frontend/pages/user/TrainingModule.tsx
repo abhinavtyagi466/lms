@@ -314,6 +314,7 @@ export const TrainingModule: React.FC = () => {
                 userId={(user as any)._id || (user as any).id}
                 title={module.title}
                 description={module.description}
+                restricted={true} // Enable unskippable mode
                 onProgress={(progressPercent) => {
                   setVideoProgress(progressPercent);
                 }}

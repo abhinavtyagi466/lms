@@ -30,6 +30,7 @@ interface YouTubePlayerProps {
   onProgress?: (progress: number) => void;
   onComplete?: () => void;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
+  restricted?: boolean; // New prop for restricted mode (unskippable, limited controls)
 }
 
 export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
@@ -39,12 +40,14 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   description,
   onProgress,
   onComplete,
-  onTimeUpdate
+  onTimeUpdate,
+  restricted = false
 }) => {
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout>();
-  
+  const lastMaxTimeRef = useRef<number>(0); // Track max watched time
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -97,7 +100,8 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         videoId: videoId,
         playerVars: {
           autoplay: 0,
-          controls: 1,
+          controls: restricted ? 0 : 1, // Hide controls if restricted
+          disablekb: restricted ? 1 : 0, // Disable keyboard controls if restricted
           modestbranding: 1,
           rel: 0,
           showinfo: 0,
@@ -118,20 +122,20 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
       setError('Failed to initialize video player');
       setLoading(false);
     }
-  }, [videoId]);
+  }, [videoId, restricted]);
 
   // Player ready event
   const onPlayerReady = useCallback(async (event: any) => {
     setLoading(false);
     setDuration(event.target.getDuration());
     setVolume(event.target.getVolume());
-    
+
     // DISABLED: Resume from last position feature
     // await resumeFromLastPosition();
-    
+
     // Start progress tracking immediately (not just when playing)
     startProgressTracking();
-    
+
     // Add seek event listener to track manual seeking
     if (playerRef.current) {
       // YouTube doesn't have a direct seek event, so we'll use a custom approach
@@ -140,17 +144,32 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
       const seekCheckInterval = setInterval(() => {
         if (playerRef.current) {
           const currentTime = playerRef.current.getCurrentTime();
+
+          // Check for forward seeking in restricted mode
+          if (restricted && currentTime > lastMaxTimeRef.current + 2 && !isCompleted) {
+            console.log('Seeking prevented in restricted mode');
+            playerRef.current.seekTo(lastMaxTimeRef.current, true);
+            return;
+          }
+
+          // Update max watched time
+          if (currentTime > lastMaxTimeRef.current) {
+            lastMaxTimeRef.current = currentTime;
+          }
+
           if (Math.abs(currentTime - lastKnownTime) > 2) { // If time changed by more than 2 seconds, likely a seek
             lastKnownTime = currentTime;
             updateProgressManually();
+          } else {
+            lastKnownTime = currentTime;
           }
         }
       }, 1000);
-      
+
       // Store the interval reference for cleanup
       (playerRef.current as any).seekCheckInterval = seekCheckInterval;
     }
-  }, []);
+  }, [restricted, isCompleted]);
 
   // Resume from last position
   const resumeFromLastPosition = async () => {
@@ -159,17 +178,18 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
       if (response && response.success && response.progress && response.progress[videoId]) {
         const savedProgress = response.progress[videoId];
         const resumeTime = savedProgress.currentTime;
-        
+
         if (resumeTime > 0 && playerRef.current) {
           // Seek to the saved position
           playerRef.current.seekTo(resumeTime, true);
           setCurrentTime(resumeTime);
+          lastMaxTimeRef.current = resumeTime; // Update max time so we don't prevent resuming
           setHasResumed(true);
-          
+
           // Calculate initial progress
           const initialProgress = Math.round((resumeTime / savedProgress.duration) * 100);
           setProgress(initialProgress);
-          
+
           console.log(`Resumed video from ${resumeTime}s (${initialProgress}%)`);
         }
       }
@@ -197,14 +217,19 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         try {
           const currentTime = playerRef.current.getCurrentTime();
           const duration = playerRef.current.getDuration();
-          
+
           if (currentTime && duration) {
             setCurrentTime(currentTime);
             setDuration(duration);
-            
+
+            // Update max watched time
+            if (currentTime > lastMaxTimeRef.current) {
+              lastMaxTimeRef.current = currentTime;
+            }
+
             const progressPercent = Math.round((currentTime / duration) * 100);
             setProgress(progressPercent);
-            
+
             if (onProgress) {
               onProgress(progressPercent);
             }
@@ -226,7 +251,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   // Player state change event
   const onPlayerStateChange = useCallback((event: any) => {
     const state = event.data;
-    
+
     switch (state) {
       case window.YT.PlayerState.PLAYING:
         setIsPlaying(true);
@@ -279,14 +304,14 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
       try {
         const currentTime = playerRef.current.getCurrentTime();
         const duration = playerRef.current.getDuration();
-        
+
         if (currentTime && duration) {
           setCurrentTime(currentTime);
           setDuration(duration);
-          
+
           const progressPercent = Math.round((currentTime / duration) * 100);
           setProgress(progressPercent);
-          
+
           if (onProgress) {
             onProgress(progressPercent);
           }
@@ -331,9 +356,9 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     if (playerRef.current) {
       // Use the correct YouTube API method
       try {
-        playerRef.current.requestFullscreen?.() || 
-        playerRef.current.getIframe()?.requestFullscreen?.() ||
-        console.log('Fullscreen not supported');
+        playerRef.current.requestFullscreen?.() ||
+          playerRef.current.getIframe()?.requestFullscreen?.() ||
+          console.log('Fullscreen not supported');
       } catch (error) {
         console.log('Fullscreen not available');
       }
@@ -352,8 +377,8 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         <div className="text-center text-red-600">
           <p className="text-lg font-medium mb-2">Video Error</p>
           <p className="text-sm">{error}</p>
-          <Button 
-            onClick={() => window.location.reload()} 
+          <Button
+            onClick={() => window.location.reload()}
             className="mt-3"
             variant="outline"
           >
@@ -377,16 +402,9 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
               </div>
             </div>
           )}
-          
+
           <div ref={containerRef} className="w-full h-full" />
-          
-          {/* Resume Notification - DISABLED */}
-          {/* {hasResumed && (
-            <div className="absolute top-4 left-4 bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-              Resumed from last position
-            </div>
-          )} */}
-          
+
           {/* Custom Controls Overlay */}
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 opacity-0 hover:opacity-100 transition-opacity pointer-events-auto">
@@ -400,14 +418,14 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
                   >
                     {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                   </Button>
-                  
+
                   <div className="flex items-center gap-2 text-sm">
                     <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
                     <span>•</span>
                     <span>{progress}%</span>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -417,7 +435,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
                   >
                     {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                   </Button>
-                  
+
                   <Button
                     variant="ghost"
                     size="sm"
@@ -441,7 +459,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
                 <p className="text-gray-600 text-sm">{description}</p>
               )}
             </div>
-            
+
             <div className="flex items-center gap-2">
               {isCompleted ? (
                 <div className="flex items-center gap-1 text-green-600">
@@ -465,16 +483,22 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
             </div>
             <Progress value={progress} className="h-2" />
             <div className="text-xs text-gray-500">
-              {isCompleted 
+              {isCompleted
                 ? 'Video completed successfully'
-                : progress >= 95 
-                ? 'Almost complete - keep watching!'
-                : 'Progress tracked every 5 seconds'
+                : progress >= 95
+                  ? 'Almost complete - keep watching!'
+                  : restricted
+                    ? 'Seeking is disabled for this training module'
+                    : 'Progress tracked every 5 seconds'
               }
             </div>
           </div>
 
-          {/* Video Controls */}
+          {/* Video Controls - Only show if NOT restricted (since overlay has them) OR show simplified ones */}
+          {/* User asked for "sirf play pause and volume ka option ho" */}
+          {/* The overlay already has these. The buttons below might be redundant if we want a clean UI. */}
+          {/* But let's keep them for accessibility or clarity, maybe simplified. */}
+
           <div className="mt-4 flex gap-2">
             <Button
               size="sm"
@@ -494,7 +518,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
                 </>
               )}
             </Button>
-            
+
             <Button
               size="sm"
               variant="outline"
@@ -513,7 +537,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
                 </>
               )}
             </Button>
-            
+
             <Button
               size="sm"
               variant="outline"

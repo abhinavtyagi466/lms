@@ -118,13 +118,13 @@ export const ModulesPage: React.FC = () => {
     personalisedModules.map((m: any) => m._id || m.moduleId)
   );
 
-  // Filter published modules, exclude personalised, and deduplicate
+  // Filter published modules and deduplicate (do NOT exclude personalised modules)
   const seenIds = new Set<string>();
   const publishedModules = modules.filter(module => {
     const id = module.moduleId || (module as any)._id;
     if (seenIds.has(id)) return false;
     seenIds.add(id);
-    if (personalisedModuleIds.has(id)) return false;
+    // User requested to show ALL modules in "All Training", even if they are also in Personalised
     return module.status === 'published';
   });
 
@@ -408,7 +408,7 @@ export const ModulesPage: React.FC = () => {
                       }}
                     >
                       <img
-                        src={getYouTubeThumbnail(module.ytVideoId, 'medium') || ''}
+                        src={getYouTubeThumbnail(module.ytVideoId || module.title, 'medium') || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDMyMCAxODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMjAiIGhlaWdodD0iMTgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjE2MCIgY3k9IjkwIiByPSIzMCIgZmlsbD0iIzZCNzI4MCIvPgo8cGF0aCBkPSJNMTQ1IDc1TDE3NSA5MEwxNDUgMTA1Vjc1WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+'}
                         alt={`Training video thumbnail for ${module.title} - Click to start training module`}
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         onError={(e) => {
