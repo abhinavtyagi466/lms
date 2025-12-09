@@ -5,6 +5,7 @@ import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
+import { ErrorMessage } from '../../components/ui/error-message';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { toast } from 'sonner';
@@ -16,12 +17,17 @@ export const AdminLogin: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
+    // Clear previous errors
+    setError(null);
+
     if (!email || !password) {
+      setError('Please fill in all fields');
       toast.error('Please fill in all fields');
       return;
     }
@@ -29,18 +35,20 @@ export const AdminLogin: React.FC = () => {
     setIsLoading(true);
     try {
       await login(email, password, 'admin');
-    } catch (error: any) {
-      console.error('Admin login error:', error);
+    } catch (err: any) {
+      console.error('Admin login error:', err);
 
       // Handle specific access denied errors
-      if (error?.response?.data?.error === 'Access Denied') {
-        const userType = error?.response?.data?.userType;
-
-
-
-        toast.error(`Access Denied: ${userType} accounts cannot access admin dashboard`);
+      if (err?.response?.data?.error === 'Access Denied') {
+        const userType = err?.response?.data?.userType;
+        const errorMsg = `Access Denied: ${userType} accounts cannot access admin dashboard`;
+        setError(errorMsg);
+        toast.error(errorMsg);
       } else {
-        const errorMessage = error?.response?.status === 401 ? 'Invalid credentials' : (error?.response?.data?.message || error?.message || 'Login failed. Please try again.');
+        // Check for 401 status from the error - status property, response.status, or message
+        const is401 = err?.status === 401 || err?.response?.status === 401 || err?.message?.includes('Invalid credentials') || err?.message?.includes('Authentication failed');
+        const errorMessage = is401 ? 'Credentials are wrong, try again' : (err?.response?.data?.message || err?.message || 'Credentials are wrong, try again');
+        setError(errorMessage);
         toast.error(errorMessage);
       }
     } finally {
@@ -114,6 +122,15 @@ export const AdminLogin: React.FC = () => {
             </div>
 
             <form className="space-y-5" onSubmit={handleSubmit} noValidate>
+              {/* Error Message */}
+              {error && (
+                <ErrorMessage
+                  type="error"
+                  message={error}
+                  onDismiss={() => setError(null)}
+                />
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email" className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'
                   }`}>

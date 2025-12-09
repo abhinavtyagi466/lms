@@ -58,7 +58,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userType, setUserType] = useState<'user' | 'admin' | 'hr' | 'manager' | 'hod' | null>(null);
   const [currentPage, setCurrentPage] = useState(() => {
-    // Get page from URL hash or localStorage, default to user-login
     const hash = window.location.hash.replace('#', '');
     const savedPage = localStorage.getItem('currentPage');
     return hash || savedPage || 'user-login';
@@ -67,12 +66,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
 
-  // Handle URL hash changes and localStorage persistence with security checks
+  // Handle URL hash changes
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
       if (hash && hash !== currentPage) {
-        // Security check: Don't allow accessing protected pages without authentication
         const adminPages = [
           'admin-dashboard', 'user-management', 'exit-records', 'user-lifecycle',
           'module-management', 'score-reports', 'kpi-triggers', 'kpi-audit-dashboard',
@@ -84,7 +82,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           'quiz', 'quizzes', 'notifications', 'kpi-scores'
         ];
 
-        // If trying to access protected page without user, redirect to login
         if ((adminPages.includes(hash) || hash.startsWith('user-details/') || hash.startsWith('kpi-scores/')) && !user) {
           setCurrentPage('admin-login');
           window.location.hash = 'admin-login';
@@ -95,8 +92,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           window.location.hash = 'user-login';
           return;
         }
-
-        // If user type doesn't match page type, redirect
         if (adminPages.includes(hash) && user && userType !== 'admin' && userType !== 'hr' && userType !== 'manager' && userType !== 'hod') {
           setCurrentPage('user-login');
           window.location.hash = 'user-login';
@@ -107,19 +102,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           window.location.hash = 'admin-login';
           return;
         }
-
         setCurrentPage(hash);
         localStorage.setItem('currentPage', hash);
       }
     };
 
-    // Listen for hash changes
     window.addEventListener('hashchange', handleHashChange);
 
-    // Save current page to localStorage whenever it changes
     if (currentPage && currentPage !== 'user-login' && currentPage !== 'admin-login') {
       localStorage.setItem('currentPage', currentPage);
-      // Update URL hash
       if (window.location.hash !== `#${currentPage}`) {
         window.location.hash = currentPage;
       }
@@ -147,66 +138,56 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               console.log('AuthProvider: Token valid, setting user state');
               setUser(response.user);
               setUserType(response.user.userType);
-              // Set default page based on user type
               const currentHash = window.location.hash.replace('#', '');
               const savedPage = localStorage.getItem('currentPage');
-
-              // If no hash and no saved page, set default
               if (!currentHash && !savedPage) {
                 const defaultPage = response.user.userType === 'user' ? 'user-dashboard' : 'admin-dashboard';
                 setCurrentPage(defaultPage);
                 console.log('AuthProvider: Set default page to:', defaultPage);
               } else if (savedPage && !currentHash) {
-                // If there's a saved page but no hash, use saved page
                 setCurrentPage(savedPage);
                 console.log('AuthProvider: Using saved page:', savedPage);
               }
               console.log('AuthProvider: User authenticated successfully');
             } else {
-              // Invalid response, clear token
               console.log('AuthProvider: Invalid response, clearing token');
               localStorage.removeItem('authToken');
               setUser(null);
               setUserType(null);
-              console.log('AuthProvider: Token cleared due to invalid response');
             }
           } catch (authError) {
             console.error('AuthProvider: getMe failed:', authError);
-            // Clear token on auth failure
             localStorage.removeItem('authToken');
             setUser(null);
             setUserType(null);
-            console.log('AuthProvider: Token cleared due to auth error');
           }
         } else {
-          console.log('AuthProvider: No token found, user not authenticated');
-          // Clear any stored page data when not authenticated
+          console.log('AuthProvider: No token found');
           localStorage.removeItem('currentPage');
         }
       } catch (error) {
         console.error('AuthProvider: Token validation failed:', error);
-
-        // Check if it's a network error (backend not running)
         if (error instanceof Error && error.message.includes('Backend server is not running')) {
-          console.log('AuthProvider: Backend server is not running, keeping token for when server comes back online');
-          // Don't clear token for network errors, just log the issue
+          console.log('AuthProvider: Backend not running, keeping token');
           return;
         }
-
-        // For other errors (invalid token, etc.), clear the token
         localStorage.removeItem('authToken');
         setUser(null);
         setUserType(null);
-        console.log('AuthProvider: Cleared invalid token');
       } finally {
-        console.log('AuthProvider: Setting loading to false and initialized to true');
+        console.log('AuthProvider: Setting loading to false');
         setLoading(false);
         setInitialized(true);
       }
     };
 
-    // Listen for auth-failed events from API interceptor
+    // IMPORTANT: Ignore auth-failed events when on login page
     const handleAuthFailed = () => {
+      const isOnLoginPage = window.location.hash.includes('login');
+      if (isOnLoginPage) {
+        console.log('AuthProvider: Auth failed ignored - on login page');
+        return;
+      }
       console.log('AuthProvider: Auth failed event received');
       setUser(null);
       setUserType(null);
@@ -221,44 +202,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, []);
 
+  // LOGIN FUNCTION - NO setLoading here to prevent unmounting login form
   const login = async (email: string, password: string, type: 'user' | 'admin') => {
-    setLoading(true);
+    // Don't set loading=true! AdminLogin has its own loading state.
+    // Setting loading here causes AuthProvider to show loading spinner and unmount the login form!
     try {
       console.log('AuthProvider: Starting login for:', email, type);
       const response = await apiService.auth.login(email, password, type) as unknown as AuthResponse;
       console.log('AuthProvider: Login response:', response);
 
       if (response && response.success && response.user) {
-        console.log('AuthProvider: Login successful, setting user state');
+        console.log('AuthProvider: Login successful');
         setUser(response.user);
         setUserType(type);
 
-        // Store auth token first
         if (response.user.token) {
           localStorage.setItem('authToken', response.user.token);
-          console.log('AuthProvider: Token stored in localStorage');
+          console.log('AuthProvider: Token stored');
         }
 
-        // Set current page based on user type
         const targetPage = type === 'user' ? 'user-dashboard' : 'admin-dashboard';
         setCurrentPage(targetPage);
         localStorage.setItem('currentPage', targetPage);
-        console.log('AuthProvider: Current page set to:', targetPage);
+        console.log('AuthProvider: Page set to:', targetPage);
 
         toast.success(`Welcome back, ${response.user.name}!`);
-        console.log('AuthProvider: Login completed successfully');
       } else {
-        console.error('AuthProvider: Login failed - invalid response:', response);
+        console.error('AuthProvider: Login failed - invalid response');
         throw new Error('Login failed');
       }
     } catch (error: any) {
       console.error('AuthProvider: Login error:', error);
-      const errorMessage = error.message || 'Login failed. Please try again.';
-      // toast.error(errorMessage); // Let login components handle specific error messages
+      // Don't set loading here either - let the error propagate to login component
       throw error;
-    } finally {
-      setLoading(false);
     }
+    // No finally block with setLoading - login components manage their own loading state
   };
 
   const logout = async () => {
@@ -278,7 +256,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refreshUser = async () => {
     if (!user) return;
-
     try {
       const response = await apiService.auth.getMe() as unknown as AuthResponse;
       if (response && response.success && response.user) {
@@ -289,7 +266,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Enhanced setCurrentPage function that updates URL and localStorage
   const handleSetCurrentPage = (page: string) => {
     setCurrentPage(page);
     localStorage.setItem('currentPage', page);
@@ -311,9 +287,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   console.log('AuthProvider: Current state:', { user, userType, loading, initialized });
 
-  // Don't render children until context is initialized
   if (!initialized || loading) {
-    console.log('AuthProvider: Not initialized yet or still loading, showing loading');
+    console.log('AuthProvider: Still loading');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -324,12 +299,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     );
   }
 
-  // Debug: Log when user is null but should be authenticated
   if (!user && initialized && !loading) {
-    console.log('AuthProvider: User is null but context is initialized - showing login');
+    console.log('AuthProvider: User is null - showing login');
   }
 
-  console.log('AuthProvider: Initialized, rendering context provider');
+  console.log('AuthProvider: Rendering context provider');
   return (
     <AuthContext.Provider value={authContextValue}>
       {children}

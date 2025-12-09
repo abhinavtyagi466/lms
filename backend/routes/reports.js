@@ -9,6 +9,7 @@ const LifecycleEvent = require('../models/LifecycleEvent');
 const Quiz = require('../models/Quiz'); // Added Quiz import
 const UserProgress = require('../models/UserProgress'); // Added UserProgress import
 const QuizAttempt = require('../models/QuizAttempt'); // NEW: Added QuizAttempt import
+const Notification = require('../models/Notification'); // For certificate counting
 const { authenticateToken, requireAdmin, requireAdminPanel, requireOwnershipOrAdmin } = require('../middleware/auth');
 const { validateUserId } = require('../middleware/validation');
 
@@ -210,9 +211,9 @@ router.get('/admin', authenticateToken, requireAdmin, async (req, res) => {
     const averageProgress = allProgress.length > 0 ? Math.round(allProgress[0].avgProgress || 0) : 0;
     const totalWatchTime = allProgress.length > 0 ? allProgress[0].totalWatchTime || 0 : 0;
 
-    // Get certificates issued
-    const certificatesIssued = await UserProgress.countDocuments({
-      status: 'certified'
+    // Get certificates issued - count from Notification collection where type is 'certificate'
+    const certificatesIssued = await Notification.countDocuments({
+      type: 'certificate'
     });
 
     res.json({
@@ -285,8 +286,8 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
       UserProgress.countDocuments({
         status: { $in: ['completed', 'certified'] }
       }),
-      UserProgress.countDocuments({
-        status: 'certified'
+      Notification.countDocuments({
+        type: 'certificate'
       }),
       // Average progress from quiz attempts (completed only)
       QuizAttempt.aggregate([
@@ -312,9 +313,9 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
         updatedAt: { $gte: previousMonthStart, $lte: previousMonthEnd }
       }),
       // Previous month certificates
-      UserProgress.countDocuments({
-        status: 'certified',
-        updatedAt: { $gte: previousMonthStart, $lte: previousMonthEnd }
+      Notification.countDocuments({
+        type: 'certificate',
+        createdAt: { $gte: previousMonthStart, $lte: previousMonthEnd }
       }),
       // Previous month average progress (from quiz attempts)
       QuizAttempt.aggregate([
@@ -338,9 +339,9 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
         updatedAt: { $gte: currentMonthStart }
       }),
       // Current month certificates
-      UserProgress.countDocuments({
-        status: 'certified',
-        updatedAt: { $gte: currentMonthStart }
+      Notification.countDocuments({
+        type: 'certificate',
+        createdAt: { $gte: currentMonthStart }
       }),
       // Warning users count
       User.countDocuments({ status: 'Warning', isActive: true })

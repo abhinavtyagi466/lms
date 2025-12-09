@@ -54,22 +54,30 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
-      // Unauthorized - clear token and prevent further requests
-      localStorage.removeItem('authToken');
+      // Check if we're on a login page - if so, don't redirect or dispatch events, just pass error through
+      const isOnLoginPage = window.location.pathname.includes('login') || window.location.hash.includes('login');
 
-      // Only redirect if we're not already on the login page
-      if (!window.location.pathname.includes('login') && !window.location.hash.includes('login')) {
-        // Dispatch a custom event to notify components about auth failure
-        window.dispatchEvent(new CustomEvent('auth-failed'));
-        // Small delay to allow components to handle the event
-        setTimeout(() => {
-          window.location.href = '/#user-login';
-        }, 100);
+      if (isOnLoginPage) {
+        // On login page - just return error for the login form to display, no redirects
+        const authError: any = new Error(error.response?.data?.message || 'Invalid credentials');
+        authError.response = error.response;
+        authError.status = 401;
+        return Promise.reject(authError);
       }
 
+      // NOT on login page - clear token and redirect
+      localStorage.removeItem('authToken');
+      // Dispatch a custom event to notify components about auth failure
+      window.dispatchEvent(new CustomEvent('auth-failed'));
+      // Small delay to allow components to handle the event
+      setTimeout(() => {
+        window.location.href = '/#user-login';
+      }, 100);
+
       // Return a specific error that components can handle
-      const authError: any = new Error(error.response?.data?.message || 'Authentication failed. Please login again.');
+      const authError: any = new Error(error.response?.data?.message || 'Invalid credentials');
       authError.response = error.response;
+      authError.status = 401;
       return Promise.reject(authError);
     }
 
@@ -621,6 +629,8 @@ export const apiService = {
       videoId: string;
       currentTime: number;
       duration: number;
+      assignmentId?: string;
+      isPersonalised?: boolean;
     }) => {
       const response = await apiClient.post('/progress', progressData);
       return response;
