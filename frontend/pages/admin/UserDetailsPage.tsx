@@ -123,8 +123,9 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
   const [lifecycleEvents, setLifecycleEvents] = useState<LifecycleEvent[]>([]);
   const [personalisedModules, setPersonalisedModules] = useState<any[]>([]);
   const [awards, setAwards] = useState<any[]>([]);
+  const [certificates, setCertificates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'progress' | 'quiz' | 'attempts' | 'warnings' | 'lifecycle' | 'kpi' | 'personalised'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'progress' | 'quiz' | 'attempts' | 'warnings' | 'lifecycle' | 'kpi' | 'personalised' | 'certificates'>('details');
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
@@ -233,8 +234,8 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
     try {
       console.log('UserDetailsPage: Fetching data for user:', userData._id);
 
-      // Fetch user's video progress, modules, quiz results, quiz attempts, warnings, lifecycle events, and awards in parallel
-      const [progressResponse, modulesResponse, quizResultsResponse, quizStatsResponse, quizAttemptsResponse, warningsResponse, lifecycleResponse, awardsResponse] = await Promise.all([
+      // Fetch user's video progress, modules, quiz results, quiz attempts, warnings, lifecycle events, awards, and certificates in parallel
+      const [progressResponse, modulesResponse, quizResultsResponse, quizStatsResponse, quizAttemptsResponse, warningsResponse, lifecycleResponse, awardsResponse, certificatesResponse] = await Promise.all([
         apiService.progress.getUserProgress(userData._id),
         apiService.modules.getUserModules(userData._id), // Use getUserModules instead of getAllModules
         apiService.quizzes.getQuizResults(userData._id).catch(() => ({ data: { results: [] } })),
@@ -242,7 +243,8 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
         apiService.quizAttempts.getUserQuizAttempts(userData._id, { limit: 20 }).catch(() => ({ data: [] })),
         apiService.users.getUserWarnings(userData._id).catch(() => ({ data: { warnings: [] } })),
         apiService.lifecycle.getUserLifecycle(userData._id, { limit: 50 }).catch(() => ({ data: { events: [] } })),
-        apiService.awards.getUserAwards(userData._id).catch(() => ({ data: { awards: [] } }))
+        apiService.awards.getUserAwards(userData._id).catch(() => ({ data: { awards: [] } })),
+        apiService.users.getUserCertificates(userData._id).catch(() => ({ data: { certificates: [] } }))
       ]);
 
       console.log('===== RESPONSE DEBUG =====');
@@ -376,6 +378,21 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
         awardsList = awardsResponse.data;
       }
       setAwards(awardsList);
+
+      // Set certificates (sent via Send Certificate feature)
+      let certificatesList: any[] = [];
+      if ((certificatesResponse as any)?.success && (certificatesResponse as any).certificates) {
+        console.log('Certificates found (format 1):', (certificatesResponse as any).certificates.length);
+        certificatesList = (certificatesResponse as any).certificates;
+      } else if ((certificatesResponse as any)?.data?.certificates) {
+        console.log('Certificates found (format 2):', (certificatesResponse as any).data.certificates.length);
+        certificatesList = (certificatesResponse as any).data.certificates;
+      } else if ((certificatesResponse as any)?.data && Array.isArray((certificatesResponse as any).data)) {
+        console.log('Certificates found (format 3):', (certificatesResponse as any).data.length);
+        certificatesList = (certificatesResponse as any).data;
+      }
+      setCertificates(certificatesList);
+      console.log('Certificates count:', certificatesList.length);
 
       // Fetch personalised modules
       try {
@@ -588,6 +605,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                 { id: 'kpi', label: 'KPI Scores', icon: BarChart3 },
                 { id: 'personalised', label: `Personalised Modules (${personalisedModules.length})`, icon: TrendingUp },
                 { id: 'warnings', label: `Warnings (${warnings.length})`, icon: AlertTriangle },
+                { id: 'certificates', label: `Certificates (${certificates.length})`, icon: Award },
                 { id: 'lifecycle', label: 'Lifecycle Events', icon: Clock }
               ].map(({ id, label, icon: Icon }) => (
                 <button
@@ -1131,15 +1149,6 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                             {warning.status}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                          <span>Issued: {formatDate(warning.issuedAt)}</span>
-                          {warning.resolvedAt && (
-                            <span>Resolved: {formatDate(warning.resolvedAt)}</span>
-                          )}
-                          <Badge className={getStatusColor(warning.status)}>
-                            {warning.status}
-                          </Badge>
-                        </div>
 
                         {warning.metadata?.attachmentUrl && (
                           <div className="mt-3 pt-3 border-t border-gray-200">
@@ -1349,6 +1358,86 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'certificates' && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Award className="w-5 h-5 text-green-600" />
+                  <h3 className="text-lg font-semibold">Certificates & Awards</h3>
+                  <Badge variant="secondary" className="bg-green-100 text-green-700">
+                    {certificates.length} received
+                  </Badge>
+                </div>
+
+                {certificates.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Award className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">No certificates received yet</p>
+                    <p className="text-xs text-gray-400 mt-2">Certificates will appear here when sent to this user</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {certificates.map((cert: any) => (
+                      <Card key={cert._id} className="p-4 border-green-200 bg-green-50">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                              <Award className="w-5 h-5 text-green-600" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-green-800">{cert.title || 'Certificate'}</div>
+                              <div className="text-sm text-green-700">{cert.message || cert.description || 'Training completion certificate'}</div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <Badge className="bg-green-100 text-green-800">
+                              {cert.type || 'Certificate'}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-sm text-green-700">
+                          <span>Issued: {cert.createdAt ? formatDate(cert.createdAt) : 'N/A'}</span>
+                          {cert.sentBy && (
+                            <span>By: {typeof cert.sentBy === 'object' ? cert.sentBy.name : 'Admin'}</span>
+                          )}
+                          <Badge className="bg-green-200 text-green-800">Sent</Badge>
+                        </div>
+
+                        {/* Show attachment if available - check both attachments array and attachment field */}
+                        {(cert.attachments && cert.attachments.length > 0) || cert.attachment ? (
+                          <div className="mt-3 pt-3 border-t border-green-200">
+                            <a
+                              href={(() => {
+                                // Check attachments array first (new format)
+                                if (cert.attachments && cert.attachments.length > 0) {
+                                  const filePath = cert.attachments[0].filePath;
+                                  return filePath.startsWith('http') ? filePath : `${UPLOADS_BASE_URL}${filePath}`;
+                                }
+                                // Fallback to attachment field (old format)
+                                if (cert.attachment) {
+                                  return cert.attachment.startsWith('http') ? cert.attachment : `${UPLOADS_BASE_URL}${cert.attachment}`;
+                                }
+                                return '#';
+                              })()}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 text-green-600 hover:text-green-800 hover:underline text-sm"
+                            >
+                              <FileText className="w-4 h-4" />
+                              View Attachment
+                              {cert.attachments && cert.attachments.length > 0 && cert.attachments[0].fileName && (
+                                <span className="text-xs text-gray-500">({cert.attachments[0].fileName})</span>
+                              )}
+                            </a>
+                          </div>
+                        ) : null}
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

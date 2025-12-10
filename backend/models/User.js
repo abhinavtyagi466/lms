@@ -249,8 +249,8 @@ const userSchema = new mongoose.Schema({
     },
     verifiedBy: {
       type: String,
-      enum: ['HR', 'Compliance', 'Pending'],
-      default: 'Pending'
+      enum: ['HR', 'Compliance', 'By Management', 'Pending'],
+      default: 'By Management'
     },
     verifiedByUser: {
       type: mongoose.Schema.Types.ObjectId,

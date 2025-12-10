@@ -5,7 +5,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
-import { Search, Download, Eye, FileText, Filter, Calendar } from 'lucide-react';
+import { Download, Eye, FileText, Filter, Calendar } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
@@ -178,16 +178,13 @@ export const ExitRecordsPage: React.FC = () => {
             <div className="lg:col-span-2">
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Search
-                    className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none z-10"
-                  />
                   <Input
                     id="search"
                     placeholder="Search by name, email, or employee ID..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                    className="pl-10 h-10"
+                    className="h-10"
                   />
                 </div>
 

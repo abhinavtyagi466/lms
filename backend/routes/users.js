@@ -2363,7 +2363,7 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
     if (verifiedBy !== undefined && verifiedBy !== null) {
       verifiedBy = String(verifiedBy).trim();
     } else {
-      verifiedBy = 'Pending';
+      verifiedBy = 'By Management';
     }
 
     if (inactiveReason !== undefined && inactiveReason !== null) {
@@ -2468,9 +2468,9 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
       });
     }
 
-    // Validate verifiedBy
-    const validVerifiedBy = ['Pending', 'HR', 'Compliance'];
-    const finalVerifiedBy = verifiedBy || 'Pending';
+    // Validate verifiedBy (include 'Pending' for backwards compatibility)
+    const validVerifiedBy = ['By Management', 'HR', 'Compliance', 'Pending'];
+    const finalVerifiedBy = verifiedBy || 'By Management';
     if (!validVerifiedBy.includes(finalVerifiedBy)) {
       cleanupFile();
       return res.status(400).json({
@@ -2522,8 +2522,8 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
       },
       exitReasonDescription: finalExitReasonDescription,
       verifiedBy: finalVerifiedBy,
-      verifiedByUser: finalVerifiedBy !== 'Pending' ? req.user._id : null,
-      verifiedAt: finalVerifiedBy !== 'Pending' ? new Date() : null,
+      verifiedByUser: finalVerifiedBy !== 'By Management' ? req.user._id : null,
+      verifiedAt: finalVerifiedBy !== 'By Management' ? new Date() : null,
       remarks: finalRemarks
     };
 
