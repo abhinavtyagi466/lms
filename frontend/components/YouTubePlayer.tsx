@@ -235,41 +235,12 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
             return;
           }
 
-          if (isVideoPlaying) {
-            try {
-              const currentTime = playerRef.current.getCurrentTime();
-              const duration = playerRef.current.getDuration();
+        }
+      }, 5000);
 
-              if (currentTime && duration) {
-                setCurrentTime(currentTime);
-                setDuration(duration);
-
-                // Update max watched time
-                if (currentTime > lastMaxTimeRef.current) {
-                  lastMaxTimeRef.current = currentTime;
-                }
-
-                const progressPercent = Math.round((currentTime / duration) * 100);
-                setProgress(progressPercent);
-
-                // Use refs to call latest callbacks
-                if (onProgressRef.current) {
-                  onProgressRef.current(progressPercent);
-                }
-
-                if (onTimeUpdateRef.current) {
-                  onTimeUpdateRef.current(currentTime, duration);
-                }
-
-                // Send progress to backend
-                await sendProgressToBackend(currentTime, duration);
-              }
-            } catch (error) {
-              console.error('Error tracking progress:', error);
-            }
-          }
-        }, 5000); // Every 5 seconds
-    }, []); // No dependencies needed as we use refs and direct player access
+      (playerRef.current as any).seekCheckInterval = seekCheckInterval;
+    }
+  }, []); // No dependencies needed as we use refs and direct player access
 
   // Player state change event
   const onPlayerStateChange = useCallback((event: any) => {
