@@ -142,6 +142,68 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     }
   }, [videoId, restricted]);
 
+  // Send progress to backend
+  const sendProgressToBackend = async (currentTime: number, duration: number) => {
+    try {
+      await apiService.progress.updateProgress({
+        userId,
+        videoId,
+        currentTime,
+        duration
+      });
+      console.log(`Progress sent: ${currentTime}s / ${duration}s for video ${videoId}`);
+    } catch (error) {
+      console.error('Error sending progress to backend:', error);
+    }
+  };
+
+  const startProgressTracking = useCallback(() => {
+    if (progressIntervalRef.current) return;
+
+    progressIntervalRef.current = setInterval(async () => {
+      if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+        const currentTime = playerRef.current.getCurrentTime();
+        const duration = playerRef.current.getDuration();
+
+        // Check if playing using direct player state to avoid stale closures
+        const playerState = playerRef.current.getPlayerState();
+        const isPlayingNow = playerState === window.YT.PlayerState.PLAYING;
+
+        if (isPlayingNow && currentTime && duration) {
+          setCurrentTime(currentTime);
+          setDuration(duration);
+
+          // Update max watched time
+          if (currentTime > lastMaxTimeRef.current) {
+            lastMaxTimeRef.current = currentTime;
+          }
+
+          const progressPercent = Math.round((currentTime / duration) * 100);
+          setProgress(progressPercent);
+
+          // Use refs to call latest callbacks
+          if (onProgressRef.current) {
+            onProgressRef.current(progressPercent);
+          }
+
+          if (onTimeUpdateRef.current) {
+            onTimeUpdateRef.current(currentTime, duration);
+          }
+
+          // Send progress to backend
+          await sendProgressToBackend(currentTime, duration);
+        }
+      }
+    }, 5000); // Every 5 seconds
+  }, []);
+
+  const stopProgressTracking = useCallback(() => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = undefined;
+    }
+  }, []);
+
   // Player ready event
   const onPlayerReady = useCallback(async (event: any) => {
     setLoading(false);
@@ -162,7 +224,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     // Add seek event listener to track manual seeking
     if (playerRef.current) {
       let lastKnownTime = 0;
-      const seekCheckInterval = setInterval(() => {
+      const seekCheckInterval = setInterval(async () => {
         if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
           const currentTime = playerRef.current.getCurrentTime();
 
@@ -243,21 +305,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     setLoading(false);
   }, []);
 
-  // Send progress to backend
-  const sendProgressToBackend = async (currentTime: number, duration: number) => {
-    try {
-      await apiService.progress.updateProgress({
-        userId,
-        videoId,
-        currentTime,
-        duration
-      });
-      console.log(`Progress sent: ${currentTime}s / ${duration}s for video ${videoId}`);
-    } catch (error) {
-      console.error('Error sending progress to backend:', error);
-      // Don't show error to user for progress tracking
-    }
-  };
+
 
   // Manual progress update function
   const updateProgressManually = async () => {
