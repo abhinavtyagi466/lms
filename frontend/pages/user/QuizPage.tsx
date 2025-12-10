@@ -373,117 +373,6 @@ export const QuizPage: React.FC = () => {
   };
 
   const nextQuestion = () => {
-    if (currentQuestionIndex < selectedQuiz.questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-    }
-  };
-
-  const previousQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
-    }
-  };
-
-  const submitQuiz = async () => {
-    try {
-      // Calculate time spent using dynamic quiz time
-      // estimatedTime is in minutes, convert to seconds
-      const quizTimeMinutes = selectedQuiz?.estimatedTime || 30;
-      const quizTimeSeconds = quizTimeMinutes * 60;
-      const timeSpent = quizTimeSeconds - timeLeft; // in seconds
-
-      // Prepare answers in the format expected by backend
-      const answersData = selectedQuiz.questions.map((question: any, index: number) => ({
-        selectedOption: selectedAnswers[index] !== undefined ? selectedAnswers[index] : -1,
-        timeSpent: Math.floor(timeSpent / selectedQuiz.questions.length) // distribute time across questions
-      }));
-
-      // Submit quiz to backend
-      const userId = (user as any)?._id || (user as any)?.id;
-
-      // Extract moduleId - handle both populated and non-populated cases
-      let moduleId = selectedQuiz.moduleId;
-      if (typeof moduleId === 'object' && moduleId !== null) {
-        moduleId = moduleId._id || moduleId.id;
-      }
-
-      if (!userId) {
-        console.error('User ID is missing');
-        toast.error('User ID not found. Please login again.');
-        return;
-      }
-
-      if (!moduleId) {
-        console.error('Module ID is missing');
-        toast.error('Module ID not found. Please try again.');
-        return;
-      }
-
-      const response: any = await apiService.quizzes.submitQuiz(
-        userId,
-        moduleId,
-        answersData,
-        timeSpent
-      );
-
-      // Update UI with backend response
-      const result = response?.data?.result || response?.result;
-      if (result) {
-        setScore(result.percentage);
-        setQuizCompleted(true);
-
-        toast.success(
-          `Quiz submitted successfully. Score: ${result.percentage}% - ${result.passed ? 'PASSED' : 'FAILED'
-          }`
-        );
-      } else {
-        // Fallback to local calculation if backend response is unexpected
-        const correctAnswers = selectedQuiz.questions.filter((_question: any, index: number) => {
-          const selectedAnswer = selectedAnswers[index];
-          const correctAnswer = _question.correctIndex !== undefined ? _question.correctIndex : _question.correctOption;
-          return selectedAnswer === correctAnswer;
-        }).length;
-
-        const calculatedScore = Math.round((correctAnswers / selectedQuiz.questions.length) * 100);
-        setScore(calculatedScore);
-        setQuizCompleted(true);
-
-        toast.success(`Quiz completed. Score: ${calculatedScore}%`);
-      }
-
-      // Auto redirect to dashboard after 3 seconds
-      setTimeout(() => {
-        // Cleanup fullscreen CSS
-        const existingStyle = document.getElementById('quiz-fullscreen-style');
-        if (existingStyle) {
-          existingStyle.remove();
-        }
-        document.body.classList.remove('quiz-fullscreen-active');
-
-        exitFullscreen();
-        setQuizStarted(false);
-        setSelectedQuiz(null);
-        setQuizCompleted(false);
-        setCurrentPage('user-dashboard');
-      }, 3000);
-
-    } catch (error: any) {
-      console.error('Quiz submission error:', error);
-
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to submit quiz';
-      toast.error(`Quiz submission failed: ${errorMessage}`);
-    }
-  };
-
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600';
-    if (score >= 70) return 'text-yellow-600';
     return 'text-red-600';
   };
 
@@ -642,14 +531,14 @@ export const QuizPage: React.FC = () => {
                   key={index}
                   onClick={() => handleAnswerSelect(currentQuestionIndex, index)}
                   className={`w-full p-4 text-left border rounded-lg transition-colors ${selectedAnswers[currentQuestionIndex] === index
-                      ? 'border-blue-500 bg-blue-50 text-blue-900'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    ? 'border-blue-500 bg-blue-50 text-blue-900'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     }`}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-4 h-4 rounded-full border-2 ${selectedAnswers[currentQuestionIndex] === index
-                        ? 'border-blue-500 bg-blue-500'
-                        : 'border-gray-300'
+                      ? 'border-blue-500 bg-blue-500'
+                      : 'border-gray-300'
                       }`} />
                     <span>{option}</span>
                   </div>

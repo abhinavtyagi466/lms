@@ -172,7 +172,7 @@ kpiScoreSchema.index({ processedAt: 1 });
 kpiScoreSchema.index({ createdAt: -1 });
 
 // Pre-save middleware to calculate scores and determine actions
-kpiScoreSchema.pre('save', function(next) {
+kpiScoreSchema.pre('save', function (next) {
   // Calculate TAT score (20%)
   if (this.tat.percentage >= 95) this.tat.score = 20;
   else if (this.tat.percentage >= 90) this.tat.score = 10;
@@ -180,10 +180,10 @@ kpiScoreSchema.pre('save', function(next) {
   else this.tat.score = 0;
 
   // Calculate Major Negativity score (20%)
-  if (this.majorNegativity.percentage >= 2.5) this.majorNegativity.score = 20;
-  else if (this.majorNegativity.percentage >= 2) this.majorNegativity.score = 15;
-  else if (this.majorNegativity.percentage >= 1.5) this.majorNegativity.score = 5;
-  else this.majorNegativity.score = 0;
+  if (this.majorNegativity.percentage >= 2.5) this.majorNegativity.score = 0;
+  else if (this.majorNegativity.percentage >= 2) this.majorNegativity.score = 5;
+  else if (this.majorNegativity.percentage >= 1.5) this.majorNegativity.score = 15;
+  else this.majorNegativity.score = 20;
 
   // Calculate Quality score (20%)
   if (this.quality.percentage === 0) this.quality.score = 20;
@@ -198,10 +198,10 @@ kpiScoreSchema.pre('save', function(next) {
   else this.neighborCheck.score = 0;
 
   // Calculate Negativity score (10%)
-  if (this.negativity.percentage >= 25) this.negativity.score = 10;
-  else if (this.negativity.percentage >= 20) this.negativity.score = 5;
-  else if (this.negativity.percentage >= 15) this.negativity.score = 2;
-  else this.negativity.score = 0;
+  if (this.negativity.percentage >= 25) this.negativity.score = 0;
+  else if (this.negativity.percentage >= 20) this.negativity.score = 2;
+  else if (this.negativity.percentage >= 15) this.negativity.score = 5;
+  else this.negativity.score = 10;
 
   // Calculate App Usage score (10%)
   if (this.appUsage.percentage >= 90) this.appUsage.score = 10;
@@ -294,12 +294,12 @@ kpiScoreSchema.pre('save', function(next) {
 
   // Remove duplicates from triggered actions
   this.triggeredActions = [...new Set(this.triggeredActions)];
-  
+
   next();
 });
 
 // Static method to get user's latest KPI score
-kpiScoreSchema.statics.getLatestForUser = function(userId) {
+kpiScoreSchema.statics.getLatestForUser = function (userId) {
   return this.findOne({ userId, isActive: true })
     .sort({ createdAt: -1 })
     .populate('userId', 'name email employeeId')
@@ -307,7 +307,7 @@ kpiScoreSchema.statics.getLatestForUser = function(userId) {
 };
 
 // Static method to get KPI trends for a user
-kpiScoreSchema.statics.getTrends = function(userId, limit = 6) {
+kpiScoreSchema.statics.getTrends = function (userId, limit = 6) {
   return this.find({ userId, isActive: true })
     .sort({ createdAt: -1 })
     .limit(limit)
@@ -315,7 +315,7 @@ kpiScoreSchema.statics.getTrends = function(userId, limit = 6) {
 };
 
 // Static method to get average KPI score for all users
-kpiScoreSchema.statics.getOverallAverage = function() {
+kpiScoreSchema.statics.getOverallAverage = function () {
   return this.aggregate([
     { $match: { isActive: true } },
     {
@@ -339,12 +339,12 @@ kpiScoreSchema.statics.getOverallAverage = function() {
 };
 
 // Instance method to check if action is required
-kpiScoreSchema.methods.requiresAction = function() {
+kpiScoreSchema.methods.requiresAction = function () {
   return this.triggeredActions.length > 0;
 };
 
 // Instance method to get action priority
-kpiScoreSchema.methods.getActionPriority = function() {
+kpiScoreSchema.methods.getActionPriority = function () {
   if (this.triggeredActions.includes('audit')) return 'high';
   if (this.triggeredActions.includes('training')) return 'medium';
   if (this.triggeredActions.includes('recognition')) return 'positive';
@@ -352,10 +352,10 @@ kpiScoreSchema.methods.getActionPriority = function() {
 };
 
 // Static method to get KPI scores pending automation
-kpiScoreSchema.statics.getPendingAutomation = function() {
-  return this.find({ 
+kpiScoreSchema.statics.getPendingAutomation = function () {
+  return this.find({
     automationStatus: 'pending',
-    isActive: true 
+    isActive: true
   })
     .populate('userId', 'name email employeeId')
     .populate('submittedBy', 'name email')
@@ -363,10 +363,10 @@ kpiScoreSchema.statics.getPendingAutomation = function() {
 };
 
 // Static method to get KPI scores by automation status
-kpiScoreSchema.statics.getByAutomationStatus = function(status) {
-  return this.find({ 
+kpiScoreSchema.statics.getByAutomationStatus = function (status) {
+  return this.find({
     automationStatus: status,
-    isActive: true 
+    isActive: true
   })
     .populate('userId', 'name email employeeId')
     .populate('submittedBy', 'name email')
@@ -374,7 +374,7 @@ kpiScoreSchema.statics.getByAutomationStatus = function(status) {
 };
 
 // Static method to get KPI automation statistics
-kpiScoreSchema.statics.getAutomationStats = function() {
+kpiScoreSchema.statics.getAutomationStats = function () {
   return this.aggregate([
     { $match: { isActive: true } },
     {
@@ -387,28 +387,28 @@ kpiScoreSchema.statics.getAutomationStats = function() {
 };
 
 // Instance method to mark as processing
-kpiScoreSchema.methods.markAsProcessing = function() {
+kpiScoreSchema.methods.markAsProcessing = function () {
   this.automationStatus = 'processing';
   this.processedAt = new Date();
   return this.save();
 };
 
 // Instance method to mark as completed
-kpiScoreSchema.methods.markAsCompleted = function() {
+kpiScoreSchema.methods.markAsCompleted = function () {
   this.automationStatus = 'completed';
   this.processedAt = new Date();
   return this.save();
 };
 
 // Instance method to mark as failed
-kpiScoreSchema.methods.markAsFailed = function() {
+kpiScoreSchema.methods.markAsFailed = function () {
   this.automationStatus = 'failed';
   this.processedAt = new Date();
   return this.save();
 };
 
 // Instance method to add training assignment
-kpiScoreSchema.methods.addTrainingAssignment = function(assignmentId) {
+kpiScoreSchema.methods.addTrainingAssignment = function (assignmentId) {
   if (!this.trainingAssignments.includes(assignmentId)) {
     this.trainingAssignments.push(assignmentId);
   }
@@ -416,7 +416,7 @@ kpiScoreSchema.methods.addTrainingAssignment = function(assignmentId) {
 };
 
 // Instance method to add email log
-kpiScoreSchema.methods.addEmailLog = function(emailLogId) {
+kpiScoreSchema.methods.addEmailLog = function (emailLogId) {
   if (!this.emailLogs.includes(emailLogId)) {
     this.emailLogs.push(emailLogId);
   }
@@ -424,7 +424,7 @@ kpiScoreSchema.methods.addEmailLog = function(emailLogId) {
 };
 
 // Instance method to add audit schedule
-kpiScoreSchema.methods.addAuditSchedule = function(auditScheduleId) {
+kpiScoreSchema.methods.addAuditSchedule = function (auditScheduleId) {
   if (!this.auditSchedules.includes(auditScheduleId)) {
     this.auditSchedules.push(auditScheduleId);
   }

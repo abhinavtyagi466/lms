@@ -939,9 +939,12 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {modules.map((module) => {
-                      // Map progress using ytVideoId instead of module._id
-                      const progress = videoProgress[module.ytVideoId] || { currentTime: 0, duration: 0 };
-                      const progressPercentage = progress.duration > 0 ? (progress.currentTime / progress.duration) * 100 : 0;
+                      // Use the progress calculated by the backend (prioritizes UserProgress)
+                      // module.progress is 0-1, convert to 0-100
+                      const progressPercentage = Math.round((module.progress || 0) * 100);
+
+                      // Get time details from legacy videoProgress if available, for display purposes
+                      const legacyProgress = videoProgress[module.ytVideoId] || { currentTime: 0, duration: 0 };
 
                       return (
                         <Card key={module._id} className="p-4">
@@ -949,21 +952,22 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                               <Play className="w-5 h-5 text-blue-600" />
                             </div>
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-sm">{module.title}</h4>
-                              <p className="text-xs text-gray-600">{module.description}</p>
+                            <div className="flex-1 overflow-hidden">
+                              <h4 className="font-semibold text-sm truncate" title={module.title}>{module.title || 'Untitled Module'}</h4>
+                              <p className="text-xs text-gray-600 truncate">{module.description || 'No description'}</p>
                             </div>
                           </div>
 
                           <div className="space-y-2">
                             <div className="flex justify-between text-xs">
                               <span>Progress</span>
-                              <span>{Math.round(progressPercentage)}%</span>
+                              <span>{progressPercentage}%</span>
                             </div>
                             <Progress value={progressPercentage} className="h-2" />
                             <div className="flex justify-between text-xs text-gray-500">
-                              <span>{formatTime(progress.currentTime)}</span>
-                              <span>{formatTime(progress.duration)}</span>
+                              {/* Show time only if we have legacy data, otherwise just show percentage */}
+                              <span>{legacyProgress.duration > 0 ? formatTime(legacyProgress.currentTime) : `${progressPercentage}%`}</span>
+                              <span>{legacyProgress.duration > 0 ? formatTime(legacyProgress.duration) : 'Total'}</span>
                             </div>
                           </div>
                         </Card>
@@ -1224,139 +1228,118 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                       <div className="text-xs text-gray-500 mt-1">Total warnings issued</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">{awards.length}</div>
+                      <div className="text-2xl font-bold text-green-600">{certificates.length}</div>
                       <div className="text-sm text-gray-700 font-medium">Certificates</div>
                       <div className="text-xs text-gray-500 mt-1">Awards & certificates</div>
                     </div>
                   </div>
                 </Card>
 
-                {/* Certificates Section */}
-                {awards.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="text-md font-semibold flex items-center gap-2">
-                      <Award className="w-4 h-4 text-green-600" />
-                      Certificates & Awards
-                    </h4>
-                    {awards.map((award: any) => (
-                      <Card key={award._id} className="p-4 border-green-200 bg-green-50">
-                        <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                            <Award className="w-4 h-4 text-green-600" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-medium text-green-900">{award.title}</div>
-                            <div className="text-sm text-gray-700">{award.description || award.type}</div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {award.awardDate ? formatDate(award.awardDate) : 'N/A'} • Status: {award.status || 'approved'}
-                            </div>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-
-                {/* Warnings Section */}
-                {warnings.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="text-md font-semibold flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-red-600" />
-                      Warnings
-                    </h4>
-                    {warnings.map((warning: any) => (
-                      <Card key={warning._id} className="p-4 border-red-200 bg-red-50">
-                        <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                            <AlertTriangle className="w-4 h-4 text-red-600" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-medium text-red-900">{warning.title}</div>
-                            <div className="text-sm text-gray-700">{warning.description}</div>
-                            <div className="flex items-center gap-2 mt-2">
-                              <Badge className={getSeverityColor(warning.severity)}>
-                                {warning.severity}
-                              </Badge>
-                              <Badge className={warning.status === 'active' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}>
-                                {warning.status}
-                              </Badge>
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {warning.issuedAt ? formatDate(warning.issuedAt) : formatDate(warning.createdAt)}
-                            </div>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-
-                {/* All Lifecycle Events */}
+                {/* Unified Timeline */}
                 <div className="space-y-3">
                   <h4 className="text-md font-semibold flex items-center gap-2">
                     <Clock className="w-4 h-4 text-blue-600" />
-                    All Lifecycle Events
+                    Timeline
                   </h4>
-                  {lifecycleEvents.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500">No lifecycle events found</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {lifecycleEvents.map((event) => {
-                        // Determine icon and color based on event type
-                        let Icon = Clock;
-                        let iconColor = 'blue';
-                        let bgColor = 'blue-50';
-                        let borderColor = 'blue-200';
 
-                        if (event.type === 'achievement' || event.type === 'award') {
-                          Icon = Award;
-                          iconColor = 'green';
-                          bgColor = 'green-50';
-                          borderColor = 'green-200';
-                        } else if (event.type === 'warning') {
-                          Icon = AlertTriangle;
-                          iconColor = 'red';
-                          bgColor = 'red-50';
-                          borderColor = 'red-200';
-                        } else if (event.type === 'exit') {
-                          Icon = XCircle;
-                          iconColor = 'gray';
-                          bgColor = 'gray-50';
-                          borderColor = 'gray-200';
-                        }
+                  {(() => {
+                    // Merge all events into a single list
+                    const allEvents = [
+                      ...lifecycleEvents.map(e => ({ ...e, _source: 'lifecycle' })),
+                      ...warnings.map(w => ({
+                        _id: w._id,
+                        title: w.title,
+                        description: w.description,
+                        createdAt: w.issuedAt,
+                        type: 'warning',
+                        category: 'negative',
+                        _source: 'warning'
+                      })),
+                      ...certificates.map(c => ({
+                        _id: c._id,
+                        title: c.title || 'Certificate Issued',
+                        description: c.message || c.description || 'Certificate awarded',
+                        createdAt: c.createdAt || c.awardDate,
+                        type: 'achievement',
+                        category: 'positive',
+                        _source: 'certificate'
+                      })),
+                      ...awards.map(a => ({
+                        _id: a._id,
+                        title: a.title,
+                        description: a.description,
+                        createdAt: a.awardDate,
+                        type: 'award',
+                        category: 'positive',
+                        _source: 'award'
+                      }))
+                    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-                        return (
-                          <Card key={event._id} className={`p-4 border-${borderColor} bg-${bgColor}`}>
-                            <div className="flex items-start gap-3">
-                              <div className={`w-8 h-8 bg-${iconColor}-100 rounded-full flex items-center justify-center`}>
-                                <Icon className={`w-4 h-4 text-${iconColor}-600`} />
-                              </div>
-                              <div className="flex-1">
-                                <div className="font-medium">{event.title}</div>
-                                <div className="text-sm text-gray-700">{event.description}</div>
-                                <div className="flex items-center gap-2 mt-2">
-                                  <Badge className={`bg-${iconColor}-100 text-${iconColor}-800`}>
-                                    {event.type}
-                                  </Badge>
-                                  {event.category && (
-                                    <Badge variant="outline">
-                                      {event.category}
+                    if (allEvents.length === 0) {
+                      return (
+                        <div className="text-center py-8">
+                          <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                          <p className="text-gray-500">No lifecycle events found</p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-4">
+                        {allEvents.map((event, index) => {
+                          // Determine icon and color based on event type/source
+                          let Icon = Clock;
+                          let iconColor = 'blue';
+                          let bgColor = 'blue-50';
+                          let borderColor = 'blue-200';
+
+                          if (event.type === 'achievement' || event.type === 'award' || event._source === 'certificate' || event._source === 'award') {
+                            Icon = Award;
+                            iconColor = 'green';
+                            bgColor = 'green-50';
+                            borderColor = 'green-200';
+                          } else if (event.type === 'warning' || event._source === 'warning') {
+                            Icon = AlertTriangle;
+                            iconColor = 'red';
+                            bgColor = 'red-50';
+                            borderColor = 'red-200';
+                          } else if (event.type === 'exit') {
+                            Icon = XCircle;
+                            iconColor = 'gray';
+                            bgColor = 'gray-50';
+                            borderColor = 'gray-200';
+                          }
+
+                          return (
+                            <Card key={`${event._source}-${event._id}-${index}`} className={`p-4 border-${borderColor} bg-${bgColor}`}>
+                              <div className="flex items-start gap-3">
+                                <div className={`w-8 h-8 bg-${iconColor}-100 rounded-full flex items-center justify-center`}>
+                                  <Icon className={`w-4 h-4 text-${iconColor}-600`} />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="font-medium">{event.title}</div>
+                                  <div className="text-sm text-gray-700">{event.description}</div>
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <Badge className={`bg-${iconColor}-100 text-${iconColor}-800`}>
+                                      {event.type || 'Event'}
                                     </Badge>
-                                  )}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {formatDate(event.createdAt)}
+                                    {event.category && (
+                                      <Badge variant="outline">
+                                        {event.category}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {formatDate(event.createdAt)}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}

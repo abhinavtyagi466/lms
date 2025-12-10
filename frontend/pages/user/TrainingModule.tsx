@@ -24,6 +24,7 @@ export const TrainingModule: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [videoProgress, setVideoProgress] = useState(0);
   const [showQuizButton, setShowQuizButton] = useState(false);
+  const [initialVideoTime, setInitialVideoTime] = useState(0);
 
   useEffect(() => {
     console.log('TrainingModule: useEffect triggered with selectedModuleId:', selectedModuleId);
@@ -42,14 +43,19 @@ export const TrainingModule: React.FC = () => {
       setLoading(true);
       console.log('TrainingModule: Loading module ID:', selectedModuleId);
 
-      // Load module and quiz data
-      const [moduleResponse, quizResponse] = await Promise.allSettled([
+      // Load module, quiz, and user progress data
+      const assignmentId = localStorage.getItem('currentAssignmentId') || undefined;
+      const userId = (user as any)?._id || (user as any)?.id;
+
+      const [moduleResponse, quizResponse, progressResponse] = await Promise.allSettled([
         apiService.modules.getModule(selectedModuleId!),
-        apiService.quizzes.getQuiz(selectedModuleId!).catch(() => null)
+        apiService.quizzes.getQuiz(selectedModuleId!).catch(() => null),
+        userId ? apiService.userProgress.getUserProgress(userId, selectedModuleId!, assignmentId).catch(() => null) : Promise.resolve(null)
       ]);
 
       console.log('Module response:', moduleResponse);
       console.log('Quiz response:', quizResponse);
+      console.log('Progress response:', progressResponse);
 
       // Handle module response
       let moduleData = null;
@@ -79,8 +85,27 @@ export const TrainingModule: React.FC = () => {
         }
       }
 
+      // Handle progress response
+      let initialTime = 0;
+      if (progressResponse.status === 'fulfilled' && progressResponse.value) {
+        const response = progressResponse.value as any;
+        if (response && response.userProgress) {
+          // Use lastVideoPosition if available
+          if (response.userProgress.lastVideoPosition) {
+            initialTime = response.userProgress.lastVideoPosition;
+          }
+
+          // If video is completed (>= 99%), start from 0
+          if (response.userProgress.videoProgress >= 99) {
+            initialTime = 0;
+          }
+        }
+      }
+      setInitialVideoTime(initialTime);
+
       console.log('Extracted module data:', moduleData);
       console.log('Extracted quiz data:', quizData);
+      console.log('Calculated initial time:', initialTime);
 
       if (moduleData) {
         // Check if we have either a video ID or a full YouTube URL
@@ -116,13 +141,6 @@ export const TrainingModule: React.FC = () => {
     }
   };
 
-
-  // Get video ID for progress tracking - DISABLED
-  // const getVideoId = (videoUrl: string) => {
-  //   // Function disabled to avoid caching issues
-  //   return null;
-  // };
-
   // Handle progress updates from YouTube player
   const handleProgressUpdate = (videoId: string, currentTime: number, duration: number) => {
     console.log(`Progress update received for ${videoId}: ${currentTime}s / ${duration}s (${Math.round((currentTime / duration) * 100)}%)`);
@@ -143,6 +161,7 @@ export const TrainingModule: React.FC = () => {
     // Update backend progress
     const userId = (user as any)._id || (user as any).id;
     if (userId) {
+      // Update generic progress
       apiService.progress.updateProgress({
         userId,
         videoId,
@@ -153,6 +172,20 @@ export const TrainingModule: React.FC = () => {
       }).catch(error => {
         console.error('Failed to update progress:', error);
       });
+
+      // Update module-specific progress (CRITICAL for resuming)
+      if (selectedModuleId) {
+        const assignmentId = localStorage.getItem('currentAssignmentId') || undefined;
+        apiService.userProgress.updateVideoProgress(
+          userId,
+          selectedModuleId,
+          progressPercent,
+          assignmentId,
+          currentTime
+        ).catch(error => {
+          console.error('Failed to update user module progress:', error);
+        });
+      }
     }
   };
 
@@ -164,7 +197,8 @@ export const TrainingModule: React.FC = () => {
     const userId = (user as any)._id || (user as any).id;
     if (userId && selectedModuleId) {
       try {
-        apiService.userProgress.watchVideo(selectedModuleId, 100);
+        const assignmentId = localStorage.getItem('currentAssignmentId') || undefined;
+        apiService.userProgress.watchVideo(selectedModuleId, 100, assignmentId);
         console.log('Progress updated in backend');
       } catch (error) {
         console.log('Backend update failed, but progress is tracked locally');
@@ -188,7 +222,8 @@ export const TrainingModule: React.FC = () => {
         // Update backend progress
         if (user?.id && selectedModuleId) {
           try {
-            await apiService.userProgress.watchVideo(selectedModuleId, 100);
+            const assignmentId = localStorage.getItem('currentAssignmentId') || undefined;
+            await apiService.userProgress.watchVideo(selectedModuleId, 100, assignmentId);
             console.log('Progress updated in backend');
           } catch (error) {
             console.log('Backend update failed, but progress is tracked locally');
@@ -201,7 +236,6 @@ export const TrainingModule: React.FC = () => {
       console.error('Error updating progress:', error);
     }
   };
-
 
   // Start quiz - now integrated with the new quiz system
   const startQuiz = () => {
@@ -236,7 +270,11 @@ export const TrainingModule: React.FC = () => {
   };
 
   if (loading) {
-    return <LoadingSpinner />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
   }
 
   if (!module) {
@@ -324,6 +362,7 @@ export const TrainingModule: React.FC = () => {
                 onTimeUpdate={(currentTime, duration) => {
                   handleProgressUpdate(module.ytVideoId, currentTime, duration);
                 }}
+                initialTime={initialVideoTime}
               />
             </div>
           </Card>

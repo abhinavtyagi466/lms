@@ -51,6 +51,11 @@ const userProgressSchema = new mongoose.Schema({
     ref: 'Module',
     required: [true, 'Module ID is required']
   },
+  assignmentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TrainingAssignment',
+    default: null
+  },
   videoProgress: {
     type: Number,
     default: 0,
@@ -74,6 +79,10 @@ const userProgressSchema = new mongoose.Schema({
     default: null
   },
   totalWatchTime: {
+    type: Number,
+    default: 0 // in seconds
+  },
+  lastVideoPosition: {
     type: Number,
     default: 0 // in seconds
   },
@@ -121,8 +130,8 @@ const userProgressSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true,
-  toJSON: { 
-    transform: function(doc, ret) {
+  toJSON: {
+    transform: function (doc, ret) {
       ret.id = ret._id;
       delete ret._id;
       delete ret.__v;
@@ -131,8 +140,8 @@ const userProgressSchema = new mongoose.Schema({
   }
 });
 
-// Compound index for unique user-module combination
-userProgressSchema.index({ userId: 1, moduleId: 1 }, { unique: true });
+// Compound index for unique user-module-assignment combination
+userProgressSchema.index({ userId: 1, moduleId: 1, assignmentId: 1 }, { unique: true });
 userProgressSchema.index({ userId: 1 });
 userProgressSchema.index({ moduleId: 1 });
 userProgressSchema.index({ passed: 1 });
@@ -142,22 +151,28 @@ userProgressSchema.index({ lastAccessedAt: -1 });
 userProgressSchema.index({ status: 1, lastAccessedAt: -1 }); // Compound index for common query pattern
 
 // Static method to get user progress
-userProgressSchema.statics.getUserProgress = function(userId, moduleId) {
-  return this.findOne({ userId, moduleId }).populate('moduleId');
+userProgressSchema.statics.getUserProgress = function (userId, moduleId, assignmentId = null) {
+  const query = { userId, moduleId };
+  if (assignmentId) {
+    query.assignmentId = assignmentId;
+  } else {
+    query.assignmentId = null;
+  }
+  return this.findOne(query).populate('moduleId');
 };
 
 // Static method to get all user progress
-userProgressSchema.statics.getAllUserProgress = function(userId) {
+userProgressSchema.statics.getAllUserProgress = function (userId) {
   return this.find({ userId }).populate('moduleId').sort({ createdAt: 1 });
 };
 
 // Static method to get completed modules
-userProgressSchema.statics.getCompletedModules = function(userId) {
+userProgressSchema.statics.getCompletedModules = function (userId) {
   return this.find({ userId, passed: true }).populate('moduleId');
 };
 
 // Static method to get user statistics
-userProgressSchema.statics.getUserStats = function(userId) {
+userProgressSchema.statics.getUserStats = function (userId) {
   return this.aggregate([
     { $match: { userId: new mongoose.Types.ObjectId(userId) } },
     {
@@ -173,40 +188,40 @@ userProgressSchema.statics.getUserStats = function(userId) {
 };
 
 // Instance method to update video progress
-userProgressSchema.methods.updateVideoProgress = function(progress) {
+userProgressSchema.methods.updateVideoProgress = function (progress) {
   this.videoProgress = Math.min(100, Math.max(0, progress));
   this.lastAccessedAt = new Date();
-  
+
   if (this.videoProgress >= 90) { // Consider 90% as watched
     this.videoWatched = true;
     this.videoWatchedAt = new Date();
   }
-  
+
   return this.save();
 };
 
 // Instance method to add quiz attempt
-userProgressSchema.methods.addQuizAttempt = function(attemptData) {
+userProgressSchema.methods.addQuizAttempt = function (attemptData) {
   this.quizAttempts.push(attemptData);
-  
+
   // Update best score
   if (attemptData.percentage > this.bestPercentage) {
     this.bestPercentage = attemptData.percentage;
     this.bestScore = attemptData.score;
   }
-  
+
   // Check if passed
   if (attemptData.passed) {
     this.passed = true;
     this.completedAt = new Date();
   }
-  
+
   this.lastAccessedAt = new Date();
   return this.save();
 };
 
 // Instance method to issue certificate
-userProgressSchema.methods.issueCertificate = function() {
+userProgressSchema.methods.issueCertificate = function () {
   if (this.passed && !this.certificateIssued) {
     this.certificateIssued = true;
     this.certificateIssuedAt = new Date();
@@ -216,7 +231,7 @@ userProgressSchema.methods.issueCertificate = function() {
 };
 
 // Post-save middleware to trigger auto KPI generation
-userProgressSchema.post('save', async function(doc) {
+userProgressSchema.post('save', async function (doc) {
   try {
     // Only trigger for significant updates
     if (doc.isModified('videoProgress') || doc.isModified('passed') || doc.isModified('bestPercentage')) {

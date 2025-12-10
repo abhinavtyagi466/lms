@@ -580,6 +580,9 @@ export const UserManagement: React.FC = () => {
     }
   };
 
+  const [isSendingWarning, setIsSendingWarning] = useState(false);
+  const [isSendingCertificate, setIsSendingCertificate] = useState(false);
+
   const handleSendWarning = async () => {
     try {
       if (!warningData.message.trim()) {
@@ -587,6 +590,7 @@ export const UserManagement: React.FC = () => {
         return;
       }
 
+      setIsSendingWarning(true);
       await apiService.users.sendWarning(selectedUser._id, warningData.message, warningData.attachment || undefined);
       toast.success('Warning sent to user');
 
@@ -605,6 +609,8 @@ export const UserManagement: React.FC = () => {
     } catch (error) {
       console.error('Error sending warning:', error);
       toast.error('Failed to send warning');
+    } finally {
+      setIsSendingWarning(false);
     }
   };
 
@@ -638,6 +644,7 @@ export const UserManagement: React.FC = () => {
         return;
       }
 
+      setIsSendingCertificate(true);
       await apiService.users.sendCertificate(selectedUser._id, certificateData.title, certificateData.message, certificateData.attachment || undefined);
       toast.success('Certificate sent to user');
       setShowCertificateModal(false);
@@ -650,6 +657,8 @@ export const UserManagement: React.FC = () => {
       } else {
         toast.error('Failed to send certificate');
       }
+    } finally {
+      setIsSendingCertificate(false);
     }
   };
 
@@ -2534,9 +2543,17 @@ export const UserManagement: React.FC = () => {
                   </Button>
                   <Button
                     onClick={handleSendWarning}
-                    className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white"
+                    disabled={isSendingWarning}
+                    className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Send Warning
+                    {isSendingWarning ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Sending...
+                      </div>
+                    ) : (
+                      'Send Warning'
+                    )}
                   </Button>
                 </div>
               </div>
@@ -2616,9 +2633,17 @@ export const UserManagement: React.FC = () => {
                   </Button>
                   <Button
                     onClick={handleSendCertificate}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    disabled={isSendingCertificate}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Send Certificate
+                    {isSendingCertificate ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Sending...
+                      </div>
+                    ) : (
+                      'Send Certificate'
+                    )}
                   </Button>
                 </div>
               </div>

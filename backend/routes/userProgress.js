@@ -56,7 +56,8 @@ router.get('/:userId/:moduleId', authenticateToken, validateObjectId, async (req
       });
     }
 
-    const userProgress = await UserProgress.getUserProgress(userId, moduleId);
+    const { assignmentId } = req.query;
+    const userProgress = await UserProgress.getUserProgress(userId, moduleId, assignmentId);
 
     if (!userProgress) {
       return res.status(404).json({
@@ -85,7 +86,7 @@ router.get('/:userId/:moduleId', authenticateToken, validateObjectId, async (req
 router.put('/:userId/:moduleId/video', authenticateToken, validateObjectId, async (req, res) => {
   try {
     const { userId, moduleId } = req.params;
-    const { progress } = req.body;
+    const { progress, assignmentId } = req.body;
 
     // Check if user is accessing their own data or has admin panel access
     const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
@@ -114,12 +115,13 @@ router.put('/:userId/:moduleId/video', authenticateToken, validateObjectId, asyn
     }
 
     // Get or create user progress
-    let userProgress = await UserProgress.getUserProgress(userId, moduleId);
+    let userProgress = await UserProgress.getUserProgress(userId, moduleId, assignmentId);
 
     if (!userProgress) {
       userProgress = new UserProgress({
         userId,
         moduleId,
+        assignmentId: assignmentId || null,
         videoProgress: 0,
         videoWatched: false,
         bestScore: 0,
@@ -130,6 +132,9 @@ router.put('/:userId/:moduleId/video', authenticateToken, validateObjectId, asyn
     }
 
     // Update video progress
+    if (req.body.currentTime !== undefined) {
+      userProgress.lastVideoPosition = req.body.currentTime;
+    }
     await userProgress.updateVideoProgress(progress);
 
     res.json({
@@ -153,7 +158,7 @@ router.put('/:userId/:moduleId/video', authenticateToken, validateObjectId, asyn
 router.post('/:userId/:moduleId/quiz', authenticateToken, validateObjectId, async (req, res) => {
   try {
     const { userId, moduleId } = req.params;
-    const { answers } = req.body;
+    const { answers, assignmentId } = req.body;
 
     // Check if user is accessing their own data or has admin panel access
     const adminPanelRoles = ['admin', 'hr', 'manager', 'hod'];
@@ -218,12 +223,13 @@ router.post('/:userId/:moduleId/quiz', authenticateToken, validateObjectId, asyn
     const passed = percentage >= module.passPercentage;
 
     // Get or create user progress
-    let userProgress = await UserProgress.getUserProgress(userId, moduleId);
+    let userProgress = await UserProgress.getUserProgress(userId, moduleId, assignmentId);
 
     if (!userProgress) {
       userProgress = new UserProgress({
         userId,
         moduleId,
+        assignmentId: assignmentId || null,
         videoProgress: 0,
         videoWatched: false,
         bestScore: 0,

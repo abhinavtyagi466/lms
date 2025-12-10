@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Module = require('../models/Module');
 const Progress = require('../models/Progress');
+const UserProgress = require('../models/UserProgress'); // Import UserProgress
 const Quiz = require('../models/Quiz');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
@@ -122,10 +123,17 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     }).filter(m => m !== null);
 
     // Combine regular and personalised modules
-    const modules = [...regularModules, ...personalisedModules];
+    // Filter out regular modules that are also assigned as personalised to avoid duplicates
+    const personalisedModuleIds = personalisedModules.map(m => m._id.toString());
+    const uniqueRegularModules = regularModules.filter(m => !personalisedModuleIds.includes(m._id.toString()));
 
-    // Get user's progress for all videos
-    const userProgress = await Progress.find({ userId });
+    const modules = [...uniqueRegularModules, ...personalisedModules];
+
+    // Get user's progress for all videos (Legacy Progress model)
+    const userProgressLegacy = await Progress.find({ userId });
+
+    // Get user's progress from UserProgress model (New, more accurate model)
+    const userProgressNew = await UserProgress.find({ userId });
 
     // Get all quizzes for the modules
     const moduleIds = modules.map(module => module._id);
@@ -142,13 +150,24 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       passed: true
     }).select('moduleId passed percentage');
 
-    // Create a map of video progress
-    const progressMap = {};
-    userProgress.forEach(progress => {
-      progressMap[progress.videoId] = {
+    // Create a map of video progress (Legacy)
+    const progressMapLegacy = {};
+    userProgressLegacy.forEach(progress => {
+      progressMapLegacy[progress.videoId] = {
         currentTime: progress.currentTime,
         duration: progress.duration
       };
+    });
+
+    // Create a map of video progress (New)
+    const progressMapNew = {};
+    userProgressNew.forEach(progress => {
+      // Key by moduleId and assignmentId (if exists)
+      const key = progress.assignmentId
+        ? `${progress.moduleId}_${progress.assignmentId}`
+        : progress.moduleId.toString();
+
+      progressMapNew[key] = progress.videoProgress;
     });
 
     // Create a map of quiz availability
@@ -175,8 +194,21 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     let regularModuleIndex = 0; // Track regular module index for sequential unlock
 
     const modulesWithProgress = modules.map((module, index) => {
-      const progress = progressMap[module.ytVideoId] || { currentTime: 0, duration: 0 };
-      const progressPercent = progress.duration > 0 ? (progress.currentTime / progress.duration) : 0;
+      // Try to get progress from New model first
+      let progressPercent = 0;
+
+      const key = module.assignmentId
+        ? `${module._id}_${module.assignmentId}`
+        : module._id.toString();
+
+      if (progressMapNew[key] !== undefined) {
+        progressPercent = progressMapNew[key] / 100; // Convert 0-100 to 0-1
+      } else {
+        // Fallback to Legacy model
+        const progress = progressMapLegacy[module.ytVideoId] || { currentTime: 0, duration: 0 };
+        progressPercent = progress.duration > 0 ? (progress.currentTime / progress.duration) : 0;
+      }
+
       const quiz = quizMap[module._id.toString()];
       const quizPassed = passedModulesMap[module._id.toString()];
 
@@ -226,7 +258,8 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
         personalisedReason: module.personalisedReason || null,
         personalisedPriority: module.personalisedPriority || null,
         personalisedBy: module.personalisedBy || null,
-        personalisedAt: module.personalisedAt || null
+        personalisedAt: module.personalisedAt || null,
+        assignmentId: module.assignmentId || null
       };
     });
 
@@ -605,17 +638,31 @@ router.get('/personalised/:userId', authenticateToken, async (req, res) => {
       .populate('assignedByUser', 'name email')
       .sort({ assignedAt: -1 });
 
-    // Get user's progress for these modules
+    // Get user's progress for these modules (Legacy)
     const Progress = require('../models/Progress');
-    const userProgress = await Progress.find({ userId });
+    const userProgressLegacy = await Progress.find({ userId });
 
-    // Create a map of video progress
-    const progressMap = {};
-    userProgress.forEach(progress => {
-      progressMap[progress.videoId] = {
+    // Get user's progress from UserProgress model (New)
+    const userProgressNew = await UserProgress.find({ userId });
+
+    // Create a map of video progress (Legacy)
+    const progressMapLegacy = {};
+    userProgressLegacy.forEach(progress => {
+      progressMapLegacy[progress.videoId] = {
         currentTime: progress.currentTime,
         duration: progress.duration
       };
+    });
+
+    // Create a map of video progress (New)
+    const progressMapNew = {};
+    userProgressNew.forEach(progress => {
+      // Key by moduleId and assignmentId (if exists)
+      const key = progress.assignmentId
+        ? `${progress.moduleId}_${progress.assignmentId}`
+        : progress.moduleId.toString();
+
+      progressMapNew[key] = progress.videoProgress;
     });
 
     // Map assignments to module format
@@ -623,8 +670,18 @@ router.get('/personalised/:userId', authenticateToken, async (req, res) => {
       if (!assignment.trainingModuleId) return null; // Skip if module deleted
 
       const module = assignment.trainingModuleId.toObject();
-      const progress = progressMap[module.ytVideoId] || { currentTime: 0, duration: 0 };
-      const progressPercent = progress.duration > 0 ? (progress.currentTime / progress.duration) : 0;
+
+      // Try to get progress from New model first
+      let progressPercent = 0;
+      const key = `${module._id}_${assignment._id}`;
+
+      if (progressMapNew[key] !== undefined) {
+        progressPercent = progressMapNew[key] / 100; // Convert 0-100 to 0-1
+      } else {
+        // Fallback to Legacy model
+        const progress = progressMapLegacy[module.ytVideoId] || { currentTime: 0, duration: 0 };
+        progressPercent = progress.duration > 0 ? (progress.currentTime / progress.duration) : 0;
+      }
 
       return {
         ...module,

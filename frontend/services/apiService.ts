@@ -499,13 +499,14 @@ export const apiService = {
       return response;
     },
 
-    submitQuiz: async (userId: string, moduleId: string, answers: any[], timeTaken: number, attemptId?: string) => {
+    submitQuiz: async (userId: string, moduleId: string, answers: any[], timeTaken: number, attemptId?: string, assignmentId?: string) => {
       const response = await apiClient.post('/quiz/submit', {
         userId,
         moduleId,
         answers,
         timeTaken,
-        attemptId
+        attemptId,
+        assignmentId
       });
       return response;
     },
@@ -589,18 +590,29 @@ export const apiService = {
       return response;
     },
 
-    getUserProgress: async (userId: string, moduleId: string) => {
-      const response = await apiClient.get(`/user-progress/${userId}/${moduleId}`);
+    getUserProgress: async (userId: string, moduleId: string, assignmentId?: string) => {
+      let url = `/user-progress/${userId}/${moduleId}`;
+      if (assignmentId) {
+        url += `?assignmentId=${assignmentId}`;
+      }
+      const response = await apiClient.get(url);
       return response;
     },
 
-    updateVideoProgress: async (userId: string, moduleId: string, progress: number) => {
-      const response = await apiClient.put(`/user-progress/${userId}/${moduleId}/video`, { progress });
+    updateVideoProgress: async (userId: string, moduleId: string, progress: number, assignmentId?: string, currentTime?: number) => {
+      const response = await apiClient.put(`/user-progress/${userId}/${moduleId}/video`, {
+        progress,
+        assignmentId,
+        currentTime
+      });
       return response;
     },
 
-    submitQuiz: async (userId: string, moduleId: string, answers: number[]) => {
-      const response = await apiClient.post(`/user-progress/${userId}/${moduleId}/quiz`, { answers });
+    submitQuiz: async (userId: string, moduleId: string, answers: number[], assignmentId?: string) => {
+      const response = await apiClient.post(`/user-progress/${userId}/${moduleId}/quiz`, {
+        answers,
+        assignmentId
+      });
       return response;
     },
 
@@ -609,9 +621,10 @@ export const apiService = {
       return response;
     },
 
-    watchVideo: async (moduleId: string, watchPercentage: number = 100) => {
+    watchVideo: async (moduleId: string, watchPercentage: number = 100, assignmentId?: string) => {
       const response = await apiClient.post(`/modules/${moduleId}/watch-video`, {
-        watchPercentage
+        watchPercentage,
+        assignmentId
       });
       return response;
     },

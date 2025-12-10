@@ -240,7 +240,7 @@ router.get('/', authenticateToken, requireAdminPanel, async (req, res) => {
     if (filter && filter !== 'all') {
       if (filter === 'active') {
         query.isActive = true;
-        query.status = 'Active';
+        // query.status = 'Active'; // Removed to include all active users (e.g. Warning, Audited)
       } else if (filter === 'inactive') {
         query.isActive = false;
       } else if (filter === 'warning') {
@@ -547,7 +547,9 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
       const cacheKeys = [
         '__express__/api/reports/admin/stats',
         '__express__/api/reports/admin/user-progress',
-        '__express__/api/users?filter=all'
+        '__express__/api/users?filter=all',
+        '__express__/api/users?filter=active&limit=1000',
+        '__express__/api/users?filter=active'
       ];
       cacheKeys.forEach(key => {
         global.appCache.del(key);
@@ -1104,7 +1106,7 @@ router.get('/', authenticateToken, requireAdminPanel, validatePagination, async 
     if (filter !== 'all') {
       if (filter === 'active') {
         query.isActive = true;
-        query.status = 'Active';
+        // query.status = 'Active'; // Removed to include all active users
       } else if (filter === 'inactive') {
         query.isActive = false;
       } else {
@@ -1658,7 +1660,9 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
       const cacheKeys = [
         '__express__/api/reports/admin/stats',
         '__express__/api/reports/admin/user-progress',
-        '__express__/api/users?filter=all'
+        '__express__/api/users?filter=all',
+        '__express__/api/users?filter=active&limit=1000',
+        '__express__/api/users?filter=active'
       ];
       cacheKeys.forEach(key => {
         global.appCache.del(key);
@@ -1871,6 +1875,8 @@ router.put('/:id/activate', authenticateToken, requireUserManagementAccess, vali
     if (global.appCache) {
       const cacheKeys = [
         '__express__/api/users?filter=all',
+        '__express__/api/users?filter=active&limit=1000',
+        '__express__/api/users?filter=active',
         '__express__/api/reports/admin/stats',
         '__express__/api/reports/admin/user-progress'
       ];
@@ -1989,6 +1995,8 @@ router.put('/:id/reactivate', authenticateToken, requireUserManagementAccess, va
     if (global.appCache) {
       const cacheKeys = [
         '__express__/api/users?filter=all',
+        '__express__/api/users?filter=active&limit=1000',
+        '__express__/api/users?filter=active',
         '__express__/api/reports/admin/stats',
         '__express__/api/reports/admin/user-progress'
       ];
@@ -2102,6 +2110,8 @@ router.put('/:id/deactivate', authenticateToken, requireUserManagementAccess, va
     if (global.appCache) {
       const cacheKeys = [
         '__express__/api/users?filter=all',
+        '__express__/api/users?filter=active&limit=1000',
+        '__express__/api/users?filter=active',
         '__express__/api/reports/admin/stats',
         '__express__/api/reports/admin/user-progress',
         '__express__/api/users/exit-records?page=1&limit=20'
@@ -2554,6 +2564,8 @@ router.put('/:id/set-inactive', authenticateToken, requireUserManagementAccess, 
     if (global.appCache) {
       const cacheKeys = [
         '__express__/api/users?filter=all',
+        '__express__/api/users?filter=active&limit=1000',
+        '__express__/api/users?filter=active',
         '__express__/api/reports/admin/stats',
         '__express__/api/reports/admin/user-progress',
         '__express__/api/users/exit-records?page=1&limit=20'

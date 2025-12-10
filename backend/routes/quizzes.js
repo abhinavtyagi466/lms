@@ -729,13 +729,15 @@ router.post('/submit', authenticateToken, async (req, res) => {
 
     // Update UserProgress to track quiz completion
     try {
-      let userProgress = await UserProgress.getUserProgress(userId, moduleId);
+      // Pass assignmentId to getUserProgress to ensure we update the correct progress record
+      let userProgress = await UserProgress.getUserProgress(userId, moduleId, req.body.assignmentId);
 
       if (!userProgress) {
         // Create new user progress if it doesn't exist
         userProgress = new UserProgress({
           userId,
           moduleId,
+          assignmentId: req.body.assignmentId || null, // Set assignmentId if provided
           videoProgress: 0,
           videoWatched: false,
           bestScore: 0,

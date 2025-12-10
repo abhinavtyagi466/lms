@@ -31,6 +31,7 @@ interface YouTubePlayerProps {
   onComplete?: () => void;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   restricted?: boolean; // New prop for restricted mode (unskippable, limited controls)
+  initialTime?: number; // Start video at this time (in seconds)
 }
 
 export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
@@ -41,7 +42,8 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   onProgress,
   onComplete,
   onTimeUpdate,
-  restricted = false
+  restricted = false,
+  initialTime = 0
 }) => {
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,6 +60,15 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasResumed, setHasResumed] = useState(false);
+
+  // Keep latest callbacks in refs to avoid stale closures
+  const onProgressRef = useRef(onProgress);
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+
+  useEffect(() => {
+    onProgressRef.current = onProgress;
+    onTimeUpdateRef.current = onTimeUpdate;
+  }, [onProgress, onTimeUpdate]);
 
   // Initialize YouTube IFrame Player API
   useEffect(() => {
@@ -84,7 +95,8 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         if ((playerRef.current as any).seekCheckInterval) {
           clearInterval((playerRef.current as any).seekCheckInterval);
         }
-        playerRef.current.destroy();
+        // We don't destroy the player here to avoid issues with React strict mode
+        // or rapid unmount/remount. Just cleaning up intervals is usually enough.
       }
     };
   }, [videoId]);
@@ -94,6 +106,12 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     if (!containerRef.current || !videoId) return;
 
     try {
+      // If player already exists, just cue the new video
+      if (playerRef.current && playerRef.current.cueVideoById) {
+        playerRef.current.cueVideoById(videoId);
+        return;
+      }
+
       playerRef.current = new window.YT.Player(containerRef.current, {
         height: '360',
         width: '100%',
@@ -130,19 +148,22 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     setDuration(event.target.getDuration());
     setVolume(event.target.getVolume());
 
-    // DISABLED: Resume from last position feature
-    // await resumeFromLastPosition();
+    // Seek to initial time if provided
+    if (initialTime > 0) {
+      console.log(`Seeking to initial time: ${initialTime}s`);
+      event.target.seekTo(initialTime, true);
+      setCurrentTime(initialTime);
+      lastMaxTimeRef.current = initialTime;
+    }
 
-    // Start progress tracking immediately (not just when playing)
+    // Start progress tracking immediately
     startProgressTracking();
 
     // Add seek event listener to track manual seeking
     if (playerRef.current) {
-      // YouTube doesn't have a direct seek event, so we'll use a custom approach
-      // We'll track time changes and detect if it's a manual seek
       let lastKnownTime = 0;
       const seekCheckInterval = setInterval(() => {
-        if (playerRef.current) {
+        if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
           const currentTime = playerRef.current.getCurrentTime();
 
           // Check for forward seeking in restricted mode
@@ -152,101 +173,41 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
             return;
           }
 
-          // Update max watched time
-          if (currentTime > lastMaxTimeRef.current) {
-            lastMaxTimeRef.current = currentTime;
-          }
+          if (isVideoPlaying) {
+            try {
+              const currentTime = playerRef.current.getCurrentTime();
+              const duration = playerRef.current.getDuration();
 
-          if (Math.abs(currentTime - lastKnownTime) > 2) { // If time changed by more than 2 seconds, likely a seek
-            lastKnownTime = currentTime;
-            updateProgressManually();
-          } else {
-            lastKnownTime = currentTime;
-          }
-        }
-      }, 1000);
+              if (currentTime && duration) {
+                setCurrentTime(currentTime);
+                setDuration(duration);
 
-      // Store the interval reference for cleanup
-      (playerRef.current as any).seekCheckInterval = seekCheckInterval;
-    }
-  }, [restricted, isCompleted]);
+                // Update max watched time
+                if (currentTime > lastMaxTimeRef.current) {
+                  lastMaxTimeRef.current = currentTime;
+                }
 
-  // Resume from last position
-  const resumeFromLastPosition = async () => {
-    try {
-      const response = await apiService.progress.getUserProgress(userId);
-      if (response && response.success && response.progress && response.progress[videoId]) {
-        const savedProgress = response.progress[videoId];
-        const resumeTime = savedProgress.currentTime;
+                const progressPercent = Math.round((currentTime / duration) * 100);
+                setProgress(progressPercent);
 
-        if (resumeTime > 0 && playerRef.current) {
-          // Seek to the saved position
-          playerRef.current.seekTo(resumeTime, true);
-          setCurrentTime(resumeTime);
-          lastMaxTimeRef.current = resumeTime; // Update max time so we don't prevent resuming
-          setHasResumed(true);
+                // Use refs to call latest callbacks
+                if (onProgressRef.current) {
+                  onProgressRef.current(progressPercent);
+                }
 
-          // Calculate initial progress
-          const initialProgress = Math.round((resumeTime / savedProgress.duration) * 100);
-          setProgress(initialProgress);
+                if (onTimeUpdateRef.current) {
+                  onTimeUpdateRef.current(currentTime, duration);
+                }
 
-          console.log(`Resumed video from ${resumeTime}s (${initialProgress}%)`);
-        }
-      }
-    } catch (error) {
-      console.error('Error resuming video:', error);
-    }
-  };
-
-  // Stop progress tracking
-  const stopProgressTracking = useCallback(() => {
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-      progressIntervalRef.current = undefined;
-    }
-  }, []);
-
-  // Start progress tracking every 5 seconds
-  const startProgressTracking = useCallback(() => {
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-    }
-
-    progressIntervalRef.current = setInterval(async () => {
-      if (playerRef.current && isPlaying && !isCompleted) { // Add !isCompleted check
-        try {
-          const currentTime = playerRef.current.getCurrentTime();
-          const duration = playerRef.current.getDuration();
-
-          if (currentTime && duration) {
-            setCurrentTime(currentTime);
-            setDuration(duration);
-
-            // Update max watched time
-            if (currentTime > lastMaxTimeRef.current) {
-              lastMaxTimeRef.current = currentTime;
+                // Send progress to backend
+                await sendProgressToBackend(currentTime, duration);
+              }
+            } catch (error) {
+              console.error('Error tracking progress:', error);
             }
-
-            const progressPercent = Math.round((currentTime / duration) * 100);
-            setProgress(progressPercent);
-
-            if (onProgress) {
-              onProgress(progressPercent);
-            }
-
-            if (onTimeUpdate) {
-              onTimeUpdate(currentTime, duration);
-            }
-
-            // Send progress to backend only when playing and not completed
-            await sendProgressToBackend(currentTime, duration);
           }
-        } catch (error) {
-          console.error('Error tracking progress:', error);
-        }
-      }
-    }, 5000); // Every 5 seconds
-  }, [onProgress, onTimeUpdate, isPlaying, isCompleted]); // Add isCompleted dependency
+        }, 5000); // Every 5 seconds
+    }, []); // No dependencies needed as we use refs and direct player access
 
   // Player state change event
   const onPlayerStateChange = useCallback((event: any) => {
