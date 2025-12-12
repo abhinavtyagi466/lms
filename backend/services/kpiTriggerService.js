@@ -131,12 +131,12 @@ class KPITriggerService {
           }
 
           let emailsSent = [];
-          
+
           // Send email ONLY if email address is available
           if (feEmail && feEmail.trim()) {
             try {
               console.log(`📧 Sending email to unmatched user: ${feEmail}`);
-              
+
               const pseudoUser = {
                 _id: null,
                 name: feName || 'Field Executive',
@@ -192,32 +192,32 @@ class KPITriggerService {
   // Process individual KPI row
   async processKPIRow(row, period, submittedBy = null) {
     const fe = row.FE;
-    
+
     console.log(`\n📋 Processing KPI for: ${fe}`);
     console.log(`   Employee ID: ${row['Employee ID'] || 'Not provided'}`);
     console.log(`   Email: ${row['Email'] || 'Not provided'}`);
-    
+
     // Calculate KPI score (now async - uses database config)
     const kpiScore = await this.calculateKPIScore(row);
     const rating = this.getRating(kpiScore);
-    
+
     console.log(`   KPI Score: ${kpiScore} | Rating: ${rating}`);
-    
+
     // Find or create user (enhanced matching)
     const user = await this.findOrCreateUser(fe, row['Email'], row['Employee ID']);
-    
+
     // Save KPI score
     const kpiRecord = await this.saveKPIScore(user._id, period, kpiScore, rating, row, submittedBy);
-    
+
     // Get admin user for context
     const User = require('../models/User');
     const adminUser = submittedBy ? await User.findById(submittedBy) : null;
-    
+
     // Process triggers (now fully dynamic)
     const triggers = await this.processTriggers(user, kpiRecord, row, adminUser);
-    
+
     console.log(`   ✓ Triggers processed: ${triggers.length} actions`);
-    
+
     return {
       fe: fe,
       userId: user._id,
@@ -230,24 +230,42 @@ class KPITriggerService {
     };
   }
 
-  // Calculate KPI score from Excel row data - Using hardcoded logic
+  // Calculate KPI score from Excel row data - Using database configuration
   async calculateKPIScore(row) {
-    // Use fallback (hardcoded) calculation - no DB dependency
-    return this.calculateKPIScoreFallback(row);
-    
-    /* OLD DB-based calculation (model not found)
     try {
-      // Fetch active KPI configurations from database
-      const KPIConfiguration = require('../models/KPIConfiguration');
-      const configs = await KPIConfiguration.find({ isActive: true }).sort({ metric: 1 });
-      
+      // Fetch KPI configurations from the kpiConfiguration route's in-memory store
+      // Import axios or use internal fetch to get config from running server
+      const kpiConfigRoute = require('../routes/kpiConfiguration');
+
+      // Get the exported configurations (we'll add a getter function)
+      let configs = [];
+      try {
+        // Try to fetch from internal API endpoint via HTTP
+        const http = require('http');
+        const configData = await new Promise((resolve, reject) => {
+          // Use the in-memory configuration directly by requiring the route module
+          // Since kpiConfiguration.js exports router, we need to access the config differently
+          // For now, we'll fetch via internal mechanism
+          resolve(null);
+        });
+      } catch (fetchError) {
+        // Fallback to direct require - we'll add a getter
+      }
+
+      // Fallback: Use the getKPIConfigurations function we'll add to kpiConfiguration.js
+      const kpiConfigModule = require('../routes/kpiConfiguration');
+      if (kpiConfigModule.getKPIConfigurations) {
+        const kpiConfigurations = kpiConfigModule.getKPIConfigurations();
+        configs = kpiConfigurations.metrics || [];
+      }
+
       if (!configs || configs.length === 0) {
         console.log('⚠ No KPI configurations found, using fallback calculation');
         return this.calculateKPIScoreFallback(row);
       }
 
-      // Parse Excel data
-      const metrics = {
+      // Parse Excel data - map column names to metric names
+      const metricMapping = {
         'TAT': parseFloat(row['TAT %']) || 0,
         'Major Negativity': parseFloat(row['Major Negative %']) || 0,
         'Quality Concern': parseFloat(row['Quality Concern % Age']) || 0,
@@ -261,13 +279,17 @@ class KPITriggerService {
 
       // Calculate score for each metric using database configuration
       for (const config of configs) {
-        const metricValue = metrics[config.metric] || 0;
+        if (!config.isActive) continue; // Skip inactive metrics
+
+        const metricValue = metricMapping[config.metric];
+        if (metricValue === undefined) continue;
+
         let metricScore = 0;
 
-        // Find matching threshold
+        // Find matching threshold (check in order)
         for (const threshold of config.thresholds) {
           let conditionMet = false;
-          
+
           switch (threshold.operator) {
             case '>=':
               conditionMet = metricValue >= threshold.value;
@@ -294,18 +316,17 @@ class KPITriggerService {
         }
 
         totalScore += metricScore;
-        console.log(`  ${config.metric}: ${metricValue}% → Score: ${metricScore}`);
+        console.log(`  📊 ${config.metric}: ${metricValue}% → Score: ${metricScore}/${config.weightage}`);
       }
 
-      console.log(`📊 Total KPI Score (Dynamic): ${totalScore}`);
+      console.log(`📊 Total KPI Score (Dynamic from Config): ${totalScore}`);
       return Math.round(totalScore * 100) / 100;
 
     } catch (error) {
-      console.error('Error calculating KPI with database config:', error);
-      console.log('Falling back to hardcoded calculation');
+      console.error('Error calculating KPI with database config:', error.message);
+      console.log('⚠️ Falling back to hardcoded calculation');
       return this.calculateKPIScoreFallback(row);
     }
-    */
   }
 
   // Fallback calculation if database config fails
@@ -377,30 +398,30 @@ class KPITriggerService {
   // Find or create user by employeeId, email, or name (priority order)
   async findOrCreateUser(feName, email = null, employeeId = null) {
     let user = null;
-    
+
     // Clean inputs - trim spaces and handle case
     const cleanEmployeeId = employeeId ? employeeId.toString().trim() : null;
     const cleanEmail = email ? email.toString().trim().toLowerCase() : null;
     const cleanName = feName ? feName.toString().trim() : null;
-    
+
     // Priority 1: Find by Employee ID (case-insensitive, trimmed)
     if (cleanEmployeeId) {
       console.log(`🔍 Searching for Employee ID: "${cleanEmployeeId}"`);
-      
+
       // Try case-insensitive regex match
       try {
         const escapedEmployeeId = cleanEmployeeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        user = await User.findOne({ 
+        user = await User.findOne({
           employeeId: new RegExp(`^${escapedEmployeeId}$`, 'i')
         });
       } catch (regexError) {
         console.log(`⚠️ Regex error, trying direct comparison:`, regexError.message);
       }
-      
+
       // Fallback: Try direct case-insensitive comparison
       if (!user) {
         const allUsers = await User.find({}).select('employeeId name _id');
-        user = allUsers.find(u => 
+        user = allUsers.find(u =>
           u.employeeId && u.employeeId.toLowerCase() === cleanEmployeeId.toLowerCase()
         );
         if (user) {
@@ -409,12 +430,12 @@ class KPITriggerService {
       } else {
         console.log(`✓ Matched user by Employee ID: ${cleanEmployeeId} → ${user.name} (${user._id})`);
       }
-      
+
       if (!user) {
         console.log(`✗ No match found for Employee ID: ${cleanEmployeeId}`);
       }
     }
-    
+
     // Priority 2: Find by Email (exact match, case-insensitive)
     if (!user && cleanEmail) {
       console.log(`🔍 Searching for Email: "${cleanEmail}"`);
@@ -425,11 +446,11 @@ class KPITriggerService {
         console.log(`✗ No match found for Email: ${cleanEmail}`);
       }
     }
-    
+
     // Priority 3: Find by Name (flexible regex match)
     if (!user && cleanName) {
       console.log(`🔍 Searching for Name: "${cleanName}"`);
-      user = await User.findOne({ 
+      user = await User.findOne({
         name: { $regex: cleanName, $options: 'i' }
       });
       if (user) {
@@ -438,12 +459,12 @@ class KPITriggerService {
         console.log(`✗ No match found for Name: ${cleanName}`);
       }
     }
-    
+
     // Create new user if still not found
     if (!user) {
       console.log(`⚠ User not found in database: ${cleanName} | ${cleanEmployeeId} | ${cleanEmail}`);
       console.log(`Creating placeholder user...`);
-      
+
       const [firstName, lastName] = (cleanName || 'Unknown').split(' ');
       user = new User({
         name: cleanName || 'Unknown User',
@@ -499,7 +520,7 @@ class KPITriggerService {
     const kpiScore = await KPIScore.findOneAndUpdate(
       { userId: userId, period: period }, // Find by userId + period
       { $set: kpiData }, // Update with new data
-      { 
+      {
         upsert: true, // Create if doesn't exist
         new: true, // Return updated document
         setDefaultsOnInsert: true
@@ -538,7 +559,7 @@ class KPITriggerService {
   async getConditionBasedTriggers(overallScore, rawData) {
     // Use fallback directly - TriggerConfiguration model not available
     return this.getConditionBasedTriggersFallback(overallScore, rawData);
-    
+
     /* OLD DB-based approach (model not found)
     try {
       const TriggerConfiguration = require('../models/TriggerConfiguration');
@@ -782,7 +803,7 @@ class KPITriggerService {
       if (trigger.training) {
         const training = await this.createTrainingAssignment(user, trigger.training, kpiRecord, trigger.conditionMet);
         trainingId = training._id;
-        
+
         // Send email notifications using template service
         if (trigger.emailRecipients?.training) {
           const emailResult = await this.sendTemplatedEmail(
@@ -795,7 +816,7 @@ class KPITriggerService {
           );
           result.emailsSent.push(...emailResult.results);
         }
-        
+
         result.executed = true;
         result.trainingAssignmentId = training._id;
       }
@@ -804,7 +825,7 @@ class KPITriggerService {
       if (trigger.audit) {
         const audit = await this.createAuditSchedule(user, trigger.audit, kpiRecord, trigger.conditionMet);
         auditId = audit._id;
-        
+
         // Send email notifications using template service
         if (trigger.emailRecipients?.audit) {
           const emailResult = await this.sendTemplatedEmail(
@@ -817,7 +838,7 @@ class KPITriggerService {
           );
           result.emailsSent.push(...emailResult.results);
         }
-        
+
         result.executed = true;
         result.auditScheduleId = audit._id;
       }
@@ -826,7 +847,7 @@ class KPITriggerService {
       if (trigger.reward) {
         console.log(`🏆 Reward trigger detected for ${user.name}`);
         console.log(`   Email recipients:`, trigger.emailRecipients);
-        
+
         // Send email notifications using template service
         if (trigger.emailRecipients?.reward && trigger.emailRecipients.reward.length > 0) {
           console.log(`   Sending reward emails to:`, trigger.emailRecipients.reward);
@@ -843,7 +864,7 @@ class KPITriggerService {
         } else {
           console.log(`   ⚠️ No reward email recipients configured`);
         }
-        
+
         result.executed = true;
       }
 
@@ -861,7 +882,7 @@ class KPITriggerService {
           );
           result.emailsSent.push(...emailResult.results);
         }
-        
+
         result.executed = true;
       }
 
@@ -877,7 +898,7 @@ class KPITriggerService {
   async createKPINotification(user, kpiRecord, triggers, adminUser) {
     try {
       const Notification = require('../models/Notification');
-      
+
       // Determine notification type and priority based on rating and triggers
       let notificationType = 'kpi';
       let priority = 'normal';
@@ -890,7 +911,7 @@ class KPITriggerService {
         priority = 'high';
         const triggerActions = activeTriggers.map(t => t.action).join(', ');
         message += ` Actions triggered: ${triggerActions}.`;
-        
+
         // Set specific notification type based on triggers
         if (activeTriggers.some(t => t.type === 'training')) {
           notificationType = 'training';
@@ -925,7 +946,7 @@ class KPITriggerService {
       });
 
       console.log(`✅ Created KPI notification for user ${user.name} (${user.email}) - ${notificationType} - ${priority}`);
-      
+
     } catch (error) {
       console.error('Error creating KPI notification:', error);
     }
@@ -937,20 +958,20 @@ class KPITriggerService {
       console.log(`📧 Preparing email for type: ${type}`);
       console.log(`   User: ${user.name} (${user.email})`);
       console.log(`   Recipients: ${JSON.stringify(trigger.emailRecipients)}`);
-      
+
       // USE NODEMAILER DIRECTLY (simpler, no service dependency)
       const nodemailer = require('nodemailer');
-      
+
       const emailSubject = this.getEmailSubject(type, kpiRecord);
       const emailContent = this.getEmailContent(type, user, kpiRecord, trigger);
-      
+
       const results = [];
-      
+
       // Send to FE only (as per user requirement)
       if (user.email) {
         try {
           console.log(`   Sending to FE: ${user.email}`);
-          
+
           // Create transporter (same as emailService)
           const transporter = nodemailer.createTransport({
             host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -961,7 +982,7 @@ class KPITriggerService {
               pass: process.env.SMTP_PASS
             }
           });
-          
+
           // Send email
           await transporter.sendMail({
             from: `"${process.env.FROM_NAME || 'E-Learning Platform'}" <${process.env.FROM_EMAIL || process.env.SMTP_USER}>`,
@@ -969,13 +990,13 @@ class KPITriggerService {
             subject: emailSubject,
             html: emailContent
           });
-          
+
           results.push({
             to: user.email,
             status: 'sent',
             templateType: type
           });
-          
+
           console.log(`   ✅ Email sent successfully to ${user.email}`);
         } catch (emailError) {
           console.error(`   ❌ Email failed to ${user.email}:`, emailError.message);
@@ -986,12 +1007,12 @@ class KPITriggerService {
           });
         }
       }
-      
+
       return {
         success: results.length > 0,
         results: results
       };
-      
+
     } catch (error) {
       console.error('❌ Send templated email error:', error);
       return {
@@ -1001,7 +1022,7 @@ class KPITriggerService {
       };
     }
   }
-  
+
   // Get email subject based on type
   getEmailSubject(type, kpiRecord) {
     switch (type) {
@@ -1017,7 +1038,7 @@ class KPITriggerService {
         return `KPI Update - ${kpiRecord.period}`;
     }
   }
-  
+
   // Get email content based on type
   getEmailContent(type, user, kpiRecord, trigger) {
     const commonHeader = `
@@ -1025,7 +1046,7 @@ class KPITriggerService {
         <h2>Dear ${user.name},</h2>
         <p>Your KPI score for <strong>${kpiRecord.period}</strong> is <strong>${kpiRecord.overallScore.toFixed(2)}%</strong> (${kpiRecord.rating})</p>
     `;
-    
+
     const commonFooter = `
         <hr style="margin: 20px 0;">
         <p style="color: #666; font-size: 12px;">
@@ -1033,9 +1054,9 @@ class KPITriggerService {
         </p>
       </div>
     `;
-    
+
     let content = '';
-    
+
     switch (type) {
       case 'reward':
         content = `
@@ -1049,7 +1070,7 @@ class KPITriggerService {
           ${commonFooter}
         `;
         break;
-        
+
       case 'training':
         content = `
           ${commonHeader}
@@ -1064,7 +1085,7 @@ class KPITriggerService {
           ${commonFooter}
         `;
         break;
-        
+
       case 'audit':
         content = `
           ${commonHeader}
@@ -1079,7 +1100,7 @@ class KPITriggerService {
           ${commonFooter}
         `;
         break;
-        
+
       case 'warning':
         content = `
           ${commonHeader}
@@ -1094,14 +1115,14 @@ class KPITriggerService {
           ${commonFooter}
         `;
         break;
-        
+
       default:
         content = `${commonHeader}${commonFooter}`;
     }
-    
+
     return content;
   }
-  
+
   // Note: Now using direct email service instead of template-based approach for simplicity
 
   // Create user notification
@@ -1206,7 +1227,7 @@ class KPITriggerService {
   async createTrainingAssignment(user, trainingType, kpiRecord, conditionMet = null) {
     // Map training type to valid enum values
     let validTrainingType = 'basic';
-    
+
     if (trainingType.toLowerCase().includes('negativity')) {
       validTrainingType = 'negativity_handling';
     } else if (trainingType.toLowerCase().includes("don't") || trainingType.toLowerCase().includes('dos')) {
@@ -1214,9 +1235,9 @@ class KPITriggerService {
     } else if (trainingType.toLowerCase().includes('app') || trainingType.toLowerCase().includes('usage')) {
       validTrainingType = 'app_usage';
     }
-    
+
     console.log(`   📚 Mapping training: "${trainingType}" → "${validTrainingType}"`);
-    
+
     const trainingAssignment = new TrainingAssignment({
       userId: user._id,
       trainingType: validTrainingType,
@@ -1238,15 +1259,15 @@ class KPITriggerService {
   async createAuditSchedule(user, auditType, kpiRecord, conditionMet = null) {
     // Map audit type to valid enum values
     let validAuditType = 'audit_call';
-    
+
     if (auditType.toLowerCase().includes('cross-check') || auditType.toLowerCase().includes('cross-verification')) {
       validAuditType = 'cross_check';
     } else if (auditType.toLowerCase().includes('dummy')) {
       validAuditType = 'dummy_audit';
     }
-    
+
     console.log(`   📋 Mapping audit: "${auditType}" → "${validAuditType}"`);
-    
+
     const auditSchedule = new AuditSchedule({
       userId: user._id,
       auditType: validAuditType,

@@ -310,7 +310,13 @@ app.use('/api/users', (req, res, next) => {
   }
   return cacheMiddleware(300)(req, res, next); // 5 minutes
 });
-app.use('/api/modules', cacheMiddleware(600)); // 10 minutes
+app.use('/api/modules', (req, res, next) => {
+  // Skip cache for personalised and user module endpoints to show real-time progress
+  if (req.path.includes('/personalised') || req.path.includes('/user/')) {
+    return next();
+  }
+  return cacheMiddleware(600)(req, res, next); // 10 minutes for other module endpoints
+});
 app.use('/api/reports', (req, res, next) => {
   // Skip cache for dashboard/stats endpoints to enable real-time updates
   if (req.path.includes('/admin/stats') || req.path.includes('/admin/user-progress')) {

@@ -99,12 +99,13 @@ router.get('/stats/:userId', authenticateToken, validateUserId, async (req, res)
       });
     }
 
-    // Calculate statistics
-    const totalAttempts = attempts.length;
-    const uniqueModules = new Set(attempts.map(a => a.moduleId._id.toString()));
+    // Calculate statistics - filter out attempts with deleted modules
+    const validAttempts = attempts.filter(a => a.moduleId && a.moduleId._id);
+    const totalAttempts = validAttempts.length;
+    const uniqueModules = new Set(validAttempts.map(a => a.moduleId._id.toString()));
     const totalQuizzes = uniqueModules.size;
 
-    const completedAttempts = attempts.filter(a => a.status === 'completed');
+    const completedAttempts = validAttempts.filter(a => a.status === 'completed');
     const averageScore = completedAttempts.length > 0
       ? completedAttempts.reduce((sum, a) => sum + a.score, 0) / completedAttempts.length
       : 0;
@@ -114,17 +115,17 @@ router.get('/stats/:userId', authenticateToken, validateUserId, async (req, res)
       ? (passedAttempts.length / completedAttempts.length) * 100
       : 0;
 
-    const totalTimeSpent = attempts.reduce((sum, a) => sum + (a.timeSpent || 0), 0);
-    const violations = attempts.reduce((sum, a) => sum + a.violations.length, 0);
+    const totalTimeSpent = validAttempts.reduce((sum, a) => sum + (a.timeSpent || 0), 0);
+    const violations = validAttempts.reduce((sum, a) => sum + (a.violations?.length || 0), 0);
 
     // Get recent attempts (last 10)
-    const recentAttempts = attempts.slice(0, 10);
+    const recentAttempts = validAttempts.slice(0, 10);
 
     // Calculate module-specific stats
     const moduleStats = Array.from(uniqueModules).map(moduleId => {
-      const moduleAttempts = attempts.filter(a => a.moduleId._id.toString() === moduleId);
+      const moduleAttempts = validAttempts.filter(a => a.moduleId._id.toString() === moduleId);
       const moduleTitle = moduleAttempts[0]?.moduleId?.title || 'Unknown Module';
-      const bestScore = Math.max(...moduleAttempts.map(a => a.score));
+      const bestScore = Math.max(...moduleAttempts.map(a => a.score || 0));
       const lastAttempt = moduleAttempts[0]?.startTime;
       const passed = moduleAttempts.some(a => a.passed);
 
@@ -301,12 +302,13 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
       .populate('moduleId', 'title')
       .sort({ startTime: -1 });
 
-    // Calculate analytics
-    const totalAttempts = attempts.length;
-    const uniqueUsers = new Set(attempts.map(a => a.userId._id.toString()));
-    const uniqueModules = new Set(attempts.map(a => a.moduleId._id.toString()));
+    // Calculate analytics - filter valid attempts with non-null moduleId and userId
+    const validAttempts = attempts.filter(a => a.moduleId && a.moduleId._id && a.userId && a.userId._id);
+    const totalAttempts = validAttempts.length;
+    const uniqueUsers = new Set(validAttempts.map(a => a.userId._id.toString()));
+    const uniqueModules = new Set(validAttempts.map(a => a.moduleId._id.toString()));
 
-    const completedAttempts = attempts.filter(a => a.status === 'completed');
+    const completedAttempts = validAttempts.filter(a => a.status === 'completed');
     const averageScore = completedAttempts.length > 0
       ? completedAttempts.reduce((sum, a) => sum + a.score, 0) / completedAttempts.length
       : 0;
@@ -316,11 +318,11 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
       ? (passedAttempts.length / completedAttempts.length) * 100
       : 0;
 
-    const violations = attempts.reduce((sum, a) => sum + a.violations.length, 0);
+    const violations = validAttempts.reduce((sum, a) => sum + (a.violations?.length || 0), 0);
 
     // User performance ranking
     const userStats = Array.from(uniqueUsers).map(userId => {
-      const userAttempts = attempts.filter(a => a.userId._id.toString() === userId);
+      const userAttempts = validAttempts.filter(a => a.userId._id.toString() === userId);
       const userCompleted = userAttempts.filter(a => a.status === 'completed');
       const userPassed = userCompleted.filter(a => a.passed);
       const userAvgScore = userCompleted.length > 0
@@ -339,13 +341,13 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
         completedAttempts: userCompleted.length,
         averageScore: userAvgScore,
         passRate: userPassRate,
-        violations: userAttempts.reduce((sum, a) => sum + a.violations.length, 0)
+        violations: userAttempts.reduce((sum, a) => sum + (a.violations?.length || 0), 0)
       };
     }).sort((a, b) => b.averageScore - a.averageScore);
 
     // Module performance
     const moduleStats = Array.from(uniqueModules).map(moduleId => {
-      const moduleAttempts = attempts.filter(a => a.moduleId._id.toString() === moduleId);
+      const moduleAttempts = validAttempts.filter(a => a.moduleId._id.toString() === moduleId);
       const moduleCompleted = moduleAttempts.filter(a => a.status === 'completed');
       const modulePassed = moduleCompleted.filter(a => a.passed);
       const moduleAvgScore = moduleCompleted.length > 0
@@ -362,7 +364,7 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
         completedAttempts: moduleCompleted.length,
         averageScore: moduleAvgScore,
         passRate: modulePassRate,
-        violations: moduleAttempts.reduce((sum, a) => sum + a.violations.length, 0)
+        violations: moduleAttempts.reduce((sum, a) => sum + (a.violations?.length || 0), 0)
       };
     }).sort((a, b) => b.averageScore - a.averageScore);
 
@@ -379,7 +381,7 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
         },
         userStats,
         moduleStats,
-        recentAttempts: attempts.slice(0, 20)
+        recentAttempts: validAttempts.slice(0, 20)
       }
     });
   } catch (error) {
@@ -453,12 +455,15 @@ router.get('/module-scores/:userId', authenticateToken, validateUserId, async (r
       .populate('moduleId', 'title')
       .sort({ createdAt: -1 });
 
+    // Filter valid attempts with non-null moduleId
+    const validAttempts = attempts.filter(a => a.moduleId && a.moduleId._id);
+
     // Group attempts by module and calculate scores
     const moduleScoresMap = new Map();
 
-    attempts.forEach(attempt => {
+    validAttempts.forEach(attempt => {
       const moduleId = attempt.moduleId._id.toString();
-      const moduleTitle = attempt.moduleId.title;
+      const moduleTitle = attempt.moduleId.title || 'Unknown Module';
 
       if (!moduleScoresMap.has(moduleId)) {
         moduleScoresMap.set(moduleId, {

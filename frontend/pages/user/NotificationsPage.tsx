@@ -18,6 +18,7 @@ interface Notification {
   read: boolean;
   acknowledged: boolean;
   sentAt: string;
+  createdAt?: string;
   metadata?: {
     kpiScore?: number;
     rating?: string;
@@ -26,6 +27,7 @@ interface Notification {
     auditId?: string;
     actionRequired?: boolean;
     actionUrl?: string;
+    attachmentUrl?: string;
   };
   attachments?: Array<{
     fileName: string;
@@ -33,6 +35,10 @@ interface Notification {
     fileSize?: number;
     mimeType?: string;
   }>;
+  sentBy?: {
+    _id: string;
+    name: string;
+  };
 }
 
 interface Award {
@@ -49,11 +55,45 @@ interface Award {
 interface Certificate {
   _id: string;
   title: string;
-  description: string;
-  awardDate: string;
+  message?: string;
+  description?: string;
+  awardDate?: string;
+  createdAt?: string;
   type: string;
   document?: string;
   documentName?: string;
+  attachment?: string;
+  attachments?: Array<{
+    fileName: string;
+    filePath: string;
+    fileSize?: number;
+    mimeType?: string;
+  }>;
+  sentBy?: {
+    _id: string;
+    name: string;
+  };
+}
+
+interface Warning {
+  _id: string;
+  userId: string;
+  type: string;
+  title: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'active' | 'resolved' | 'dismissed';
+  issuedAt: string;
+  resolvedAt?: string;
+  issuedBy?: {
+    _id: string;
+    name: string;
+    email?: string;
+  };
+  metadata?: {
+    attachmentUrl?: string;
+  };
+  createdAt: string;
 }
 
 export const NotificationsPage: React.FC = () => {
@@ -61,6 +101,7 @@ export const NotificationsPage: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [awards, setAwards] = useState<Award[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [warnings, setWarnings] = useState<Warning[]>([]);
   const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'notifications' | 'awards' | 'certificates' | 'warnings' | 'training'>('all');
@@ -81,10 +122,11 @@ export const NotificationsPage: React.FC = () => {
     try {
       setLoading(true);
       const userId = (user as any)._id;
-      const [notifRes, awardsRes, certsRes]: any[] = await Promise.all([
+      const [notifRes, awardsRes, certsRes, warningsRes]: any[] = await Promise.all([
         apiService.notifications.getAll(false).catch(() => ({ data: [] })),
         apiService.awards.getUserAwards(userId).catch(() => ({ awards: [] })),
-        apiService.users.getUserCertificates(userId).catch(() => ({ certificates: [] }))
+        apiService.users.getUserCertificates(userId).catch(() => ({ certificates: [] })),
+        apiService.users.getUserWarnings(userId).catch(() => ({ warnings: [] }))
       ]);
 
       const notificationsData = notifRes?.data || notifRes || [];
@@ -95,6 +137,17 @@ export const NotificationsPage: React.FC = () => {
 
       const certsData = certsRes?.certificates || certsRes?.data || certsRes || [];
       setCertificates(Array.isArray(certsData) ? certsData : []);
+
+      // Set warnings from dedicated Warning model
+      const warningsData = warningsRes?.warnings || warningsRes?.data || warningsRes || [];
+      setWarnings(Array.isArray(warningsData) ? warningsData : []);
+
+      console.log('📋 Loaded data:', {
+        notifications: notificationsData.length,
+        awards: awardsData.length,
+        certificates: certsData.length,
+        warnings: warningsData.length
+      });
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to fetch notifications');
@@ -179,13 +232,13 @@ export const NotificationsPage: React.FC = () => {
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case 'urgent':
-        return <Badge variant="destructive">Urgent</Badge>;
+        return <Badge className="bg-red-500 text-white">Urgent</Badge>;
       case 'high':
-        return <Badge className="bg-orange-500">High</Badge>;
+        return <Badge className="bg-orange-500 text-white">High</Badge>;
       case 'normal':
-        return <Badge variant="secondary">Normal</Badge>;
+        return <Badge className="bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100">Normal</Badge>;
       default:
-        return <Badge variant="outline">Low</Badge>;
+        return <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500">Low</Badge>;
     }
   };
 
@@ -208,8 +261,27 @@ export const NotificationsPage: React.FC = () => {
     }).format(date);
   };
 
+  const getSeverityColor = (severity: string) => {
+    switch (severity?.toLowerCase()) {
+      case 'low': return 'bg-blue-100 text-blue-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'high': return 'bg-orange-100 text-orange-800';
+      case 'critical': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'active': return 'bg-red-100 text-red-800';
+      case 'resolved': return 'bg-green-100 text-green-800';
+      case 'dismissed': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
-  const warningCount = notifications.filter(n => n.type === 'warning' || n.type === 'error').length;
+  const warningCount = warnings.length; // Use dedicated warnings array
   const trainingCount = notifications.filter(n => n.type === 'training').length;
 
   return (
@@ -354,14 +426,14 @@ export const NotificationsPage: React.FC = () => {
               ) : notifications.length === 0 ? (
                 <div className="p-12 text-center">
                   <Bell className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                  <p className="text-gray-600">No notifications yet</p>
+                  <p className="text-gray-600 dark:text-gray-400">No notifications yet</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {notifications.map((notification) => (
                     <Card
                       key={notification._id}
-                      className={`p-6 transition-all hover:shadow-lg ${!notification.read ? 'border-l-4 border-l-blue-600 bg-blue-50 dark:bg-blue-900/10' : ''
+                      className={`p-6 transition-all hover:shadow-lg bg-white dark:bg-gray-800 ${!notification.read ? 'border-l-4 border-l-blue-600 bg-blue-50 dark:bg-blue-900/20' : ''
                         }`}
                     >
                       <div className="flex items-start gap-4">
@@ -375,11 +447,11 @@ export const NotificationsPage: React.FC = () => {
                                 {notification.title}
                               </h3>
                               {!notification.read && (
-                                <Badge variant="default" className="text-xs">New</Badge>
+                                <Badge className="text-xs bg-blue-500 text-white">New</Badge>
                               )}
                               {getPriorityBadge(notification.priority)}
                             </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                               <Calendar className="w-4 h-4" />
                               {formatDate(notification.sentAt)}
                             </div>
@@ -388,12 +460,12 @@ export const NotificationsPage: React.FC = () => {
                           {notification.metadata && (
                             <div className="flex flex-wrap gap-2 mb-4">
                               {notification.metadata.kpiScore !== undefined && (
-                                <Badge variant="outline" className="text-sm">
+                                <Badge variant="outline" className="text-sm text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600">
                                   KPI Score: {notification.metadata.kpiScore}%
                                 </Badge>
                               )}
                               {notification.metadata.rating && (
-                                <Badge variant="outline" className="text-sm">
+                                <Badge variant="outline" className="text-sm text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600">
                                   Rating: {notification.metadata.rating}
                                 </Badge>
                               )}
@@ -413,7 +485,7 @@ export const NotificationsPage: React.FC = () => {
                                   <FileText className="w-4 h-4" />
                                   <span>{attachment.fileName}</span>
                                   {attachment.fileSize && (
-                                    <span className="text-xs text-gray-500">
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
                                       ({(attachment.fileSize / 1024).toFixed(2)} KB)
                                     </span>
                                   )}
@@ -423,7 +495,7 @@ export const NotificationsPage: React.FC = () => {
                           )}
                           <div className="flex items-center gap-3">
                             {!notification.read && (
-                              <Button size="sm" variant="outline" onClick={() => handleMarkAsRead(notification._id)}>
+                              <Button size="sm" variant="outline" onClick={() => handleMarkAsRead(notification._id)} className="text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600">
                                 <Check className="w-4 h-4 mr-2" />
                                 Mark as Read
                               </Button>
@@ -445,19 +517,19 @@ export const NotificationsPage: React.FC = () => {
                 {filteredNotifications.length === 0 ? (
                   <div className="p-12 text-center">
                     <BookOpen className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-600">No training notifications</p>
+                    <p className="text-gray-600 dark:text-gray-400">No training notifications</p>
                   </div>
                 ) : (
                   filteredNotifications.map((notification) => (
-                    <Card key={notification._id} className="p-6 border-l-4 border-l-blue-500">
+                    <Card key={notification._id} className="p-6 border-l-4 border-l-blue-500 bg-white dark:bg-gray-800">
                       <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                          <BookOpen className="w-6 h-6 text-blue-600" />
+                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                          <BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-1">{notification.title}</h3>
-                          <p className="text-sm text-gray-700 mb-3">{notification.message}</p>
-                          <p className="text-xs text-gray-500">{formatDate(notification.sentAt)}</p>
+                          <h3 className="font-semibold text-lg mb-1 text-gray-900 dark:text-white">{notification.title}</h3>
+                          <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">{notification.message}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(notification.sentAt)}</p>
                         </div>
                       </div>
                     </Card>
@@ -472,24 +544,24 @@ export const NotificationsPage: React.FC = () => {
                 {awards.length === 0 ? (
                   <div className="p-12 text-center">
                     <Award className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-600">No awards received yet</p>
-                    <p className="text-sm text-gray-500 mt-2">Keep up the good work!</p>
+                    <p className="text-gray-600 dark:text-gray-400">No awards received yet</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">Keep up the good work!</p>
                   </div>
                 ) : (
                   awards.map((award) => (
-                    <Card key={award._id} className="p-6 border-l-4 border-l-green-500 hover:shadow-lg transition-all">
+                    <Card key={award._id} className="p-6 border-l-4 border-l-green-500 bg-white dark:bg-gray-800 hover:shadow-lg transition-all">
                       <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                          <Award className="w-6 h-6 text-green-600" />
+                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                          <Award className="w-6 h-6 text-green-600 dark:text-green-400" />
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-1">{award.title}</h3>
-                          <p className="text-sm text-gray-600 mb-2">{award.description}</p>
+                          <h3 className="font-semibold text-lg mb-1 text-gray-900 dark:text-white">{award.title}</h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">{award.description}</p>
                           <div className="flex items-center gap-3 flex-wrap">
-                            <Badge className="bg-green-100 text-green-800">{award.type}</Badge>
-                            <span className="text-sm text-gray-500">{formatDate(award.awardDate)}</span>
+                            <Badge className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200">{award.type}</Badge>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">{formatDate(award.awardDate)}</span>
                             {award.value && (
-                              <Badge className="bg-yellow-100 text-yellow-800">₹{award.value}</Badge>
+                              <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200">₹{award.value}</Badge>
                             )}
                           </div>
                           {award.document && (
@@ -516,41 +588,83 @@ export const NotificationsPage: React.FC = () => {
             {/* Certificates Tab */}
             <TabsContent value="certificates" className="mt-6">
               <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Trophy className="w-5 h-5 text-green-600" />
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Certificates & Awards</h3>
+                  <Badge variant="secondary" className="bg-green-100 text-green-700">
+                    {certificates.length} received
+                  </Badge>
+                </div>
+
                 {certificates.length === 0 ? (
                   <div className="p-12 text-center">
                     <Trophy className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-600">No certificates earned yet</p>
-                    <p className="text-sm text-gray-500 mt-2">Complete trainings to earn certificates!</p>
+                    <p className="text-gray-600 dark:text-gray-400">No certificates earned yet</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">Complete trainings to earn certificates!</p>
                   </div>
                 ) : (
                   certificates.map((cert) => (
-                    <Card key={cert._id} className="p-6 border-l-4 border-l-purple-500 hover:shadow-lg transition-all">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                          <Trophy className="w-6 h-6 text-purple-600" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-1">{cert.title}</h3>
-                          <p className="text-sm text-gray-600 mb-2">{cert.description}</p>
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <Badge className="bg-purple-100 text-purple-800">{cert.type}</Badge>
-                            <span className="text-sm text-gray-500">{formatDate(cert.awardDate)}</span>
+                    <Card key={cert._id} className="p-6 border-l-4 border-l-green-500 bg-green-50 dark:bg-green-900/20 hover:shadow-lg transition-all">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center">
+                            <Trophy className="w-6 h-6 text-green-600 dark:text-green-400" />
                           </div>
-                          {cert.document && (
-                            <div className="mt-3">
-                              <a
-                                href={cert.document.startsWith('http') ? cert.document : `${UPLOADS_BASE_URL}${cert.document}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                              >
-                                <FileText className="w-4 h-4" />
-                                <span>View Certificate: {cert.documentName || 'Document'}</span>
-                              </a>
-                            </div>
-                          )}
+                          <div>
+                            <h3 className="font-semibold text-lg text-green-800 dark:text-green-200 mb-1">{cert.title || 'Certificate'}</h3>
+                            <p className="text-sm text-green-700 dark:text-green-300">{cert.message || cert.description || 'Training completion certificate'}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200">
+                            {cert.type || 'Certificate'}
+                          </Badge>
                         </div>
                       </div>
+
+                      <div className="flex items-center gap-4 text-sm text-green-700 dark:text-green-300 mb-3">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          Issued: {cert.createdAt ? formatDate(cert.createdAt) : cert.awardDate ? formatDate(cert.awardDate) : 'N/A'}
+                        </span>
+                        {cert.sentBy && (
+                          <span>By: {typeof cert.sentBy === 'object' ? cert.sentBy.name : 'Admin'}</span>
+                        )}
+                        <Badge className="bg-green-200 text-green-800 dark:bg-green-700 dark:text-green-100">Sent</Badge>
+                      </div>
+
+                      {/* Show attachment if available - check both attachments array and attachment field */}
+                      {((cert.attachments && cert.attachments.length > 0) || cert.attachment || cert.document) && (
+                        <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-700">
+                          <a
+                            href={(() => {
+                              // Check attachments array first (new format)
+                              if (cert.attachments && cert.attachments.length > 0) {
+                                const filePath = cert.attachments[0].filePath;
+                                return filePath.startsWith('http') ? filePath : `${UPLOADS_BASE_URL}${filePath}`;
+                              }
+                              // Fallback to attachment field
+                              if (cert.attachment) {
+                                return cert.attachment.startsWith('http') ? cert.attachment : `${UPLOADS_BASE_URL}${cert.attachment}`;
+                              }
+                              // Fallback to document field
+                              if (cert.document) {
+                                return cert.document.startsWith('http') ? cert.document : `${UPLOADS_BASE_URL}${cert.document}`;
+                              }
+                              return '#';
+                            })()}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 hover:underline text-sm"
+                          >
+                            <FileText className="w-4 h-4" />
+                            View Certificate Document
+                            {cert.attachments && cert.attachments.length > 0 && cert.attachments[0].fileName && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400">({cert.attachments[0].fileName})</span>
+                            )}
+                          </a>
+                        </div>
+                      )}
                     </Card>
                   ))
                 )}
@@ -560,25 +674,81 @@ export const NotificationsPage: React.FC = () => {
             {/* Warnings Tab */}
             <TabsContent value="warnings" className="mt-6">
               <div className="space-y-4">
-                {filteredNotifications.length === 0 ? (
+                <div className="flex items-center gap-2 mb-4">
+                  <AlertCircle className="w-5 h-5 text-orange-600" />
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Warnings & Alerts</h3>
+                  <Badge variant="secondary" className="bg-orange-100 text-orange-700">
+                    {warnings.length} total
+                  </Badge>
+                </div>
+
+                {warnings.length === 0 ? (
                   <div className="p-12 text-center">
-                    <AlertCircle className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-600">No warnings</p>
-                    <p className="text-sm text-gray-500 mt-2">Great job! Keep it up!</p>
+                    <Check className="w-16 h-16 mx-auto text-green-400 mb-4" />
+                    <p className="text-gray-600 dark:text-gray-400">No warnings found</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">Great job! Keep it up! 🎉</p>
                   </div>
                 ) : (
-                  filteredNotifications.map((notification) => (
-                    <Card key={notification._id} className="p-6 border-l-4 border-l-orange-500 bg-orange-50">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                          <AlertCircle className="w-6 h-6 text-orange-600" />
+                  warnings.map((warning) => (
+                    <Card key={warning._id} className="p-6 hover:shadow-lg transition-all">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-start gap-4">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${warning.severity === 'critical' ? 'bg-red-100 dark:bg-red-900' :
+                            warning.severity === 'high' ? 'bg-orange-100 dark:bg-orange-900' :
+                              warning.severity === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900' : 'bg-blue-100 dark:bg-blue-900'
+                            }`}>
+                            <AlertCircle className={`w-6 h-6 ${warning.severity === 'critical' ? 'text-red-600 dark:text-red-400' :
+                              warning.severity === 'high' ? 'text-orange-600 dark:text-orange-400' :
+                                warning.severity === 'medium' ? 'text-yellow-600 dark:text-yellow-400' : 'text-blue-600 dark:text-blue-400'
+                              }`} />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-lg text-gray-900 dark:text-white mb-1">{warning.title}</h3>
+                            <p className="text-sm text-gray-700 dark:text-gray-300">{warning.description}</p>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-2">{notification.title}</h3>
-                          <p className="text-sm text-gray-700 mb-3">{notification.message}</p>
-                          <p className="text-xs text-gray-500">{formatDate(notification.sentAt)}</p>
+                        <div className="text-right">
+                          <Badge className={getSeverityColor(warning.severity)}>
+                            {warning.severity.charAt(0).toUpperCase() + warning.severity.slice(1)}
+                          </Badge>
                         </div>
                       </div>
+
+                      <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-3 flex-wrap">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          Issued: {formatDate(warning.issuedAt)}
+                        </span>
+                        {warning.resolvedAt && (
+                          <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                            <Check className="w-4 h-4" />
+                            Resolved: {formatDate(warning.resolvedAt)}
+                          </span>
+                        )}
+                        {warning.issuedBy && (
+                          <span>By: {typeof warning.issuedBy === 'object' ? warning.issuedBy.name : 'Admin'}</span>
+                        )}
+                        <Badge className={getStatusColor(warning.status)}>
+                          {warning.status.charAt(0).toUpperCase() + warning.status.slice(1)}
+                        </Badge>
+                      </div>
+
+                      {/* Show attachment if available */}
+                      {warning.metadata?.attachmentUrl && (
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                          <a
+                            href={warning.metadata.attachmentUrl.startsWith('http')
+                              ? warning.metadata.attachmentUrl
+                              : `${UPLOADS_BASE_URL}${warning.metadata.attachmentUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline text-sm"
+                          >
+                            <FileText className="w-4 h-4" />
+                            View Attachment Document
+                          </a>
+                        </div>
+                      )}
                     </Card>
                   ))
                 )}

@@ -124,6 +124,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
   const [personalisedModules, setPersonalisedModules] = useState<any[]>([]);
   const [awards, setAwards] = useState<any[]>([]);
   const [certificates, setCertificates] = useState<any[]>([]);
+  const [kpiScores, setKpiScores] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'progress' | 'quiz' | 'attempts' | 'warnings' | 'lifecycle' | 'kpi' | 'personalised' | 'certificates'>('details');
   const [imageError, setImageError] = useState(false);
@@ -292,8 +293,29 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
         _id: module._id || module.moduleId
       }));
 
-      console.log('Final mapped modules:', mappedModules);
-      setModules(mappedModules);
+      // De-duplicate modules: Keep only unique modules by _id
+      // For duplicates, prefer the one with higher progress or personalized version
+      const uniqueModulesMap = new Map();
+      mappedModules.forEach((module: any) => {
+        const key = (module._id || module.moduleId)?.toString();
+        if (!key) return;
+
+        const existing = uniqueModulesMap.get(key);
+        if (!existing) {
+          uniqueModulesMap.set(key, module);
+        } else {
+          // Keep the one with higher progress
+          const existingProgress = existing.progress || 0;
+          const currentProgress = module.progress || 0;
+          if (currentProgress > existingProgress) {
+            uniqueModulesMap.set(key, module);
+          }
+        }
+      });
+
+      const uniqueModules = Array.from(uniqueModulesMap.values());
+      console.log('Final unique modules:', uniqueModules.length, 'from', mappedModules.length);
+      setModules(uniqueModules);
 
       // Set quiz results - FIXED: Handle multiple response formats
       let quizResultsList: any[] = [];
@@ -403,6 +425,24 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
       } catch (error) {
         console.error('Error fetching personalised modules:', error);
         setPersonalisedModules([]);
+      }
+
+      // Fetch KPI scores for this user
+      try {
+        const kpiResponse = await apiService.kpi.getUserKPIScores(userId);
+        let kpiList: any[] = [];
+        if ((kpiResponse as any)?.success && (kpiResponse as any).data) {
+          kpiList = Array.isArray((kpiResponse as any).data) ? (kpiResponse as any).data : [];
+        } else if ((kpiResponse as any)?.data) {
+          kpiList = Array.isArray((kpiResponse as any).data) ? (kpiResponse as any).data : [];
+        } else if (Array.isArray(kpiResponse)) {
+          kpiList = kpiResponse;
+        }
+        console.log('KPI Scores found:', kpiList.length);
+        setKpiScores(kpiList);
+      } catch (error) {
+        console.error('Error fetching KPI scores:', error);
+        setKpiScores([]);
       }
 
       console.log('===== FINAL STATE =====');
@@ -1017,7 +1057,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                     <Card className="p-4">
                       <h4 className="font-semibold mb-4">Recent Quiz Results</h4>
                       <div className="space-y-3">
-                        {quizResults.slice(0, 5).map((result) => (
+                        {quizResults.filter(r => r.moduleId).slice(0, 5).map((result) => (
                           <div key={result._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                             <div className="flex items-center gap-3">
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${result.passed ? 'bg-green-100' : 'bg-red-100'
@@ -1029,7 +1069,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                                 )}
                               </div>
                               <div>
-                                <div className="font-medium">{result.moduleId.title}</div>
+                                <div className="font-medium">{result.moduleId?.title || 'Unknown Module'}</div>
                                 <div className="text-sm text-gray-600">
                                   {result.correctAnswers}/{result.totalQuestions} correct
                                 </div>
@@ -1062,7 +1102,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {quizAttempts.map((attempt) => (
+                    {quizAttempts.filter(a => a.moduleId).map((attempt) => (
                       <Card key={attempt._id} className="p-4">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-3">
@@ -1075,7 +1115,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                               )}
                             </div>
                             <div>
-                              <div className="font-medium">{attempt.moduleId.title}</div>
+                              <div className="font-medium">{attempt.moduleId?.title || 'Unknown Module'}</div>
                               <div className="text-sm text-gray-600">
                                 Attempt #{attempt.attemptNumber} • {formatDate(attempt.startTime)}
                               </div>
@@ -1091,7 +1131,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                           <Badge className={getStatusColor(attempt.status)}>
                             {attempt.status}
                           </Badge>
-                          {attempt.violations.length > 0 && (
+                          {(attempt.violations?.length || 0) > 0 && (
                             <Badge className="bg-red-100 text-red-800">
                               {attempt.violations.length} Violations
                             </Badge>
@@ -1176,32 +1216,191 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
 
             {activeTab === 'kpi' && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                   <div className="flex items-center gap-2">
                     <BarChart3 className="w-5 h-5 text-blue-600" />
-                    <h3 className="text-lg font-semibold">KPI Scores</h3>
+                    <h3 className="text-lg font-semibold dark:text-white">KPI Performance Scores</h3>
                   </div>
                   <Button
-                    onClick={() => setCurrentPage(`kpi-scores/${userId}`)}
-                    variant="outline"
-                    className="flex items-center gap-2"
+                    onClick={() => setCurrentPage('kpi-audit-dashboard')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 px-4 py-2 shrink-0"
                   >
                     <BarChart3 className="w-4 h-4" />
-                    View Detailed KPI
-                  </Button>
-                </div>
-
-                <div className="text-center py-8">
-                  <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">KPI Scores</h3>
-                  <p className="text-gray-600 mb-4">Click "View Detailed KPI" to see comprehensive performance metrics and analysis.</p>
-                  <Button
-                    onClick={() => setCurrentPage(`kpi-scores/${userId}`)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
                     Open KPI Dashboard
                   </Button>
                 </div>
+
+                {kpiScores.length === 0 ? (
+                  <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-300">No KPI Scores Available</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">This user doesn't have any KPI scores recorded yet.</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 mb-6">KPI scores are generated when admin uploads performance data via the KPI Upload Dashboard.</p>
+
+                    {/* Button - ALWAYS VISIBLE */}
+                    <Button
+                      onClick={() => setCurrentPage('kpi-audit-dashboard')}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
+                    >
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      Open KPI Dashboard
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Latest KPI Score Card */}
+                    {kpiScores.length > 0 && (() => {
+                      const latestKPI = kpiScores[0];
+                      const getRatingColor = (rating: string) => {
+                        switch (rating?.toLowerCase()) {
+                          case 'outstanding': return 'bg-green-100 text-green-800 border-green-200';
+                          case 'excellent': return 'bg-blue-100 text-blue-800 border-blue-200';
+                          case 'satisfactory': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                          case 'need improvement': return 'bg-orange-100 text-orange-800 border-orange-200';
+                          case 'unsatisfactory': return 'bg-red-100 text-red-800 border-red-200';
+                          default: return 'bg-gray-100 text-gray-800 border-gray-200';
+                        }
+                      };
+                      const getScoreColor = (score: number) => {
+                        if (score >= 85) return 'text-green-600';
+                        if (score >= 70) return 'text-blue-600';
+                        if (score >= 50) return 'text-yellow-600';
+                        if (score >= 40) return 'text-orange-600';
+                        return 'text-red-600';
+                      };
+                      return (
+                        <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+                          <h4 className="font-semibold text-blue-900 mb-4 flex items-center gap-2">
+                            <Target className="w-5 h-5" />
+                            Latest KPI Score - {latestKPI.period || 'N/A'}
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                              <div className={`text-4xl font-bold ${getScoreColor(latestKPI.overallScore || latestKPI.kpiScore || 0)}`}>
+                                {(latestKPI.overallScore || latestKPI.kpiScore || 0).toFixed(1)}%
+                              </div>
+                              <div className="text-sm text-gray-600 mt-1">Overall Score</div>
+                            </div>
+                            <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                              <Badge className={`text-lg px-4 py-2 ${getRatingColor(latestKPI.rating)}`}>
+                                {latestKPI.rating || 'N/A'}
+                              </Badge>
+                              <div className="text-sm text-gray-600 mt-2">Rating</div>
+                            </div>
+                            <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                              <div className="text-2xl font-bold text-purple-600">
+                                {latestKPI.rawData?.totalCases || latestKPI.metrics?.totalCases || 'N/A'}
+                              </div>
+                              <div className="text-sm text-gray-600 mt-1">Total Cases</div>
+                            </div>
+                            <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                              <div className="text-lg font-medium text-gray-700">
+                                {latestKPI.period || 'N/A'}
+                              </div>
+                              <div className="text-sm text-gray-600 mt-1">Period</div>
+                            </div>
+                          </div>
+
+                          {/* Metrics Breakdown */}
+                          {(latestKPI.metrics || latestKPI.rawData) && (
+                            <div className="mt-6 pt-4 border-t border-blue-200">
+                              <h5 className="font-medium text-gray-700 mb-3">Performance Metrics</h5>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {latestKPI.metrics?.tat !== undefined && (
+                                  <div className="p-3 bg-white rounded-lg text-center">
+                                    <div className="text-sm text-gray-600">TAT %</div>
+                                    <div className="font-bold">{latestKPI.metrics.tat.percentage || latestKPI.metrics.tat || 0}%</div>
+                                  </div>
+                                )}
+                                {latestKPI.metrics?.majorNegativity !== undefined && (
+                                  <div className="p-3 bg-white rounded-lg text-center">
+                                    <div className="text-sm text-gray-600">Major Negativity</div>
+                                    <div className="font-bold">{latestKPI.metrics.majorNegativity.percentage || latestKPI.metrics.majorNegativity || 0}%</div>
+                                  </div>
+                                )}
+                                {latestKPI.metrics?.quality !== undefined && (
+                                  <div className="p-3 bg-white rounded-lg text-center">
+                                    <div className="text-sm text-gray-600">Quality</div>
+                                    <div className="font-bold">{latestKPI.metrics.quality.percentage || latestKPI.metrics.quality || 0}%</div>
+                                  </div>
+                                )}
+                                {latestKPI.metrics?.appUsage !== undefined && (
+                                  <div className="p-3 bg-white rounded-lg text-center">
+                                    <div className="text-sm text-gray-600">App Usage</div>
+                                    <div className="font-bold">{latestKPI.metrics.appUsage.percentage || latestKPI.metrics.appUsage || 0}%</div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </Card>
+                      );
+                    })()}
+
+                    {/* KPI History */}
+                    {kpiScores.length > 1 && (
+                      <Card className="p-4">
+                        <h4 className="font-semibold mb-4 flex items-center gap-2">
+                          <Clock className="w-5 h-5 text-gray-600" />
+                          KPI Score History
+                        </h4>
+                        <div className="space-y-3">
+                          {kpiScores.slice(0, 6).map((kpi, index) => (
+                            <div key={kpi._id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm">
+                                  {index + 1}
+                                </div>
+                                <div>
+                                  <div className="font-medium">{kpi.period || 'Unknown Period'}</div>
+                                  <div className="text-sm text-gray-500">
+                                    {kpi.createdAt ? formatDate(kpi.createdAt) : 'N/A'}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <div className="font-bold text-lg">{(kpi.overallScore || kpi.kpiScore || 0).toFixed(1)}%</div>
+                                </div>
+                                <Badge className={`${(kpi.rating?.toLowerCase() === 'outstanding') ? 'bg-green-100 text-green-800' :
+                                  (kpi.rating?.toLowerCase() === 'excellent') ? 'bg-blue-100 text-blue-800' :
+                                    (kpi.rating?.toLowerCase() === 'satisfactory') ? 'bg-yellow-100 text-yellow-800' :
+                                      (kpi.rating?.toLowerCase() === 'need improvement') ? 'bg-orange-100 text-orange-800' :
+                                        'bg-red-100 text-red-800'
+                                  }`}>
+                                  {kpi.rating || 'N/A'}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {kpiScores.length > 6 && (
+                          <div className="text-center mt-4">
+                            <Button
+                              variant="outline"
+                              onClick={() => setCurrentPage('kpi-audit-dashboard')}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              View All {kpiScores.length} Records →
+                            </Button>
+                          </div>
+                        )}
+                      </Card>
+                    )}
+
+                    {/* For More Info Link */}
+                    <div className="text-center pt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => setCurrentPage('kpi-audit-dashboard')}
+                        className="flex items-center gap-2 mx-auto"
+                      >
+                        <TrendingUp className="w-4 h-4" />
+                        For More Info - Open KPI Dashboard
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

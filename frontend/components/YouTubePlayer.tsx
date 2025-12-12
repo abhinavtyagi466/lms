@@ -30,8 +30,10 @@ interface YouTubePlayerProps {
   onProgress?: (progress: number) => void;
   onComplete?: () => void;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
-  restricted?: boolean; // New prop for restricted mode (unskippable, limited controls)
+  restricted?: boolean; // For restricted mode (unskippable, limited controls)
   initialTime?: number; // Start video at this time (in seconds)
+  assignmentId?: string; // For personalised modules - assignment ID
+  isPersonalised?: boolean; // Flag for personalised module progress tracking
 }
 
 export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
@@ -43,7 +45,9 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   onComplete,
   onTimeUpdate,
   restricted = false,
-  initialTime = 0
+  initialTime = 0,
+  assignmentId,
+  isPersonalised = false
 }) => {
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -61,14 +65,21 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [hasResumed, setHasResumed] = useState(false);
 
-  // Keep latest callbacks in refs to avoid stale closures
+  // Keep latest callbacks and values in refs to avoid stale closures
   const onProgressRef = useRef(onProgress);
   const onTimeUpdateRef = useRef(onTimeUpdate);
+  const initialTimeRef = useRef(initialTime);
 
   useEffect(() => {
     onProgressRef.current = onProgress;
     onTimeUpdateRef.current = onTimeUpdate;
   }, [onProgress, onTimeUpdate]);
+
+  // Update initialTime ref when prop changes
+  useEffect(() => {
+    initialTimeRef.current = initialTime;
+    console.log('initialTimeRef updated to:', initialTime);
+  }, [initialTime]);
 
   // Initialize YouTube IFrame Player API
   useEffect(() => {
@@ -142,16 +153,18 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     }
   }, [videoId, restricted]);
 
-  // Send progress to backend
+  // Send progress to backend (includes assignmentId for personalised modules)
   const sendProgressToBackend = async (currentTime: number, duration: number) => {
     try {
       await apiService.progress.updateProgress({
         userId,
         videoId,
         currentTime,
-        duration
+        duration,
+        assignmentId: isPersonalised && assignmentId ? assignmentId : undefined,
+        isPersonalised
       });
-      console.log(`Progress sent: ${currentTime}s / ${duration}s for video ${videoId}`);
+      console.log(`Progress sent: ${currentTime}s / ${duration}s for video ${videoId}${isPersonalised ? ' (personalised)' : ''}`);
     } catch (error) {
       console.error('Error sending progress to backend:', error);
     }
@@ -190,8 +203,8 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
             onTimeUpdateRef.current(currentTime, duration);
           }
 
-          // Send progress to backend
-          await sendProgressToBackend(currentTime, duration);
+          // Send progress to backend - HANDLED BY PARENT COMPONENT via onTimeUpdate
+          // await sendProgressToBackend(currentTime, duration);
         }
       }
     }, 5000); // Every 5 seconds
@@ -210,12 +223,13 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     setDuration(event.target.getDuration());
     setVolume(event.target.getVolume());
 
-    // Seek to initial time if provided
-    if (initialTime > 0) {
-      console.log(`Seeking to initial time: ${initialTime}s`);
-      event.target.seekTo(initialTime, true);
-      setCurrentTime(initialTime);
-      lastMaxTimeRef.current = initialTime;
+    // Seek to initial time if provided (use ref to get latest value)
+    const startTime = initialTimeRef.current;
+    if (startTime > 0) {
+      console.log(`Seeking to initial time: ${startTime}s`);
+      event.target.seekTo(startTime, true);
+      setCurrentTime(startTime);
+      lastMaxTimeRef.current = startTime;
     }
 
     // Start progress tracking immediately

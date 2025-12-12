@@ -1038,7 +1038,12 @@ router.get('/:id/certificates', authenticateToken, validateObjectId, requireOwne
     const certificates = await Notification.find({
       userId: userId,
       type: 'certificate'
-    }).sort({ createdAt: -1 });
+    })
+      .populate('sentBy', 'name email')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    console.log(`🏆 Found ${certificates.length} certificates for user ${userId}`);
 
     res.json({
       success: true,

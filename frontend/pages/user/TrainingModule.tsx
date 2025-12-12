@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   FileQuestion,
   AlertCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -25,6 +26,7 @@ export const TrainingModule: React.FC = () => {
   const [videoProgress, setVideoProgress] = useState(0);
   const [showQuizButton, setShowQuizButton] = useState(false);
   const [initialVideoTime, setInitialVideoTime] = useState(0);
+  const [playerKey, setPlayerKey] = useState(0); // Key to force player remount on restart
 
   useEffect(() => {
     console.log('TrainingModule: useEffect triggered with selectedModuleId:', selectedModuleId);
@@ -143,6 +145,10 @@ export const TrainingModule: React.FC = () => {
 
   // Handle progress updates from YouTube player
   const handleProgressUpdate = (videoId: string, currentTime: number, duration: number) => {
+    const debugAssignmentId = localStorage.getItem('currentAssignmentId');
+    const debugIsPersonalised = localStorage.getItem('isPersonalisedModule');
+    console.log(`[Progress Debug] Video: ${videoId}, Time: ${currentTime}, AssignmentId: ${debugAssignmentId}, IsPersonalised: ${debugIsPersonalised}`);
+
     console.log(`Progress update received for ${videoId}: ${currentTime}s / ${duration}s (${Math.round((currentTime / duration) * 100)}%)`);
 
     const progressPercent = Math.round((currentTime / duration) * 100);
@@ -160,30 +166,35 @@ export const TrainingModule: React.FC = () => {
 
     // Update backend progress
     const userId = (user as any)._id || (user as any).id;
-    if (userId) {
-      // Update generic progress
-      apiService.progress.updateProgress({
-        userId,
-        videoId,
-        currentTime,
-        duration,
-        assignmentId: localStorage.getItem('currentAssignmentId') || undefined,
-        isPersonalised: localStorage.getItem('isPersonalisedModule') === 'true'
-      }).catch(error => {
-        console.error('Failed to update progress:', error);
-      });
+    const isPersonalisedModule = localStorage.getItem('isPersonalisedModule') === 'true';
+    const assignmentId = localStorage.getItem('currentAssignmentId') || undefined;
 
-      // Update module-specific progress (CRITICAL for resuming)
+    if (userId) {
+      // Update module-specific progress in UserProgress model (works for both types)
       if (selectedModuleId) {
-        const assignmentId = localStorage.getItem('currentAssignmentId') || undefined;
         apiService.userProgress.updateVideoProgress(
           userId,
           selectedModuleId,
           progressPercent,
-          assignmentId,
+          isPersonalisedModule ? assignmentId : undefined, // Pass assignmentId only for personalised
           currentTime
         ).catch(error => {
           console.error('Failed to update user module progress:', error);
+        });
+      }
+
+      // Update Legacy Progress ONLY for regular modules (not personalised)
+      // This keeps progress separate between personalised and regular modules
+      if (!isPersonalisedModule) {
+        apiService.progress.updateProgress({
+          userId,
+          videoId,
+          currentTime,
+          duration,
+          assignmentId: undefined,
+          isPersonalised: false
+        }).catch(error => {
+          console.error('Failed to update progress (legacy):', error);
         });
       }
     }
@@ -269,6 +280,33 @@ export const TrainingModule: React.FC = () => {
     setCurrentPage('quiz');
   };
 
+  // Handle restart - reset progress and start video from beginning
+  const handleRestart = async () => {
+    const userId = (user as any)?._id || (user as any)?.id;
+    if (!userId || !selectedModuleId) return;
+
+    try {
+      const assignmentId = localStorage.getItem('currentAssignmentId') || undefined;
+
+      // Reset progress on backend (set to 0)
+      await apiService.userProgress.updateVideoProgress(userId, selectedModuleId, 0, assignmentId, 0);
+
+      // Reset local state
+      setVideoProgress(0);
+      setShowQuizButton(false);
+      setInitialVideoTime(0);
+
+      // Force player to remount by changing key
+      setPlayerKey(prev => prev + 1);
+
+      toast.success('Progress reset! Starting from the beginning.');
+      console.log('Progress reset successfully');
+    } catch (error) {
+      console.error('Failed to reset progress:', error);
+      toast.error('Failed to reset progress. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -322,20 +360,20 @@ export const TrainingModule: React.FC = () => {
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
-              <h1 className="text-xl font-semibold">{module.title}</h1>
-              <p className="text-sm text-gray-600">{module.description}</p>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{module.title}</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{module.description}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <Badge variant={module.status === 'published' ? 'default' : 'secondary'}>
+            <Badge variant={module.status === 'published' ? 'default' : 'secondary'} className={module.status === 'published' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}>
               {module.status}
             </Badge>
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-xs border-blue-300 text-blue-700 bg-blue-50">
               {Math.round(videoProgress)}% Complete
             </Badge>
             {module.difficulty && (
-              <Badge variant="outline" className="text-xs capitalize">
+              <Badge variant="outline" className="text-xs capitalize border-gray-300 text-gray-700">
                 {module.difficulty}
               </Badge>
             )}
@@ -350,6 +388,7 @@ export const TrainingModule: React.FC = () => {
           <Card className="overflow-hidden">
             <div className="p-4">
               <YouTubePlayer
+                key={playerKey} // Force remount on restart
                 videoId={module.ytVideoId}
                 userId={(user as any)._id || (user as any).id}
                 title={module.title}
@@ -363,7 +402,23 @@ export const TrainingModule: React.FC = () => {
                   handleProgressUpdate(module.ytVideoId, currentTime, duration);
                 }}
                 initialTime={initialVideoTime}
+                assignmentId={localStorage.getItem('currentAssignmentId') || undefined}
+                isPersonalised={localStorage.getItem('isPersonalisedModule') === 'true'}
               />
+
+              {/* Restart Button */}
+              {videoProgress > 0 && (
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    onClick={handleRestart}
+                    variant="outline"
+                    className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Restart Module
+                  </Button>
+                </div>
+              )}
             </div>
           </Card>
 
@@ -372,9 +427,9 @@ export const TrainingModule: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Module Information</h2>
               <div className="flex gap-2">
-                <Badge variant="outline">{module.status}</Badge>
+                <Badge variant="outline" className="text-gray-700 dark:text-gray-300">{module.status}</Badge>
                 {module.difficulty && (
-                  <Badge variant="outline" className="capitalize">
+                  <Badge variant="outline" className="capitalize text-gray-700 dark:text-gray-300">
                     {module.difficulty}
                   </Badge>
                 )}
@@ -411,7 +466,7 @@ export const TrainingModule: React.FC = () => {
                 <p className="text-sm font-medium mb-2">Tags</p>
                 <div className="flex flex-wrap gap-2">
                   {module.tags.map((tag: string, index: number) => (
-                    <Badge key={index} variant="secondary">
+                    <Badge key={index} variant="secondary" className="text-gray-800 bg-gray-100 dark:text-gray-200 dark:bg-gray-800">
                       {tag}
                     </Badge>
                   ))}

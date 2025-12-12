@@ -117,9 +117,9 @@ router.get('/pending', authenticateToken, requireAdmin, validatePagination, asyn
     const skip = (page - 1) * limit;
 
     // Build filter
-    const filter = { 
+    const filter = {
       status: { $in: ['assigned', 'overdue'] },
-      isActive: true 
+      isActive: true
     };
 
     // Add training type filter if provided
@@ -180,9 +180,9 @@ router.get('/overdue', authenticateToken, requireAdmin, validatePagination, asyn
     const skip = (page - 1) * limit;
 
     // Build filter
-    const filter = { 
+    const filter = {
       status: 'overdue',
-      isActive: true 
+      isActive: true
     };
 
     // Add training type filter if provided
@@ -328,9 +328,9 @@ router.get('/user/:userId', authenticateToken, validateUserId, validatePaginatio
     }
 
     // Build filter
-    const filter = { 
+    const filter = {
       userId,
-      isActive: true 
+      isActive: true
     };
 
     // Add status filter if provided
@@ -533,7 +533,7 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
 
     // Build filter
     const filter = { isActive: true };
-    
+
     if (trainingType) filter.trainingType = trainingType;
     if (status) filter.status = status;
     if (startDate || endDate) {

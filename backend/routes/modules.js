@@ -122,12 +122,17 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       };
     }).filter(m => m !== null);
 
-    // Combine regular and personalised modules
-    // Filter out regular modules that are also assigned as personalised to avoid duplicates
-    const personalisedModuleIds = personalisedModules.map(m => m._id.toString());
-    const uniqueRegularModules = regularModules.filter(m => !personalisedModuleIds.includes(m._id.toString()));
+    // Keep regular and personalised modules SEPARATE
+    // Regular modules should have their own progress (assignmentId = null)
+    // Personalized modules have their own progress (assignmentId = their assignment ID)
+    // Do NOT exclude regular modules even if they're also assigned as personalized
+    const regularModulesWithFlag = regularModules.map(m => ({
+      ...m.toObject(),
+      isPersonalised: false,
+      assignmentId: null // Explicitly set to null for regular modules
+    }));
 
-    const modules = [...uniqueRegularModules, ...personalisedModules];
+    const modules = [...regularModulesWithFlag, ...personalisedModules];
 
     // Get user's progress for all videos (Legacy Progress model)
     const userProgressLegacy = await Progress.find({ userId });
@@ -143,12 +148,23 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     });
 
     // Get quiz results for the user (to check which quizzes are passed)
+    // Check BOTH QuizResult AND QuizAttempt models for comprehensive detection
     const QuizResult = require('../models/QuizResult');
-    const quizResults = await QuizResult.find({
-      userId,
-      moduleId: { $in: moduleIds },
-      passed: true
-    }).select('moduleId passed percentage');
+    const QuizAttempt = require('../models/QuizAttempt');
+
+    const [quizResults, quizAttempts] = await Promise.all([
+      QuizResult.find({
+        userId,
+        moduleId: { $in: moduleIds },
+        passed: true
+      }).select('moduleId passed percentage'),
+      QuizAttempt.find({
+        userId,
+        moduleId: { $in: moduleIds },
+        passed: true,
+        status: 'completed'
+      }).select('moduleId passed score')
+    ]);
 
     // Create a map of video progress (Legacy)
     const progressMapLegacy = {};
@@ -180,14 +196,29 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       };
     });
 
-    // Create a map of passed modules
+    // Create a map of passed modules from BOTH QuizResult and QuizAttempt
     const passedModulesMap = {};
+
+    // First, add from QuizResult
     quizResults.forEach(result => {
       passedModulesMap[result.moduleId.toString()] = {
         passed: result.passed,
         percentage: result.percentage
       };
     });
+
+    // Then, add from QuizAttempt (if not already present or if better score)
+    quizAttempts.forEach(attempt => {
+      const key = attempt.moduleId.toString();
+      if (!passedModulesMap[key] || attempt.score > (passedModulesMap[key].percentage || 0)) {
+        passedModulesMap[key] = {
+          passed: attempt.passed,
+          percentage: attempt.score
+        };
+      }
+    });
+
+    console.log('Module unlock debug - passedModulesMap:', Object.keys(passedModulesMap));
 
     // SEQUENTIAL UNLOCK LOGIC: User must complete previous module to unlock next
     let previousModuleCompleted = true; // First module is always unlocked
@@ -203,8 +234,8 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
 
       if (progressMapNew[key] !== undefined) {
         progressPercent = progressMapNew[key] / 100; // Convert 0-100 to 0-1
-      } else {
-        // Fallback to Legacy model
+      } else if (!module.assignmentId) {
+        // Fallback to Legacy model ONLY for regular modules
         const progress = progressMapLegacy[module.ytVideoId] || { currentTime: 0, duration: 0 };
         progressPercent = progress.duration > 0 ? (progress.currentTime / progress.duration) : 0;
       }
@@ -216,6 +247,16 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       const videoCompleted = progressPercent >= 0.95;
       const quizCompleted = quiz ? (quizPassed?.passed || false) : videoCompleted;
       const moduleCompleted = videoCompleted && quizCompleted;
+
+      // Debug logging for unlock logic
+      console.log(`[Module Unlock] ${module.title}:`, {
+        progressPercent: Math.round(progressPercent * 100) + '%',
+        videoCompleted,
+        hasQuiz: !!quiz,
+        quizPassed: quizPassed?.passed || false,
+        quizCompleted,
+        moduleCompleted
+      });
 
       // Determine if module is locked
       let isLocked = false;
@@ -677,10 +718,6 @@ router.get('/personalised/:userId', authenticateToken, async (req, res) => {
 
       if (progressMapNew[key] !== undefined) {
         progressPercent = progressMapNew[key] / 100; // Convert 0-100 to 0-1
-      } else {
-        // Fallback to Legacy model
-        const progress = progressMapLegacy[module.ytVideoId] || { currentTime: 0, duration: 0 };
-        progressPercent = progress.duration > 0 ? (progress.currentTime / progress.duration) : 0;
       }
 
       return {

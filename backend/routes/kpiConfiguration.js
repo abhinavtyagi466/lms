@@ -232,7 +232,7 @@ router.get('/', authenticateToken, requireAdminPanel, async (req, res) => {
 router.put('/metrics', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { metrics } = req.body;
-    
+
     if (!metrics || !Array.isArray(metrics)) {
       return res.status(400).json({
         success: false,
@@ -270,7 +270,7 @@ router.put('/metrics', authenticateToken, requireAdmin, async (req, res) => {
 router.put('/triggers', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { triggers } = req.body;
-    
+
     if (!triggers || !Array.isArray(triggers)) {
       return res.status(400).json({
         success: false,
@@ -369,5 +369,10 @@ router.get('/export', authenticateToken, requireAdmin, async (req, res) => {
     });
   }
 });
+
+// Getter function for other modules to access KPI configurations
+router.getKPIConfigurations = function () {
+  return kpiConfigurations;
+};
 
 module.exports = router;

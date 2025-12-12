@@ -6,11 +6,11 @@ import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { 
-  Settings, 
-  Save, 
-  RotateCcw, 
-  BarChart3, 
+import {
+  Settings,
+  Save,
+  RotateCcw,
+  BarChart3,
   Target,
   Mail,
   RefreshCw
@@ -62,6 +62,7 @@ export const KPIConfigurationPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('kpi-metrics');
 
   // Default KPI configurations
@@ -238,11 +239,11 @@ export const KPIConfigurationPage: React.FC = () => {
         setKpiConfigs(defaultKpiConfigs);
         setTriggerConfigs(defaultTriggerConfigs);
       }
-      
+
       // Load email templates
       const templatesResponse = await apiService.emailTemplates.getAll();
       setEmailTemplates(templatesResponse.data || []);
-      
+
       toast.success('Configurations loaded successfully');
     } catch (error) {
       console.error('Error loading configurations:', error);
@@ -292,12 +293,12 @@ export const KPIConfigurationPage: React.FC = () => {
     try {
       // Save KPI metrics configuration
       await apiService.kpiConfiguration.updateMetrics(kpiConfigs);
-      
+
       // Save trigger configuration
       await apiService.kpiConfiguration.updateTriggers(triggerConfigs);
-      
+
       toast.success('KPI configurations saved successfully!');
-      
+
     } catch (error) {
       console.error('Error saving configurations:', error);
       toast.error('Failed to save configurations');
@@ -310,12 +311,12 @@ export const KPIConfigurationPage: React.FC = () => {
     try {
       // Call API to reset configurations
       await apiService.kpiConfiguration.resetToDefaults();
-      
+
       // Update local state
       setKpiConfigs(defaultKpiConfigs);
       setTriggerConfigs(defaultTriggerConfigs);
       setShowResetDialog(false);
-      
+
       toast.success('Configurations reset to defaults');
     } catch (error) {
       console.error('Error resetting configurations:', error);
@@ -365,7 +366,7 @@ export const KPIConfigurationPage: React.FC = () => {
             Reset to Defaults
           </Button>
           <Button
-            onClick={saveConfigurations}
+            onClick={() => setShowSaveDialog(true)}
             disabled={isSaving}
             className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
           >
@@ -411,11 +412,11 @@ export const KPIConfigurationPage: React.FC = () => {
                     <CardHeader className="pb-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <Badge variant="outline" className="text-lg px-3 py-1">
+                          <Badge variant="outline" className="text-lg px-3 py-1 border-gray-400 text-gray-800">
                             {config.metric}
                           </Badge>
                           <div className="flex items-center gap-2">
-                            <Label htmlFor={`weightage-${index}`} className="text-sm font-medium">
+                            <Label htmlFor={`weightage-${index}`} className="text-sm font-medium text-gray-700 dark:text-gray-300">
                               Weightage:
                             </Label>
                             <Input
@@ -431,7 +432,7 @@ export const KPIConfigurationPage: React.FC = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Label htmlFor={`active-${index}`} className="text-sm">
+                          <Label htmlFor={`active-${index}`} className="text-sm text-gray-700 dark:text-gray-300">
                             Active:
                           </Label>
                           <input
@@ -515,17 +516,17 @@ export const KPIConfigurationPage: React.FC = () => {
                     <CardContent className="p-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
-                          <Label className="text-sm font-medium">Trigger Type</Label>
-                          <Badge variant={config.triggerType === 'score_based' ? 'default' : 'secondary'} className="mt-1">
+                          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Trigger Type</Label>
+                          <Badge variant={config.triggerType === 'score_based' ? 'default' : 'secondary'} className={`mt-1 ${config.triggerType === 'score_based' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}>
                             {config.triggerType === 'score_based' ? 'Score Based' : 'Condition Based'}
                           </Badge>
                         </div>
                         <div>
-                          <Label className="text-sm font-medium">Condition</Label>
-                          <p className="text-sm text-gray-600 mt-1">{config.condition}</p>
+                          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Condition</Label>
+                          <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{config.condition}</p>
                         </div>
                         <div>
-                          <Label className="text-sm font-medium">Threshold</Label>
+                          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Threshold</Label>
                           <Input
                             type="number"
                             value={config.threshold}
@@ -535,7 +536,7 @@ export const KPIConfigurationPage: React.FC = () => {
                           />
                         </div>
                         <div>
-                          <Label className="text-sm font-medium">Active</Label>
+                          <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Active</Label>
                           <input
                             type="checkbox"
                             checked={config.isActive}
@@ -545,20 +546,20 @@ export const KPIConfigurationPage: React.FC = () => {
                         </div>
                       </div>
                       <div className="mt-4">
-                        <Label className="text-sm font-medium">Actions</Label>
+                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Actions</Label>
                         <div className="flex flex-wrap gap-2 mt-1">
                           {config.actions.map((action, actionIndex) => (
-                            <Badge key={actionIndex} variant="outline">
+                            <Badge key={actionIndex} variant="outline" className="border-blue-300 text-blue-700 bg-blue-50">
                               {action}
                             </Badge>
                           ))}
                         </div>
                       </div>
                       <div className="mt-2">
-                        <Label className="text-sm font-medium">Email Recipients</Label>
+                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email Recipients</Label>
                         <div className="flex flex-wrap gap-2 mt-1">
                           {config.emailRecipients.map((recipient, recipientIndex) => (
-                            <Badge key={recipientIndex} variant="secondary">
+                            <Badge key={recipientIndex} variant="secondary" className="bg-purple-100 text-purple-700">
                               {recipient}
                             </Badge>
                           ))}
@@ -625,6 +626,21 @@ export const KPIConfigurationPage: React.FC = () => {
         description="Are you sure you want to reset all KPI configurations to their default values? This action cannot be undone."
         type="warning"
         confirmText="Reset"
+        cancelText="Cancel"
+      />
+
+      {/* Save Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showSaveDialog}
+        onClose={() => setShowSaveDialog(false)}
+        onConfirm={() => {
+          setShowSaveDialog(false);
+          saveConfigurations();
+        }}
+        title="Save KPI Configuration Changes"
+        description="Are you sure you want to update the KPI threshold values? This will affect how all future KPI scores are calculated. Please double-check the values before confirming."
+        type="warning"
+        confirmText="Yes, Save Changes"
         cancelText="Cancel"
       />
     </div>

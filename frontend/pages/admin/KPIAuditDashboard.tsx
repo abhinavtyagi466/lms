@@ -89,6 +89,7 @@ interface PreviewRow {
   } | null;
   kpiScore?: number;
   rating?: string;
+  period?: string;
   error?: string;
   rawData?: Record<string, any>;
 }
@@ -173,7 +174,7 @@ const KPIAuditDashboard: React.FC = () => {
     try {
       setLoading(true);
       const response = await apiService.auditScheduling.getByKPIRating();
-      
+
       // Response interceptor already returns response.data, so response is the API data
       if (response && typeof response === 'object' && 'success' in response && response.success && response.data) {
         setData(response.data.groupedByRating);
@@ -225,7 +226,12 @@ const KPIAuditDashboard: React.FC = () => {
         search: searchTerm || undefined,
         limit: 500
       });
-      const entries = resp?.data?.data || [];
+
+      // axios interceptor returns response.data, so resp is already the data
+      // Response structure: { success: true, data: entries[] }
+      const entries = Array.isArray(resp?.data) ? resp.data : (Array.isArray(resp) ? resp : []);
+      console.log('Unmatched entries loaded:', entries.length, entries);
+
       const rows = entries.map((e: any) => ({
         fe: e.fe,
         employeeId: e.employeeId,
@@ -233,6 +239,7 @@ const KPIAuditDashboard: React.FC = () => {
         matched: false,
         kpiScore: e.kpiScore,
         rating: e.rating,
+        period: e.period, // Include period from the entry
         rawData: e.rawData
       }));
       setUnmatchedRows(rows);
@@ -259,7 +266,7 @@ const KPIAuditDashboard: React.FC = () => {
   const filterUsers = (users: UserKPIData[]) => {
     if (!searchTerm) return users;
     const term = searchTerm.toLowerCase();
-    return users.filter(user => 
+    return users.filter(user =>
       user.name.toLowerCase().includes(term) ||
       user.email.toLowerCase().includes(term) ||
       user.employeeId?.toLowerCase().includes(term)
@@ -324,7 +331,7 @@ const KPIAuditDashboard: React.FC = () => {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge 
+                  <Badge
                     variant={user.trainingRequirement === 'None' ? 'outline' : 'default'}
                     className={user.trainingRequirement === 'None' ? '' : 'bg-orange-600 text-black dark:text-white font-semibold'}
                   >
@@ -374,8 +381,8 @@ const KPIAuditDashboard: React.FC = () => {
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="default"
                       className="min-h-[44px] min-w-[44px]"
                       title="View Details"
@@ -383,8 +390,8 @@ const KPIAuditDashboard: React.FC = () => {
                     >
                       <Eye className="w-4 h-4" />
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="default"
                       className="min-h-[44px]"
                       title="Send Email"
@@ -422,7 +429,7 @@ const KPIAuditDashboard: React.FC = () => {
           )}
         </div>
         <div className="flex gap-2">
-          <Button 
+          <Button
             variant="outline"
             onClick={loadKPIData}
             disabled={loading}
@@ -430,7 +437,7 @@ const KPIAuditDashboard: React.FC = () => {
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button 
+          <Button
             onClick={openAuditManagement}
             className="bg-gradient-to-r from-orange-600 to-red-700 hover:from-orange-700 hover:to-red-800 text-black dark:text-black font-semibold shadow-lg flex items-center gap-2"
           >
@@ -621,16 +628,16 @@ const KPIAuditDashboard: React.FC = () => {
                     <h3 className="font-semibold text-blue-900 mb-2">Total Pending Audits</h3>
                     <p className="text-3xl font-bold text-blue-700">
                       {data.excellent.reduce((sum, u) => sum + u.pendingAudits.length, 0) +
-                       data.satisfactory.reduce((sum, u) => sum + u.pendingAudits.length, 0) +
-                       data.needImprovement.reduce((sum, u) => sum + u.pendingAudits.length, 0) +
-                       data.unsatisfactory.reduce((sum, u) => sum + u.pendingAudits.length, 0)}
+                        data.satisfactory.reduce((sum, u) => sum + u.pendingAudits.length, 0) +
+                        data.needImprovement.reduce((sum, u) => sum + u.pendingAudits.length, 0) +
+                        data.unsatisfactory.reduce((sum, u) => sum + u.pendingAudits.length, 0)}
                     </p>
                   </div>
                   <div className="p-4 bg-orange-50 rounded-lg">
                     <h3 className="font-semibold text-orange-900 mb-2">Total Pending Training</h3>
                     <p className="text-3xl font-bold text-orange-700">
                       {data.needImprovement.reduce((sum, u) => sum + u.pendingTraining.length, 0) +
-                       data.unsatisfactory.reduce((sum, u) => sum + u.pendingTraining.length, 0)}
+                        data.unsatisfactory.reduce((sum, u) => sum + u.pendingTraining.length, 0)}
                     </p>
                   </div>
                 </div>
@@ -727,7 +734,7 @@ const KPIAuditDashboard: React.FC = () => {
                             <TableCell>{row.employeeId || '-'}</TableCell>
                             <TableCell>{row.email || '-'}</TableCell>
                             <TableCell>
-                              <Badge variant="outline" className="text-xs">{selectedPeriod || '—'}</Badge>
+                              <Badge variant="outline" className="text-xs">{row.period || selectedPeriod || '—'}</Badge>
                             </TableCell>
                           </TableRow>
                         ))

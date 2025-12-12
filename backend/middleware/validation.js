@@ -3,14 +3,14 @@ const { body, param, query, validationResult } = require('express-validator');
 // Middleware to handle validation errors
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
-  
+
   if (!errors.isEmpty()) {
     console.error('=== VALIDATION ERROR ===');
     console.error('Request Body:', req.body);
     console.error('Errors:', errors.array());
     console.error('Validation failed for fields:', errors.array().map(e => e.path).join(', '));
     console.error('========================');
-    
+
     return res.status(400).json({
       error: 'Validation Error',
       message: 'Please check your input data',
@@ -21,7 +21,7 @@ const handleValidationErrors = (req, res, next) => {
       }))
     });
   }
-  
+
   next();
 };
 
@@ -83,7 +83,7 @@ const validateCreateUser = [
     .optional()
     .isIn(['user', 'manager', 'hod', 'hr', 'admin'])
     .withMessage('User type must be one of: user, manager, hod, hr, admin'),
-  
+
   // Personal Information
   body('dateOfBirth')
     .optional({ checkFalsy: true })
@@ -94,7 +94,7 @@ const validateCreateUser = [
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Father\'s name must be between 2 and 100 characters'),
-  
+
   // Employment Information
   body('dateOfJoining')
     .optional({ checkFalsy: true })
@@ -120,7 +120,7 @@ const validateCreateUser = [
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Highest education must be between 2 and 100 characters'),
-  
+
   // Address Information
   body('currentAddress')
     .optional({ checkFalsy: true })
@@ -152,7 +152,7 @@ const validateCreateUser = [
     .trim()
     .isLength({ max: 100 })
     .withMessage('Region cannot exceed 100 characters'),
-  
+
   // Identification Documents
   body('aadhaarNo')
     .optional({ checkFalsy: true })
@@ -351,6 +351,17 @@ const validateUserId = [
   handleValidationErrors
 ];
 
+// Validate userId and moduleId params together
+const validateUserModuleParams = [
+  param('userId')
+    .isMongoId()
+    .withMessage('Please provide a valid user ID'),
+  param('moduleId')
+    .isMongoId()
+    .withMessage('Please provide a valid module ID'),
+  handleValidationErrors
+];
+
 // Training assignment validation rules
 const validateTrainingAssignment = [
   body('userId')
@@ -472,5 +483,6 @@ module.exports = {
   validateCompleteAudit,
   validateObjectId,
   validateUserId,
+  validateUserModuleParams,
   validatePagination
 };

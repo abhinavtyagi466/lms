@@ -556,11 +556,18 @@ router.post('/submit', authenticateToken, async (req, res) => {
     // Calculate score
     let score = 0;
     const evaluatedAnswers = answers.map((answer, index) => {
+      // Helper to get selected option from answer (handles both number and object format)
+      const getSelectedOption = (ans) => {
+        if (typeof ans === 'number') return ans;
+        if (ans?.selectedOption !== undefined) return Number(ans.selectedOption);
+        return -1;
+      };
+
       // Handle cases where answer array might be shorter than questions
       if (index >= quiz.questions.length) {
         return {
           questionIndex: index,
-          selectedOption: answer?.selectedOption ?? -1,
+          selectedOption: getSelectedOption(answer),
           isCorrect: false,
           timeSpent: answer?.timeSpent || 0
         };
@@ -571,14 +578,26 @@ router.post('/submit', authenticateToken, async (req, res) => {
         console.error('Question not found at index:', index);
         return {
           questionIndex: index,
-          selectedOption: answer?.selectedOption ?? -1,
+          selectedOption: getSelectedOption(answer),
           isCorrect: false,
           timeSpent: answer?.timeSpent || 0
         };
       }
 
       // Handle both correctOption (0-3) format and ensure proper comparison
-      const selectedOption = answer?.selectedOption !== undefined ? Number(answer.selectedOption) : -1;
+      // IMPORTANT: Handle BOTH array of numbers [0, 1, 2] AND array of objects [{selectedOption: 0}, ...]
+      let selectedOption;
+      if (typeof answer === 'number') {
+        // Direct number format: [0, 1, 2]
+        selectedOption = answer;
+      } else if (answer?.selectedOption !== undefined) {
+        // Object format: [{selectedOption: 0}, ...]
+        selectedOption = Number(answer.selectedOption);
+      } else {
+        // Unanswered
+        selectedOption = -1;
+      }
+
       const correctOption = question.correctOption !== undefined ? Number(question.correctOption) : -1;
       const isCorrect = selectedOption === correctOption && selectedOption !== -1;
 

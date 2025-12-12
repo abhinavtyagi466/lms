@@ -4,7 +4,7 @@ const UserProgress = require('../models/UserProgress');
 const Module = require('../models/Module');
 const Question = require('../models/Question');
 const { authenticateToken } = require('../middleware/auth');
-const { validateObjectId, validateUserId } = require('../middleware/validation');
+const { validateObjectId, validateUserId, validateUserModuleParams } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -43,7 +43,7 @@ router.get('/:userId', authenticateToken, validateUserId, async (req, res) => {
 // @route   GET /api/user-progress/:userId/:moduleId
 // @desc    Get user progress for a specific module
 // @access  Private
-router.get('/:userId/:moduleId', authenticateToken, validateObjectId, async (req, res) => {
+router.get('/:userId/:moduleId', authenticateToken, validateUserModuleParams, async (req, res) => {
   try {
     const { userId, moduleId } = req.params;
 
@@ -83,7 +83,7 @@ router.get('/:userId/:moduleId', authenticateToken, validateObjectId, async (req
 // @route   PUT /api/user-progress/:userId/:moduleId/video
 // @desc    Update video progress for a module
 // @access  Private
-router.put('/:userId/:moduleId/video', authenticateToken, validateObjectId, async (req, res) => {
+router.put('/:userId/:moduleId/video', authenticateToken, validateUserModuleParams, async (req, res) => {
   try {
     const { userId, moduleId } = req.params;
     const { progress, assignmentId } = req.body;
@@ -155,7 +155,7 @@ router.put('/:userId/:moduleId/video', authenticateToken, validateObjectId, asyn
 // @route   POST /api/user-progress/:userId/:moduleId/quiz
 // @desc    Submit quiz answers and calculate results
 // @access  Private
-router.post('/:userId/:moduleId/quiz', authenticateToken, validateObjectId, async (req, res) => {
+router.post('/:userId/:moduleId/quiz', authenticateToken, validateUserModuleParams, async (req, res) => {
   try {
     const { userId, moduleId } = req.params;
     const { answers, assignmentId } = req.body;

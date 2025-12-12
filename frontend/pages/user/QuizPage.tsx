@@ -372,14 +372,99 @@ export const QuizPage: React.FC = () => {
     }));
   };
 
-  const nextQuestion = () => {
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-green-600';
+    if (score >= 70) return 'text-yellow-600';
     return 'text-red-600';
   };
 
+  const nextQuestion = () => {
+    if (selectedQuiz && currentQuestionIndex < selectedQuiz.questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    }
+  };
+
+  const previousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(prev => prev - 1);
+    }
+  };
+
+  const submitQuiz = async () => {
+    try {
+      setLoading(true);
+
+      // Calculate score locally
+      let calculatedScore = 0;
+      const answersArray: number[] = [];
+
+      selectedQuiz.questions.forEach((q: any, index: number) => {
+        const selectedAnswer = selectedAnswers[index];
+        answersArray.push(selectedAnswer !== undefined ? selectedAnswer : -1); // -1 for unanswered
+
+        // Support both index-based and option-based answers
+        const correctIndex = q.correctIndex !== undefined ? q.correctIndex : q.correctOption;
+        if (selectedAnswer === correctIndex) {
+          calculatedScore++;
+        }
+      });
+
+      const finalScore = Math.round((calculatedScore / selectedQuiz.questions.length) * 100);
+      setScore(finalScore);
+
+      // Send to backend
+      const userId = (user as any)?._id || (user as any)?.id;
+      if (userId && selectedModuleId) {
+        const assignmentId = localStorage.getItem('currentAssignmentId') || undefined;
+        const timeTaken = (selectedQuiz.estimatedTime || 30) * 60 - timeLeft;
+
+        console.log('Submitting quiz:', {
+          userId,
+          moduleId: selectedModuleId,
+          answers: answersArray,
+          timeTaken,
+          assignmentId
+        });
+
+        // Use the appropriate API method
+        await apiService.quizzes.submitQuiz(
+          userId,
+          selectedModuleId,
+          answersArray,
+          timeTaken,
+          undefined, // attemptId
+          assignmentId
+        );
+
+        toast.success('Quiz submitted successfully!');
+      }
+
+      setQuizCompleted(true);
+
+      // Cleanup
+      if (document.fullscreenElement) {
+        exitFullscreen();
+      }
+
+    } catch (error) {
+      console.error('Error submitting quiz:', error);
+      toast.error('Failed to submit quiz results to server, but here is your score.');
+      setQuizCompleted(true); // Show results anyway
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getScoreBadge = (score: number) => {
-    if (score >= 80) return <Badge className="bg-green-100 text-green-800">Excellent</Badge>;
-    if (score >= 70) return <Badge className="bg-yellow-100 text-yellow-800">Good</Badge>;
-    return <Badge variant="destructive">Needs Improvement</Badge>;
+    if (score >= 80) return <Badge className="bg-green-100 text-green-700 border border-green-300">Excellent</Badge>;
+    if (score >= 70) return <Badge className="bg-yellow-100 text-yellow-700 border border-yellow-300">Good</Badge>;
+    return <Badge className="bg-red-100 text-red-700 border border-red-300">Needs Improvement</Badge>;
   };
 
   if (loading) {
@@ -451,7 +536,7 @@ export const QuizPage: React.FC = () => {
                 setQuizCompleted(false);
                 setCurrentPage('user-dashboard');
               }}
-              className="w-full"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
             >
               Go to Dashboard Now
             </Button>
@@ -459,7 +544,7 @@ export const QuizPage: React.FC = () => {
             <Button
               variant="outline"
               onClick={exitFullscreen}
-              className="w-full"
+              className="w-full text-gray-900 border-gray-300 hover:bg-gray-100 dark:text-gray-100 dark:border-gray-700"
             >
               <Maximize className="w-4 h-4 mr-2" />
               Exit Fullscreen
@@ -591,6 +676,7 @@ export const QuizPage: React.FC = () => {
         <Button
           variant="outline"
           onClick={() => setCurrentPage('user-dashboard')}
+          className="text-gray-900 border-gray-300 hover:bg-gray-100 dark:text-gray-100 dark:border-gray-700"
         >
           Back to Dashboard
         </Button>

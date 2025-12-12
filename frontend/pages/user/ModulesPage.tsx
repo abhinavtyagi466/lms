@@ -286,6 +286,13 @@ export const ModulesPage: React.FC = () => {
                         (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDMyMCAxODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMjAiIGhlaWdodD0iMTgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjE2MCIgY3k9IjkwIiByPSIzMCIgZmlsbD0iIzZCNzI4MCIvPgo8cGF0aCBkPSJNMTQ1IDc1TDE3NSA5MEwxNDUgMTA1Vjc1WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+';
                       }}
                       onClick={() => {
+                        // Debug: Log the assignment info
+                        console.log('=== Personalised Module Click ===');
+                        console.log('Module:', module);
+                        console.log('assignmentId:', (module as any).assignmentId);
+                        console.log('moduleId:', (module as any)._id || module.moduleId);
+                        console.log('================================');
+
                         // Store personalised module info for progress tracking
                         localStorage.setItem('currentAssignmentId', (module as any).assignmentId || '');
                         localStorage.setItem('isPersonalisedModule', 'true');
@@ -315,7 +322,10 @@ export const ModulesPage: React.FC = () => {
                     <div className="flex gap-2">
                       <Button
                         onClick={() => {
-                          setSelectedModuleId((module as any)._id);
+                          // Set personalised module info for progress tracking
+                          localStorage.setItem('currentAssignmentId', (module as any).assignmentId || '');
+                          localStorage.setItem('isPersonalisedModule', 'true');
+                          setSelectedModuleId((module as any)._id || module.moduleId);
                           setCurrentPage('training-module');
                         }}
                         className="flex-1 bg-purple-600 hover:bg-purple-700"
@@ -467,6 +477,13 @@ export const ModulesPage: React.FC = () => {
                     <Button
                       onClick={() => {
                         if (!isLocked) {
+                          // Debug: Log the regular module click
+                          console.log('=== Regular Module Click ===');
+                          console.log('Module:', module);
+                          console.log('moduleId:', module.moduleId);
+                          console.log('Clearing assignmentId for regular module');
+                          console.log('============================');
+
                           // Clear personalised module info for regular progress tracking
                           localStorage.removeItem('currentAssignmentId');
                           localStorage.setItem('isPersonalisedModule', 'false');

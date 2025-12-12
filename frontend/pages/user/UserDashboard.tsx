@@ -393,9 +393,13 @@ export const UserDashboard: React.FC = () => {
           const totalQuizzes = modulesList.filter((m: ModuleWithProgress) => m.quizInfo).length;
           const completedQuizzes = modulesList.filter((m: ModuleWithProgress) => m.quizInfo && m.progress >= 0.95).length;
 
-          // Calculate total watch time (estimated)
+          // Calculate ACTUAL average progress (sum of all progress / number of modules)
+          const totalProgress = modulesList.reduce((acc: number, m: ModuleWithProgress) => acc + (m.progress || 0), 0);
+          const averageProgress = modulesList.length > 0 ? (totalProgress / modulesList.length) * 100 : 0;
+
+          // Calculate total watch time (estimated: 15 min avg per module * progress)
           const totalWatchTime = modulesList.reduce((acc: number, m: ModuleWithProgress) => {
-            return acc + (m.progress * 30); // Assuming 30 minutes per module
+            return acc + ((m.progress || 0) * 15); // 15 minutes average per module
           }, 0);
 
           setStats({
@@ -403,7 +407,7 @@ export const UserDashboard: React.FC = () => {
             completedModules: completed,
             inProgressModules: inProgress,
             notStartedModules: notStarted,
-            averageScore: 0,
+            averageScore: Math.round(averageProgress), // Store average progress here
             totalQuizzes,
             completedQuizzes,
             totalWatchTime: Math.round(totalWatchTime),
@@ -587,26 +591,6 @@ export const UserDashboard: React.FC = () => {
                 </p>
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
-              <Badge variant="outline" className="bg-white/70 dark:bg-gray-700/70 border-blue-200 dark:border-blue-500 text-blue-700 dark:text-blue-300 px-3 sm:px-5 py-2 sm:py-2.5 rounded-full shadow-sm text-sm" title="Key Performance Indicator - measures your work performance based on quality, efficiency, and compliance metrics">
-                <Target className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                Performance Score: {kpiScore?.overallScore || 0}
-                {kpiScore?.rating && (
-                  <span className={`ml-1 sm:ml-2 px-1 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs ${getKPIRatingColor(kpiScore.rating)}`}>
-                    {kpiScore.rating}
-                  </span>
-                )}
-              </Badge>
-              <Button
-                onClick={() => setCurrentPage('modules')}
-                variant="secondary"
-                size="lg"
-                className="px-4 sm:px-8 py-2 sm:py-3 w-full sm:w-auto text-sm sm:text-base text-blue-700 dark:text-white"
-              >
-                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2" />
-                Continue Learning
-              </Button>
-            </div>
           </div>
         </div>
       </div>
@@ -635,58 +619,58 @@ export const UserDashboard: React.FC = () => {
           </Card>
 
           <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Learning Progress</p>
-                  <p className="text-3xl font-bold text-gray-900">
-                    {stats.totalModules > 0 ? Math.round((stats.completedModules / stats.totalModules) * 100) : 0}%
+                  <p className="text-xs sm:text-sm font-medium text-gray-600">Learning Progress</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900">
+                    {stats.averageScore}%
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-green-500 dark:to-emerald-600 rounded-xl flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-white drop-shadow-lg" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-500 dark:bg-gradient-to-br dark:from-green-500 dark:to-emerald-600 rounded-xl flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white drop-shadow-lg" />
                 </div>
               </div>
               <div className="mt-4">
-                <Progress value={stats.totalModules > 0 ? (stats.completedModules / stats.totalModules) * 100 : 0} className="h-2" />
-                <p className="text-xs text-gray-500 mt-1">{stats.inProgressModules} in progress</p>
+                <Progress value={stats.averageScore} className="h-2" />
+                <p className="text-xs text-gray-500 mt-1">{stats.inProgressModules} in progress, {stats.completedModules} completed</p>
               </div>
             </CardContent>
           </Card>
 
           <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Quiz Performance</p>
-                  <p className="text-3xl font-bold text-gray-900">
-                    {quizAttemptStats ? Math.round(quizAttemptStats.averageScore) :
-                      quizAttempts.length > 0 ? Math.round(quizAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / quizAttempts.length) :
+                  <p className="text-xs sm:text-sm font-medium text-gray-600">Quiz Performance</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900">
+                    {quizAttemptStats?.averageScore ? Math.round(quizAttemptStats.averageScore) :
+                      quizAttempts.length > 0 ? Math.round(quizAttempts.reduce((sum, attempt) => sum + (attempt.score || 0), 0) / quizAttempts.length) :
                         0}%
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-purple-500 dark:to-violet-600 rounded-xl flex items-center justify-center">
-                  <FileQuestion className="w-6 h-6 text-white drop-shadow-lg" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500 dark:bg-gradient-to-br dark:from-purple-500 dark:to-violet-600 rounded-xl flex items-center justify-center">
+                  <FileQuestion className="w-5 h-5 sm:w-6 sm:h-6 text-white drop-shadow-lg" />
                 </div>
               </div>
               <div className="mt-4">
                 <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
                   <Trophy className="w-4 h-4 mr-1 text-yellow-500 dark:text-yellow-400" />
-                  {quizAttemptStats ? quizAttemptStats.totalAttempts : quizAttempts.length} attempts
+                  {quizAttemptStats?.totalAttempts || quizAttempts.length || 0} attempts
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Watch Time</p>
-                  <p className="text-3xl font-bold text-gray-900">{stats.totalWatchTime}m</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-600">Est. Watch Time</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.totalWatchTime}m</p>
                 </div>
-                <div className="w-12 h-12 bg-blue-500 dark:bg-gradient-to-br dark:from-orange-500 dark:to-red-600 rounded-xl flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-white drop-shadow-lg" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-500 dark:bg-gradient-to-br dark:from-orange-500 dark:to-red-600 rounded-xl flex items-center justify-center">
+                  <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-white drop-shadow-lg" />
                 </div>
               </div>
               <div className="mt-4">
@@ -895,8 +879,8 @@ export const UserDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Quiz Attempts Section */}
-        {true && (
+        {/* Quiz Attempts Section - HIDDEN */}
+        {false && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             {/* Quiz Statistics Card */}
             <Card className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0 shadow-lg">
@@ -1560,37 +1544,7 @@ export const UserDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* NEW: Module Scores Section (ADDED WITHOUT TOUCHING EXISTING) */}
-        {moduleScores.length > 0 && (
-          <div className="mt-8">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Module Performance Scores
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                Detailed performance breakdown for each training module
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {moduleScores.map((score) => (
-                <ModuleScoreCard key={score.moduleId} score={score} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Loading state for module scores */}
-        {loadingModuleScores && (
-          <div className="mt-8">
-            <div className="flex items-center justify-center py-8">
-              <LoadingSpinner size="lg" />
-              <span className="ml-3 text-gray-600 dark:text-gray-400">
-                Loading module scores...
-              </span>
-            </div>
-          </div>
-        )}
+        {/* Module Scores Section - REMOVED AS PER USER REQUEST */}
       </div>
     </div>
   );
