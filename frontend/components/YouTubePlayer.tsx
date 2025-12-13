@@ -138,6 +138,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
           cc_load_policy: 0,
           iv_load_policy: 3,
           enablejsapi: 1,
+          playsinline: 1,
           origin: window.location.origin
         },
         events: {
@@ -353,8 +354,15 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   // Sync isFullscreen state with native fullscreen changes (e.g. Esc key)
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const isNativeFullscreen = !!(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      setIsFullscreen(isNativeFullscreen);
     };
+
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     document.addEventListener('mozfullscreenchange', handleFullscreenChange);
@@ -368,37 +376,60 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     };
   }, []);
 
-  const toggleFullscreen = useCallback(() => {
+  const toggleFullscreen = useCallback(async () => {
     if (!wrapperRef.current) return;
 
     if (!isFullscreen) {
       // Enter fullscreen
-      // Try native fullscreen API first (works on Desktop, Android)
       const element = wrapperRef.current as any;
-      if (element.requestFullscreen) {
-        element.requestFullscreen().catch((err: any) => {
-          console.warn('Native fullscreen failed, falling back to CSS fullscreen:', err);
-          setIsFullscreen(true); // Fallback for iOS or errors
-        });
-      } else if (element.webkitRequestFullscreen) {
-        element.webkitRequestFullscreen();
-      } else if (element.mozRequestFullScreen) {
-        element.mozRequestFullScreen();
-      } else if (element.msRequestFullscreen) {
-        element.msRequestFullscreen();
-      } else {
-        // Fallback for iOS/unsupported browsers
-        setIsFullscreen(true);
+
+      try {
+        if (element.requestFullscreen) {
+          await element.requestFullscreen();
+        } else if (element.webkitRequestFullscreen) {
+          element.webkitRequestFullscreen();
+        } else if (element.mozRequestFullScreen) {
+          element.mozRequestFullScreen();
+        } else if (element.msRequestFullscreen) {
+          element.msRequestFullscreen();
+        } else {
+          // Fallback for iOS/unsupported browsers
+          setIsFullscreen(true);
+        }
+
+        // Try to lock orientation to landscape on mobile if supported
+        if (screen.orientation && (screen.orientation as any).lock) {
+          (screen.orientation as any).lock('landscape').catch(() => {
+            // Orientation lock failed or not supported, ignore
+          });
+        }
+      } catch (err) {
+        console.warn('Native fullscreen failed, falling back to CSS fullscreen:', err);
+        setIsFullscreen(true); // Fallback logic
       }
     } else {
       // Exit fullscreen
-      if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
-        if (document.exitFullscreen) {
-          document.exitFullscreen().catch(() => { });
-        } else if ((document as any).webkitExitFullscreen) {
-          (document as any).webkitExitFullscreen();
+      try {
+        if (document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).mozFullScreenElement) {
+          if (document.exitFullscreen) {
+            await document.exitFullscreen();
+          } else if ((document as any).webkitExitFullscreen) {
+            (document as any).webkitExitFullscreen();
+          } else if ((document as any).mozCancelFullScreen) {
+            (document as any).mozCancelFullScreen();
+          } else if ((document as any).msExitFullscreen) {
+            (document as any).msExitFullscreen();
+          }
         }
+
+        // Unlock orientation
+        if (screen.orientation && (screen.orientation as any).unlock) {
+          (screen.orientation as any).unlock();
+        }
+      } catch (err) {
+        console.warn('Error exiting fullscreen:', err);
       }
+      // Ensure state is updated even if native exit fails (or if we were in CSS fallback mode)
       setIsFullscreen(false);
     }
   }, [isFullscreen]);
@@ -434,7 +465,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         {/* Apply fixed positioning when in fullscreen to cover viewport */}
         <div
           ref={wrapperRef}
-          className={`${isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen flex items-center justify-center bg-black' : 'relative aspect-video bg-black'}`}
+          className={`${isFullscreen ? 'fixed inset-0 z-50 w-screen h-[100dvh] flex items-center justify-center bg-black' : 'relative aspect-video bg-black'}`}
         >
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center">
