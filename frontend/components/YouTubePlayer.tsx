@@ -399,8 +399,8 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
 
           <div ref={containerRef} className="w-full h-full" />
 
-          {/* Custom Controls Overlay */}
-          <div className="absolute inset-0 pointer-events-none">
+          {/* Custom Controls Overlay - Blocks direct interaction with IFrame to hide native UI */}
+          <div className="absolute inset-0 pointer-events-auto">
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 opacity-0 hover:opacity-100 transition-opacity pointer-events-auto">
               <div className="flex items-center justify-between text-white">
                 <div className="flex items-center gap-4">

@@ -144,6 +144,16 @@ export const apiService = {
     refreshToken: async () => {
       const response = await apiClient.post('/auth/refresh');
       return response;
+    },
+
+    forgotPassword: async (email: string) => {
+      const response = await apiClient.post('/auth/forgot-password', { email });
+      return response;
+    },
+
+    updatePassword: async (password: string) => {
+      const response = await apiClient.post('/auth/update-password', { password });
+      return response;
     }
   },
 

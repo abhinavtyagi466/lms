@@ -173,7 +173,8 @@ router.post('/login', validateLogin, async (req, res) => {
       message: 'Login successful',
       user: {
         ...userResponse,
-        token
+        token,
+        mustChangePassword: user.mustChangePassword
       }
     });
 
@@ -372,22 +373,64 @@ router.post('/forgot-password', async (req, res) => {
 
     const user = await User.findOne({ email: email.toLowerCase() });
 
-    if (!user) {
-      // Don't reveal if user exists for security
-      return res.json({
-        success: true,
-        message: 'If an account with that email exists, a password reset link has been sent'
+    // Check if user exists and is active
+    if (!user || !user.isActive) {
+      // Don't reveal if user exists for security, unless specifically requested to be verbose,
+      // but standard practice is to return generic success.
+      // User requested: "sirf active user hi password reset krr payeinn baki ko bole data not found in database"
+      // So if not found or not active -> "Data not found"
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Data not found in database'
       });
     }
 
-    // TODO: Implement password reset logic
-    // 1. Generate reset token
-    // 2. Save token to database with expiration
-    // 3. Send email with reset link
+    // Generate temporary password
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%';
+    let tempPassword = '';
+    for (let i = 0; i < 10; i++) {
+      tempPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    // DEBUG: Log the temporary password so developer can see it
+    console.log('------------------------------------------------');
+    console.log(`Generated Temp Password for ${user.email}: ${tempPassword}`);
+    console.log('------------------------------------------------');
+
+    // Set the plain text password - The User model pre-save hook will handle hashing
+    user.password = tempPassword;
+    user.mustChangePassword = true;
+
+    // Save updated user - this triggers the pre-save hook which hashes the password
+    await user.save();
+
+    // Send email with temporary password
+    try {
+      const emailService = require('../services/emailService');
+
+      if (typeof emailService.sendPasswordResetEmail === 'function') {
+        await emailService.sendPasswordResetEmail(user, tempPassword);
+        console.log(`✅ Password reset email sent to ${user.email}`);
+      } else {
+        // Fallback to generic send function if specific one doesn't exist
+        await emailService.sendEmail(
+          user.email,
+          'passwordReset',
+          {
+            userName: user.name,
+            tempPassword: tempPassword
+          }
+        );
+        console.log(`✅ Password reset email sent (generic) to ${user.email}`);
+      }
+    } catch (emailError) {
+      console.error('❌ Failed to send password reset email:', emailError);
+      // Continue even if email fails - user can get password from admin or logs
+    }
 
     res.json({
       success: true,
-      message: 'Password reset functionality will be implemented'
+      message: 'If an account with that email exists, a password reset link has been sent'
     });
 
   } catch (error) {
@@ -395,6 +438,50 @@ router.post('/forgot-password', async (req, res) => {
     res.status(500).json({
       error: 'Server Error',
       message: 'Error processing password reset request'
+    });
+  }
+});
+
+// @route   POST /api/auth/update-password
+// @desc    Update password (force change)
+// @access  Private
+router.post('/update-password', authenticateToken, async (req, res) => {
+  try {
+    const { password } = req.body;
+    const userId = req.user.id;
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Update password
+    user.password = password;
+    user.mustChangePassword = false; // Reset the flag
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Update password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating password'
     });
   }
 });

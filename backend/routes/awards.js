@@ -143,18 +143,18 @@ const handleMulterError = (error, req, res, next) => {
 router.post('/sendCertificate', authenticateToken, requireAdmin, awardUpload.single('pdfFile'), handleMulterError, async (req, res) => {
   try {
     const { userId, awardTitle, description } = req.body;
-    
+
     if (!userId || !awardTitle || !description) {
-      return res.status(400).json({ 
-        error: 'Validation Error', 
-        message: 'userId, awardTitle, description are required' 
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'userId, awardTitle, description are required'
       });
     }
-    
+
     if (!req.file) {
-      return res.status(400).json({ 
-        error: 'Validation Error', 
-        message: 'PDF file is required' 
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'PDF file is required'
       });
     }
 
@@ -171,26 +171,26 @@ router.post('/sendCertificate', authenticateToken, requireAdmin, awardUpload.sin
       certificateUrl: pdfUrl,
       awardedBy: req.user._id
     });
-    
+
     await award.save();
 
-    res.status(201).json({ 
-      success: true, 
-      certificate: { 
-        _id: award._id, 
-        userId, 
-        awardTitle, 
-        description, 
-        pdfUrl, 
-        createdAt: award.awardDate 
-      } 
+    res.status(201).json({
+      success: true,
+      certificate: {
+        _id: award._id,
+        userId,
+        awardTitle,
+        description,
+        pdfUrl,
+        createdAt: award.awardDate
+      }
     });
-    
+
   } catch (error) {
     console.error('Send certificate error:', error);
-    res.status(500).json({ 
-      error: 'Server Error', 
-      message: error.message || 'Error sending certificate' 
+    res.status(500).json({
+      error: 'Server Error',
+      message: error.message || 'Error sending certificate'
     });
   }
 });
@@ -301,11 +301,11 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     const userId = req.params.userId;
     const { limit = 10, page = 1 } = req.query;
 
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+    // Check if user is authorized (admin or accessing own data)
+    if (req.user._id.toString() !== userId && !['admin', 'manager', 'hod', 'hr'].includes(req.user.userType)) {
       return res.status(403).json({
-        error: 'Access Denied',
-        message: 'You can only access your own awards data'
+        success: false,
+        message: 'Access denied'
       });
     }
 

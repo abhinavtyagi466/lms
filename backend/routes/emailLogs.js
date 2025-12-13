@@ -17,11 +17,11 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
     } = req.query;
 
     const filter = {};
-    
+
     if (templateType) filter.templateType = templateType;
     if (status) filter.status = status;
     if (recipientRole) filter.recipientRole = recipientRole;
-    
+
     if (search) {
       filter.$or = [
         { recipientEmail: { $regex: search, $options: 'i' } },
@@ -29,7 +29,7 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
         { emailContent: { $regex: search, $options: 'i' } }
       ];
     }
-    
+
     if (dateRange) {
       const [startDate, endDate] = dateRange.split(',');
       filter.sentAt = {
@@ -39,7 +39,7 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     const [logs, total] = await Promise.all([
       EmailLog.find(filter)
         .sort({ sentAt: -1 })
@@ -78,8 +78,8 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     const { userId } = req.params;
     const { page = 1, limit = 10 } = req.query;
 
-    // Check if user is accessing their own logs or is admin
-    if (req.user._id !== userId && req.user.userType !== 'admin') {
+    // Check if user is authorized (admin or accessing own data)
+    if (req.user._id.toString() !== userId && !['admin', 'manager', 'hod', 'hr'].includes(req.user.userType)) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
@@ -87,7 +87,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     const [logs, total] = await Promise.all([
       EmailLog.find({ userId })
         .sort({ sentAt: -1 })
@@ -136,7 +136,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
 
     // Check if user can access this log
-    if (req.user._id !== log.userId._id && req.user.userType !== 'admin') {
+    if (req.user._id.toString() !== log.userId._id.toString() && !['admin', 'manager', 'hod', 'hr'].includes(req.user.userType)) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
@@ -161,7 +161,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 router.post('/:id/resend', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const log = await EmailLog.findById(req.params.id);
-    
+
     if (!log) {
       return res.status(404).json({
         success: false,

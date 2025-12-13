@@ -143,6 +143,10 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  mustChangePassword: {
+    type: Boolean,
+    default: false
+  },
   // Document Uploads
   avatar: {
     type: String

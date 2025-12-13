@@ -26,7 +26,7 @@ router.get('/', authenticateToken, async (req, res) => {
   try {
     // Admin gets all modules, users get only published modules
     let query = {};
-    if (req.user.userType !== 'admin') {
+    if (!['admin', 'manager', 'hod', 'hr'].includes(req.user.userType)) {
       query = { status: 'published' };
     }
 
@@ -78,8 +78,8 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+    // Check if user is accessing their own data or is admin status
+    if (req.user._id.toString() !== userId && !['admin', 'manager', 'hod', 'hr'].includes(req.user.userType)) {
       return res.status(403).json({
         error: 'Forbidden',
         message: 'You can only access your own module data'
@@ -402,7 +402,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
 
     // Users can only access published modules (unless they're admin)
-    if (req.user.userType !== 'admin' && module.status !== 'published') {
+    if (!['admin', 'manager', 'hod', 'hr'].includes(req.user.userType) && module.status !== 'published') {
       return res.status(403).json({
         error: 'Access denied',
         message: 'This module is not available'
@@ -662,7 +662,7 @@ router.get('/personalised/:userId', authenticateToken, async (req, res) => {
     const { userId } = req.params;
 
     // Check if user can access this data
-    if (req.user.userType !== 'admin' && req.user._id.toString() !== userId) {
+    if (!['admin', 'manager', 'hod', 'hr'].includes(req.user.userType) && req.user._id.toString() !== userId) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'

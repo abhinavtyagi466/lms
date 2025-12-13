@@ -80,7 +80,7 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
-// Middleware to check if user is admin
+// Middleware to check if user is admin (or equivalent high-level role)
 const requireAdmin = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({
@@ -89,7 +89,9 @@ const requireAdmin = (req, res, next) => {
     });
   }
 
-  if (req.user.userType !== 'admin') {
+  const allowedRoles = ['admin', 'manager', 'hod', 'hr'];
+
+  if (!allowedRoles.includes(req.user.userType)) {
     return res.status(403).json({
       error: 'Access Denied',
       message: 'Admin privileges required'

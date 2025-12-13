@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   BookOpen,
-  Clock,
   CheckCircle,
   ArrowLeft,
   FileQuestion,
@@ -445,6 +444,7 @@ export const TrainingModule: React.FC = () => {
                 </div>
               </div>
 
+              {/* Duration hidden as requested
               <div className="flex items-center space-x-3">
                 <Clock className="w-5 h-5 text-green-600" />
                 <div>
@@ -453,7 +453,7 @@ export const TrainingModule: React.FC = () => {
                     {module.estimatedDuration ? `${module.estimatedDuration} minutes` : '~15 minutes'}
                   </p>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             <div className="mb-6">
@@ -518,8 +518,8 @@ export const TrainingModule: React.FC = () => {
                 Mark Complete
               </Button>
 
-              {/* Temporary debug button */}
-              {quiz && quiz.questions && quiz.questions.length > 0 && (
+              {/* Temporary debug button - Hidden as requested */}
+              {/* {quiz && quiz.questions && quiz.questions.length > 0 && (
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -531,7 +531,7 @@ export const TrainingModule: React.FC = () => {
                 >
                   🧪 Force Enable Quiz
                 </Button>
-              )}
+              )} */}
             </div>
 
             {/* Quiz Status */}
@@ -544,11 +544,12 @@ export const TrainingModule: React.FC = () => {
                 <p className="text-sm text-green-600 mt-1">
                   This module has {quiz.questions.length} quiz questions. Complete the video to start the quiz.
                 </p>
+                {/* Estimated time hidden as requested
                 {quiz.estimatedTime && (
                   <p className="text-xs text-green-600 mt-1">
                     Estimated time: {quiz.estimatedTime} minutes
                   </p>
-                )}
+                )} */}
               </div>
             ) : (
               <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">

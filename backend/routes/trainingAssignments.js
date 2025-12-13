@@ -319,11 +319,11 @@ router.get('/user/:userId', authenticateToken, validateUserId, validatePaginatio
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    // Check authorization
-    if (req.user.userType !== 'admin' && req.user._id.toString() !== userId) {
+    // Check permissions
+    if (!['admin', 'manager', 'hod', 'hr'].includes(req.user.userType) && req.user._id.toString() !== userId) {
       return res.status(403).json({
-        error: 'Access Denied',
-        message: 'You can only access your own training assignments'
+        success: false,
+        message: 'Access denied'
       });
     }
 
@@ -604,10 +604,10 @@ router.get('/:id', authenticateToken, validateObjectId, async (req, res) => {
     }
 
     // Check authorization
-    if (req.user.userType !== 'admin' && req.user._id.toString() !== assignment.userId._id.toString()) {
+    if (!['admin', 'manager', 'hod', 'hr'].includes(req.user.userType) && req.user._id.toString() !== assignment.userId._id.toString()) {
       return res.status(403).json({
-        error: 'Access Denied',
-        message: 'You can only access your own training assignments'
+        success: false,
+        message: 'Access denied'
       });
     }
 

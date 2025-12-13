@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, Suspense, lazy, useEffect } from 'react';
 import {
   Users,
   BookOpen,
@@ -112,14 +112,38 @@ class ErrorBoundary extends React.Component<
 }
 
 // Main app content component
+// Add ForcePasswordChangeDialog import
+import { ForcePasswordChangeDialog } from './components/common/ForcePasswordChangeDialog';
+
 const AppContent: React.FC = () => {
   try {
-    const { user, userType, currentPage, setCurrentPage, logout, loading, login } = useAuth();
+    const { user, userType, currentPage, setCurrentPage, logout, loading, login, updateUser } = useAuth() as any; // Cast to any to avoid type errors with new method
     const [showLoginPopup, setShowLoginPopup] = useState(false);
     const [showLogoutPopup, setShowLogoutPopup] = useState(false);
     const [loginLoading, setLoginLoading] = useState(false);
     const [logoutLoading, setLogoutLoading] = useState(false);
     const [loginError, setLoginError] = useState<string | null>(null);
+    const [showForcePasswordChange, setShowForcePasswordChange] = useState(false);
+
+    // Check for forced password change requirement
+    useEffect(() => {
+      // Safe check for mustChangePassword property
+      if (user && (user as any).mustChangePassword) {
+        setShowForcePasswordChange(true);
+      } else {
+        setShowForcePasswordChange(false);
+      }
+    }, [user]);
+
+    const handleForcePasswordSuccess = async () => {
+      // Manually update the local user state to remove the flag
+      if (user && updateUser) {
+        updateUser({ ...user, mustChangePassword: false });
+      }
+      setShowForcePasswordChange(false);
+      // Optional: Refresh page to ensure clean state
+      // window.location.reload(); 
+    };
 
     // Show loading spinner while auth is being checked
     if (loading) {
@@ -337,6 +361,12 @@ const AppContent: React.FC = () => {
           onLogout={handleLogoutPopup}
           loading={logoutLoading}
           userName={user?.name}
+        />
+
+        {/* Force Password Change Popup */}
+        <ForcePasswordChangeDialog
+          isOpen={showForcePasswordChange}
+          onSuccess={handleForcePasswordSuccess}
         />
       </div>
     );

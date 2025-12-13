@@ -134,9 +134,9 @@ router.get('/scheduled', authenticateToken, requireAdmin, validatePagination, as
     const skip = (page - 1) * limit;
 
     // Build filter
-    const filter = { 
+    const filter = {
       status: 'scheduled',
-      isActive: true 
+      isActive: true
     };
 
     // Add audit type filter if provided
@@ -209,10 +209,10 @@ router.get('/overdue', authenticateToken, requireAdmin, validatePagination, asyn
     const skip = (page - 1) * limit;
 
     // Build filter for overdue audits
-    const filter = { 
+    const filter = {
       status: 'scheduled',
       scheduledDate: { $lt: new Date() },
-      isActive: true 
+      isActive: true
     };
 
     // Add audit type filter if provided
@@ -365,18 +365,17 @@ router.get('/user/:userId', authenticateToken, validateUserId, validatePaginatio
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    // Check authorization
-    if (req.user.userType !== 'admin' && req.user._id.toString() !== userId) {
+    // Check if user is authorized (admin or accessing own data)
+    if (!['admin', 'manager', 'hod', 'hr'].includes(req.user.userType) && req.user._id.toString() !== userId) {
       return res.status(403).json({
-        error: 'Access Denied',
-        message: 'You can only access your own audit history'
+        success: false,
+        message: 'Access denied'
       });
     }
-
     // Build filter
-    const filter = { 
+    const filter = {
       userId,
-      isActive: true 
+      isActive: true
     };
 
     // Add status filter if provided
@@ -594,7 +593,7 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
 
     // Build filter
     const filter = { isActive: true };
-    
+
     if (auditType) filter.auditType = auditType;
     if (status) filter.status = status;
     if (priority) filter.priority = priority;
@@ -838,11 +837,11 @@ router.get('/:id', authenticateToken, validateObjectId, async (req, res) => {
       });
     }
 
-    // Check authorization
-    if (req.user.userType !== 'admin' && req.user._id.toString() !== audit.userId._id.toString()) {
+    // Verify ownership or admin
+    if (!['admin', 'manager', 'hod', 'hr'].includes(req.user.userType) && req.user._id.toString() !== audit.userId._id.toString()) {
       return res.status(403).json({
-        error: 'Access Denied',
-        message: 'You can only access your own audit schedules'
+        success: false,
+        message: 'Access denied'
       });
     }
 

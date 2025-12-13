@@ -136,7 +136,7 @@ router.post('/:id/reprocess', authenticateToken, requireAdmin, validateObjectId,
 
   } catch (error) {
     console.error('Reprocess KPI triggers error:', error);
-    
+
     // Mark automation as failed
     try {
       const kpiScore = await KPIScore.findById(req.params.id);
@@ -282,11 +282,11 @@ router.get('/:userId', authenticateToken, validateUserId, async (req, res) => {
   try {
     const userId = req.params.userId;
 
-    // Check authorization
-    if (req.user.userType !== 'admin' && req.user._id.toString() !== userId) {
+    // Check if user is authorized (admin or accessing own data)
+    if (!['admin', 'manager', 'hod', 'hr'].includes(req.user.userType) && req.user._id.toString() !== userId) {
       return res.status(403).json({
-        error: 'Access Denied',
-        message: 'You can only access your own KPI scores'
+        success: false,
+        message: 'Access denied'
       });
     }
 
@@ -346,11 +346,11 @@ router.get('/:userId/history', authenticateToken, validateUserId, async (req, re
     const userId = req.params.userId;
     const { limit = 6 } = req.query;
 
-    // Check authorization
-    if (req.user.userType !== 'admin' && req.user._id.toString() !== userId) {
+    // Check if user is authorized (admin or accessing own data)
+    if (req.user._id.toString() !== userId && !['admin', 'manager', 'hod', 'hr'].includes(req.user.userType)) {
       return res.status(403).json({
-        error: 'Access Denied',
-        message: 'You can only access your own KPI history'
+        success: false,
+        message: 'Access denied'
       });
     }
 
@@ -375,18 +375,18 @@ router.get('/:userId/history', authenticateToken, validateUserId, async (req, re
 // @access  Private (Admin only)
 router.post('/', authenticateToken, requireAdmin, validateKPIScore, async (req, res) => {
   try {
-    const { 
-      userId, 
-      tat, 
-      quality, 
-      appUsage, 
-      negativity = 0, 
+    const {
+      userId,
+      tat,
+      quality,
+      appUsage,
+      negativity = 0,
       majorNegativity = 0,
       neighborCheck = 0,
       generalNegativity = 0,
       insufficiency = 0,
-      period, 
-      comments 
+      period,
+      comments
     } = req.body;
 
     // Verify user exists
@@ -427,7 +427,7 @@ router.post('/', authenticateToken, requireAdmin, validateKPIScore, async (req, 
 
     // Update user's KPI score
     user.kpiScore = kpiScore.overallScore;
-    
+
     // Update user status based on KPI score
     if (kpiScore.overallScore < 50) {
       user.status = 'Audited';
@@ -436,7 +436,7 @@ router.post('/', authenticateToken, requireAdmin, validateKPIScore, async (req, 
     } else {
       user.status = 'Active';
     }
-    
+
     await user.save();
 
     // Process automation triggers asynchronously
@@ -444,20 +444,20 @@ router.post('/', authenticateToken, requireAdmin, validateKPIScore, async (req, 
     try {
       // Process triggers using KPITriggerService
       automationResult = await KPITriggerService.processKPITriggers(kpiScore);
-      
+
       // Update KPI with automation status
       kpiScore.automationStatus = automationResult.success ? 'completed' : 'failed';
       kpiScore.processedAt = new Date();
       await kpiScore.save();
-      
+
     } catch (automationError) {
       console.error('Automation processing error:', automationError);
-      
+
       // Mark automation as failed but don't fail the main request
       kpiScore.automationStatus = 'failed';
       kpiScore.processedAt = new Date();
       await kpiScore.save();
-      
+
       automationResult = {
         success: false,
         error: automationError.message,
@@ -502,20 +502,20 @@ router.post('/', authenticateToken, requireAdmin, validateKPIScore, async (req, 
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const kpiId = req.params.id;
-    const { 
-      tat, 
-      quality, 
-      appUsage, 
-      negativity, 
+    const {
+      tat,
+      quality,
+      appUsage,
+      negativity,
       majorNegativity,
       neighborCheck,
       generalNegativity,
       insufficiency,
-      comments 
+      comments
     } = req.body;
 
     const kpiScore = await KPIScore.findById(kpiId);
-    
+
     if (!kpiScore) {
       return res.status(404).json({
         error: 'Not Found',
@@ -540,7 +540,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     const user = await User.findById(kpiScore.userId);
     if (user) {
       user.kpiScore = kpiScore.overallScore;
-      
+
       // Update user status based on new KPI score
       if (kpiScore.overallScore < 50) {
         user.status = 'Audited';
@@ -549,7 +549,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
       } else {
         user.status = 'Active';
       }
-      
+
       await user.save();
     }
 
@@ -703,7 +703,7 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     const kpiId = req.params.id;
 
     const kpiScore = await KPIScore.findById(kpiId);
-    
+
     if (!kpiScore) {
       return res.status(404).json({
         error: 'Not Found',
@@ -734,25 +734,25 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
 router.post('/generate-real-activity', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { period, userId } = req.body;
-    
+
     if (!period) {
       return res.status(400).json({
         error: 'Validation Error',
         message: 'Period is required (YYYY-MM format)'
       });
     }
-    
+
     if (userId) {
       // Generate for specific user
       const kpiData = await RealActivityKPIService.calculateRealActivityKPI(userId, period);
-      
+
       // Check if KPI already exists for this period
-      const existingKPI = await KPIScore.findOne({ 
-        userId, 
-        period, 
-        isActive: true 
+      const existingKPI = await KPIScore.findOne({
+        userId,
+        period,
+        isActive: true
       });
-      
+
       if (existingKPI) {
         // Update existing KPI
         existingKPI.tat = kpiData.tat;
@@ -766,9 +766,9 @@ router.post('/generate-real-activity', authenticateToken, requireAdmin, async (r
         existingKPI.rating = kpiData.rating;
         existingKPI.comments = 'Auto-updated based on real user activity';
         existingKPI.automationStatus = 'pending';
-        
+
         await existingKPI.save();
-        
+
         res.json({
           success: true,
           message: 'Real activity KPI updated successfully',
@@ -796,9 +796,9 @@ router.post('/generate-real-activity', authenticateToken, requireAdmin, async (r
           comments: 'Auto-generated based on real user activity',
           automationStatus: 'pending'
         });
-        
+
         await kpiScore.save();
-        
+
         res.json({
           success: true,
           message: 'Real activity KPI generated successfully',
@@ -809,11 +809,11 @@ router.post('/generate-real-activity', authenticateToken, requireAdmin, async (r
           }
         });
       }
-      
+
     } else {
       // Generate for all users
       const results = await RealActivityKPIService.generateAllUsersKPI(period);
-      
+
       res.json({
         success: true,
         message: 'Real activity KPI generated for all users',
@@ -826,7 +826,7 @@ router.post('/generate-real-activity', authenticateToken, requireAdmin, async (r
         }
       });
     }
-    
+
   } catch (error) {
     console.error('Generate real activity KPI error:', error);
     res.status(500).json({
@@ -843,15 +843,15 @@ router.post('/auto-generate-user/:userId', authenticateToken, requireAdmin, vali
   try {
     const userId = req.params.userId;
     const { activityType, activityData } = req.body;
-    
+
     const result = await RealActivityKPIService.autoGenerateUserKPI(userId, activityType, activityData);
-    
+
     res.json({
       success: true,
       message: 'User KPI auto-generated successfully',
       data: result
     });
-    
+
   } catch (error) {
     console.error('Auto-generate user KPI error:', error);
     res.status(500).json({
@@ -868,10 +868,10 @@ router.get('/real-activity-summary/:userId', authenticateToken, requireAdmin, va
   try {
     const userId = req.params.userId;
     const { period } = req.query;
-    
+
     const currentPeriod = period || new Date().toISOString().slice(0, 7);
     const activityData = await RealActivityKPIService.getUserActivityData(userId, currentPeriod);
-    
+
     res.json({
       success: true,
       data: {
@@ -881,14 +881,14 @@ router.get('/real-activity-summary/:userId', authenticateToken, requireAdmin, va
         summary: {
           totalVideosWatched: activityData.userProgress.filter(p => p.videoWatched).length,
           totalQuizAttempts: activityData.quizAttempts.length,
-          averageQuizScore: activityData.quizAttempts.length > 0 ? 
+          averageQuizScore: activityData.quizAttempts.length > 0 ?
             activityData.quizAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / activityData.quizAttempts.length : 0,
           modulesCompleted: activityData.userModules.filter(m => m.status === 'completed').length,
           totalWatchTime: activityData.userProgress.reduce((sum, progress) => sum + progress.totalWatchTime, 0)
         }
       }
     });
-    
+
   } catch (error) {
     console.error('Get real activity summary error:', error);
     res.status(500).json({
@@ -1248,11 +1248,11 @@ router.get('/user/:userId', authenticateToken, validateUserId, async (req, res) 
     const userId = req.params.userId;
     const { limit = 10, page = 1 } = req.query;
 
-    // Check if user is accessing their own data or is admin
-    if (req.user._id.toString() !== userId && req.user.userType !== 'admin') {
+    // Check if user is authorized (admin or accessing own data)
+    if (!['admin', 'manager', 'hod', 'hr'].includes(req.user.userType) && req.user._id.toString() !== userId) {
       return res.status(403).json({
-        error: 'Access Denied',
-        message: 'You can only access your own KPI data'
+        success: false,
+        message: 'Access denied'
       });
     }
 

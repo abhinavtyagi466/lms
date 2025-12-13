@@ -311,7 +311,7 @@ export const NotificationsPage: React.FC = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="p-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg rounded-xl hover:shadow-xl transition-all cursor-pointer" onClick={() => setActiveTab('all')}>
             <div className="text-center">
               <Bell className="w-8 h-8 mx-auto text-blue-600 mb-2" />
@@ -319,20 +319,7 @@ export const NotificationsPage: React.FC = () => {
               <p className="text-xs text-gray-600 dark:text-gray-400">All</p>
             </div>
           </Card>
-          <Card className="p-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg rounded-xl hover:shadow-xl transition-all cursor-pointer" onClick={() => setActiveTab('training')}>
-            <div className="text-center">
-              <BookOpen className="w-8 h-8 mx-auto text-blue-600 mb-2" />
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{trainingCount}</p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">Training</p>
-            </div>
-          </Card>
-          <Card className="p-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg rounded-xl hover:shadow-xl transition-all cursor-pointer" onClick={() => setActiveTab('awards')}>
-            <div className="text-center">
-              <Award className="w-8 h-8 mx-auto text-green-600 mb-2" />
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{awards.length}</p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">Awards</p>
-            </div>
-          </Card>
+          {/* Training and Awards stats removed as requested */}
           <Card className="p-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg rounded-xl hover:shadow-xl transition-all cursor-pointer" onClick={() => setActiveTab('certificates')}>
             <div className="text-center">
               <Trophy className="w-8 h-8 mx-auto text-purple-600 mb-2" />
@@ -365,18 +352,7 @@ export const NotificationsPage: React.FC = () => {
                       <span>All ({notifications.length})</span>
                     </div>
                   </SelectItem>
-                  <SelectItem value="training">
-                    <div className="flex items-center gap-2">
-                      <BookOpen className="w-4 h-4" />
-                      <span>Training ({trainingCount})</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="awards">
-                    <div className="flex items-center gap-2">
-                      <Award className="w-4 h-4" />
-                      <span>Awards ({awards.length})</span>
-                    </div>
-                  </SelectItem>
+                  {/* Training and Awards options removed as requested */}
                   <SelectItem value="certificates">
                     <div className="flex items-center gap-2">
                       <Trophy className="w-4 h-4" />
@@ -394,19 +370,12 @@ export const NotificationsPage: React.FC = () => {
             </div>
 
             {/* Desktop Tabs */}
-            <TabsList className="hidden md:grid w-full grid-cols-5">
+            <TabsList className="hidden md:grid w-full grid-cols-3">
               <TabsTrigger value="all">
                 <Bell className="w-4 h-4 mr-2" />
                 All ({notifications.length})
               </TabsTrigger>
-              <TabsTrigger value="training">
-                <BookOpen className="w-4 h-4 mr-2" />
-                Training ({trainingCount})
-              </TabsTrigger>
-              <TabsTrigger value="awards">
-                <Award className="w-4 h-4 mr-2" />
-                Awards ({awards.length})
-              </TabsTrigger>
+              {/* Training and Awards triggers removed as requested */}
               <TabsTrigger value="certificates">
                 <Trophy className="w-4 h-4 mr-2" />
                 Certificates ({certificates.length})
@@ -512,78 +481,7 @@ export const NotificationsPage: React.FC = () => {
 
 
             {/* Training Tab */}
-            <TabsContent value="training" className="mt-6">
-              <div className="space-y-4">
-                {filteredNotifications.length === 0 ? (
-                  <div className="p-12 text-center">
-                    <BookOpen className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-600 dark:text-gray-400">No training notifications</p>
-                  </div>
-                ) : (
-                  filteredNotifications.map((notification) => (
-                    <Card key={notification._id} className="p-6 border-l-4 border-l-blue-500 bg-white dark:bg-gray-800">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                          <BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-1 text-gray-900 dark:text-white">{notification.title}</h3>
-                          <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">{notification.message}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(notification.sentAt)}</p>
-                        </div>
-                      </div>
-                    </Card>
-                  ))
-                )}
-              </div>
-            </TabsContent>
-
-            {/* Awards Tab */}
-            <TabsContent value="awards" className="mt-6">
-              <div className="space-y-4">
-                {awards.length === 0 ? (
-                  <div className="p-12 text-center">
-                    <Award className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-600 dark:text-gray-400">No awards received yet</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">Keep up the good work!</p>
-                  </div>
-                ) : (
-                  awards.map((award) => (
-                    <Card key={award._id} className="p-6 border-l-4 border-l-green-500 bg-white dark:bg-gray-800 hover:shadow-lg transition-all">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
-                          <Award className="w-6 h-6 text-green-600 dark:text-green-400" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-1 text-gray-900 dark:text-white">{award.title}</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">{award.description}</p>
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <Badge className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200">{award.type}</Badge>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">{formatDate(award.awardDate)}</span>
-                            {award.value && (
-                              <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200">₹{award.value}</Badge>
-                            )}
-                          </div>
-                          {award.document && (
-                            <div className="mt-3">
-                              <a
-                                href={award.document.startsWith('http') ? award.document : `${UPLOADS_BASE_URL}${award.document}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                              >
-                                <FileText className="w-4 h-4" />
-                                <span>View Attachment: {award.documentName || 'Document'}</span>
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  ))
-                )}
-              </div>
-            </TabsContent>
+            {/* Training and Awards content removed as requested */}
 
             {/* Certificates Tab */}
             <TabsContent value="certificates" className="mt-6">

@@ -6,11 +6,11 @@ import { Progress } from '../../components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import {
-  User, Mail, Phone, MapPin, Calendar, Briefcase, GraduationCap,
-  CreditCard, FileText, Award, AlertTriangle, BarChart3, Activity,
-  Clock, Target, TrendingUp, Download, Eye
+  User, Mail, Phone, MapPin, Briefcase,
+  CreditCard, Award, AlertTriangle, BarChart3, Activity,
+  Clock, Target, Download, FileText
 } from 'lucide-react';
-import { apiService } from '../../services/apiService';
+import { apiService, UPLOADS_BASE_URL } from '../../services/apiService';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
@@ -22,13 +22,15 @@ interface KPIScore {
   metrics: any;
 }
 
-interface Award {
+interface Certificate {
   _id: string;
   type: string;
   title: string;
   description: string;
-  awardDate: string;
-  value?: number;
+  issueDate: string;
+  metadata?: {
+    attachmentUrl?: string;
+  };
 }
 
 interface Warning {
@@ -37,13 +39,16 @@ interface Warning {
   message: string;
   severity: string;
   createdAt: string;
+  metadata?: {
+    attachmentUrl?: string;
+  };
 }
 
 export const UserProfilePage: React.FC = () => {
   const { user: authUser } = useAuth();
   const [user, setUser] = useState<any>(null);
   const [kpiScores, setKpiScores] = useState<KPIScore[]>([]);
-  const [awards, setAwards] = useState<Award[]>([]);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [warnings, setWarnings] = useState<Warning[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('personal');
@@ -60,10 +65,10 @@ export const UserProfilePage: React.FC = () => {
     try {
       setLoading(true);
       const userId = (authUser as any)._id;
-      const [profileRes, kpiRes, awardsRes, warningsRes]: any[] = await Promise.all([
+      const [profileRes, kpiRes, certificatesRes, warningsRes]: any[] = await Promise.all([
         apiService.users.getProfile(userId),
         apiService.kpi.getUserKPIScores(userId).catch(() => ({ scores: [] })),
-        apiService.awards.getUserAwards(userId).catch(() => ({ awards: [] })),
+        apiService.users.getUserCertificates(userId).catch(() => ({ certificates: [] })), // Assuming this API exists, otherwise map from awards or similar if needed. User context implies awards were replaced by certificates.
         apiService.users.getUserWarnings(userId).catch(() => ({ warnings: [] }))
       ]);
 
@@ -94,8 +99,7 @@ export const UserProfilePage: React.FC = () => {
       }
 
       setUser(profileRes);
-      const awardsData = awardsRes?.awards || awardsRes?.data || awardsRes || [];
-      setAwards(Array.isArray(awardsData) ? awardsData : []);
+      setCertificates(Array.isArray((certificatesRes as any)?.certificates) ? (certificatesRes as any).certificates : []);
 
       const warningsData = warningsRes?.warnings || warningsRes?.data || warningsRes || [];
       setWarnings(Array.isArray(warningsData) ? warningsData : []);
@@ -157,20 +161,28 @@ export const UserProfilePage: React.FC = () => {
       <div className="p-6 space-y-6">
         {/* Header with Profile Summary */}
         <Card className="p-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg rounded-2xl">
-          <div className="flex items-start gap-6">
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
             {/* Avatar */}
             <div className="flex-shrink-0">
-              <div className="w-24 h-24 bg-blue-500 dark:bg-gradient-to-br dark:from-blue-600 dark:to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg">
-                {user.name?.charAt(0).toUpperCase() || 'U'}
-              </div>
+              {user.avatar ? (
+                <img
+                  src={user.avatar.startsWith('http') ? user.avatar : `${UPLOADS_BASE_URL}${user.avatar}`}
+                  alt={user.name}
+                  className="w-24 h-24 rounded-full object-cover border-4 border-white dark:border-gray-700 shadow-lg"
+                />
+              ) : (
+                <div className="w-24 h-24 bg-blue-500 dark:bg-gradient-to-br dark:from-blue-600 dark:to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg">
+                  {user.name?.charAt(0).toUpperCase() || 'U'}
+                </div>
+              )}
             </div>
 
             {/* User Info */}
-            <div className="flex-1">
+            <div className="flex-1 text-center md:text-left w-full">
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
                 {user.name}
               </h1>
-              <div className="flex flex-wrap items-center gap-3 mb-4">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-4">
                 <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                   {user.designation || 'Field Executive'}
                 </Badge>
@@ -181,15 +193,15 @@ export const UserProfilePage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                <div className="flex items-center justify-center md:justify-start gap-2 text-gray-600 dark:text-gray-400">
                   <Mail className="w-4 h-4" />
-                  <span className="text-sm">{user.email}</span>
+                  <span className="text-sm break-all">{user.email}</span>
                 </div>
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                <div className="flex items-center justify-center md:justify-start gap-2 text-gray-600 dark:text-gray-400">
                   <Phone className="w-4 h-4" />
                   <span className="text-sm">{user.phone || 'N/A'}</span>
                 </div>
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                <div className="flex items-center justify-center md:justify-start gap-2 text-gray-600 dark:text-gray-400">
                   <MapPin className="w-4 h-4" />
                   <span className="text-sm">{user.city || 'N/A'}, {user.state || 'N/A'}</span>
                 </div>
@@ -197,7 +209,7 @@ export const UserProfilePage: React.FC = () => {
             </div>
 
             {/* KPI Score Card */}
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 w-full md:w-auto">
               <Card className="p-4 bg-blue-500 dark:bg-gradient-to-br dark:from-blue-600 dark:to-purple-600 text-white border-0">
                 <div className="text-center">
                   <p className="text-sm opacity-90 mb-1">Current KPI</p>
@@ -219,8 +231,8 @@ export const UserProfilePage: React.FC = () => {
           <Card className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg rounded-2xl hover:shadow-xl transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Awards</p>
-                <p className="text-3xl font-bold text-green-600">{awards.length}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Certificates</p>
+                <p className="text-3xl font-bold text-green-600">{certificates.length}</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
                 <Award className="w-6 h-6 text-blue-600" />
@@ -292,10 +304,10 @@ export const UserProfilePage: React.FC = () => {
                       <span>KPI Scores ({kpiScores.length})</span>
                     </div>
                   </SelectItem>
-                  <SelectItem value="awards">
+                  <SelectItem value="certificates">
                     <div className="flex items-center gap-2">
                       <Award className="w-4 h-4" />
-                      <span>Awards ({awards.length})</span>
+                      <span>Certificates ({certificates.length})</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="warnings">
@@ -324,9 +336,9 @@ export const UserProfilePage: React.FC = () => {
                 <BarChart3 className="w-4 h-4 mr-2" />
                 KPI Scores
               </TabsTrigger>
-              <TabsTrigger value="awards">
+              <TabsTrigger value="certificates">
                 <Award className="w-4 h-4 mr-2" />
-                Awards ({awards.length})
+                Certificates ({certificates.length})
               </TabsTrigger>
               <TabsTrigger value="warnings">
                 <AlertTriangle className="w-4 h-4 mr-2" />
@@ -520,41 +532,77 @@ export const UserProfilePage: React.FC = () => {
               )}
             </TabsContent>
 
-            {/* Awards Tab */}
-            <TabsContent value="awards" className="space-y-6 mt-6">
+            {/* Certificates Tab */}
+            <TabsContent value="certificates" className="space-y-6 mt-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold">Awards & Recognition</h3>
+                <h3 className="text-xl font-semibold">Certificates & Achievements</h3>
                 <Badge className="bg-blue-100 text-blue-800">
-                  {awards.length} Awards
+                  {certificates.length} Certificates
                 </Badge>
               </div>
 
-              {awards.length === 0 ? (
+              {certificates.length === 0 ? (
                 <Card className="p-12 text-center">
                   <Award className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-600">No awards received yet</p>
-                  <p className="text-sm text-gray-500 mt-2">Keep up the good work to earn recognition!</p>
+                  <p className="text-gray-600">No certificates earned yet</p>
+                  <p className="text-sm text-gray-500 mt-2">Complete training modules to earn certificates!</p>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {awards.map((award) => (
-                    <Card key={award._id} className="p-6 border-l-4 border-l-blue-500 hover:shadow-lg transition-all">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Award className="w-6 h-6 text-blue-600" />
+                <div className="grid grid-cols-1 gap-6">
+                  {certificates.map((cert) => (
+                    <Card key={cert._id} className="p-6 border-l-4 border-l-blue-500 hover:shadow-lg transition-all">
+                      <div className="mb-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="font-semibold text-xl mb-1">{cert.title}</h4>
+                            <p className="text-sm text-gray-600 mb-2">{cert.description}</p>
+                          </div>
+                          <Badge variant="outline" className="ml-2">{cert.type}</Badge>
                         </div>
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-lg mb-1">{award.title}</h4>
-                          <p className="text-sm text-gray-600 mb-2">{award.description}</p>
-                          <div className="flex items-center gap-3 text-sm">
-                            <Badge variant="outline">{award.type}</Badge>
-                            <span className="text-gray-500">{formatDate(award.awardDate)}</span>
-                            {award.value && (
-                              <Badge className="bg-yellow-100 text-yellow-800">₹{award.value}</Badge>
+                        <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                          <Clock className="w-4 h-4" />
+                          <span>Issued: {formatDate(cert.issueDate)}</span>
+                        </div>
+                      </div>
+
+                      {/* Document Preview Section */}
+                      {cert.metadata?.attachmentUrl && (
+                        <div className="mt-4 border rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-800">
+                          {/* Label */}
+                          <div className="px-4 py-2 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                              <Award className="w-4 h-4" /> Certificate Document
+                            </span>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+                              <a href={`${UPLOADS_BASE_URL}${cert.metadata.attachmentUrl}`} target="_blank" rel="noopener noreferrer">
+                                <Download className="w-3 h-3 mr-1" /> Download
+                              </a>
+                            </Button>
+                          </div>
+
+                          {/* Content Preview */}
+                          <div className="p-4 flex justify-center">
+                            {cert.metadata.attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                              <img
+                                src={`${UPLOADS_BASE_URL}${cert.metadata.attachmentUrl}`}
+                                alt="Certificate Preview"
+                                className="max-w-full h-auto max-h-[400px] object-contain rounded shadow-sm"
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center justify-center py-8 text-center">
+                                <FileText className="w-16 h-16 text-gray-400 mb-3" />
+                                <p className="text-gray-600 font-medium">{cert.metadata.attachmentUrl.split('/').pop()}</p>
+                                <p className="text-sm text-gray-500 mb-4">Document preview not available</p>
+                                <Button className="bg-blue-600 text-white hover:bg-blue-700" asChild>
+                                  <a href={`${UPLOADS_BASE_URL}${cert.metadata.attachmentUrl}`} target="_blank" rel="noopener noreferrer">
+                                    View Document
+                                  </a>
+                                </Button>
+                              </div>
                             )}
                           </div>
                         </div>
-                      </div>
+                      )}
                     </Card>
                   ))}
                 </div>
@@ -577,22 +625,67 @@ export const UserProfilePage: React.FC = () => {
                   <p className="text-sm text-gray-500 mt-2">Great job! Keep maintaining good performance.</p>
                 </Card>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {warnings.map((warning) => (
-                    <Card key={warning._id} className="p-6 border-l-4 border-l-blue-500">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                          <AlertTriangle className="w-6 h-6 text-blue-600" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-semibold text-lg">{warning.title}</h4>
-                            <Badge className="bg-orange-100 text-orange-800">{warning.severity}</Badge>
+                    <Card key={warning._id} className="p-6 border-l-4 border-l-blue-500 hover:shadow-lg transition-all">
+                      <div className="mb-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="font-semibold text-xl mb-1">{warning.title}</h4>
+                            <Badge className={`ml-2 ${warning.severity === 'critical' ? 'bg-red-100 text-red-800' :
+                              warning.severity === 'high' ? 'bg-orange-100 text-orange-800' :
+                                warning.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-blue-100 text-blue-800'
+                              }`}>
+                              {warning.severity.toUpperCase()}
+                            </Badge>
                           </div>
-                          <p className="text-sm text-gray-700 mb-3">{warning.message}</p>
-                          <p className="text-xs text-gray-500">{formatDate(warning.createdAt)}</p>
+                        </div>
+                        <p className="text-sm text-gray-700 mb-3 mt-2">{warning.message}</p>
+                        <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                          <Clock className="w-4 h-4" />
+                          <span>Issued: {formatDate(warning.createdAt)}</span>
                         </div>
                       </div>
+
+                      {/* Warning Document Preview Section */}
+                      {warning.metadata?.attachmentUrl && (
+                        <div className="mt-4 border rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-800">
+                          {/* Label */}
+                          <div className="px-4 py-2 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                              <AlertTriangle className="w-4 h-4 text-orange-600" /> Warning Document
+                            </span>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+                              <a href={`${UPLOADS_BASE_URL}${warning.metadata.attachmentUrl}`} target="_blank" rel="noopener noreferrer">
+                                <Download className="w-3 h-3 mr-1" /> Download
+                              </a>
+                            </Button>
+                          </div>
+
+                          {/* Content Preview */}
+                          <div className="p-4 flex justify-center">
+                            {warning.metadata.attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                              <img
+                                src={`${UPLOADS_BASE_URL}${warning.metadata.attachmentUrl}`}
+                                alt="Warning Attachment"
+                                className="max-w-full h-auto max-h-[400px] object-contain rounded shadow-sm"
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center justify-center py-8 text-center">
+                                <FileText className="w-16 h-16 text-gray-400 mb-3" />
+                                <p className="text-gray-600 font-medium">{warning.metadata.attachmentUrl.split('/').pop()}</p>
+                                <p className="text-sm text-gray-500 mb-4">Document preview not available</p>
+                                <Button className="bg-blue-600 text-white hover:bg-blue-700" asChild>
+                                  <a href={`${UPLOADS_BASE_URL}${warning.metadata.attachmentUrl}`} target="_blank" rel="noopener noreferrer">
+                                    View Document
+                                  </a>
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </Card>
                   ))}
                 </div>

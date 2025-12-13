@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/error-message';
+import { ForgotPasswordDialog } from '../../components/common/ForgotPasswordDialog';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { toast } from 'sonner';
@@ -17,6 +18,7 @@ export const UserLogin: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -211,10 +213,20 @@ export const UserLogin: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                  Password
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                    Password
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(true)}
+                    className={`text-sm font-medium ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
+                      }`}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
                 <div className="relative">
                   <Lock className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'
                     }`} />
@@ -268,33 +280,15 @@ export const UserLogin: React.FC = () => {
             </form>
 
             <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-              {/* <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                }`}>
-                Don't have an account?{' '}
-                <button className={`font-medium transition-colors ${isDarkMode
-                  ? 'text-blue-400 hover:text-blue-300'
-                  : 'text-blue-600 hover:text-blue-700'
-                  }`}>
-                  Register here
-                </button>
-              </p> */}
-              {/* <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={toggleDarkMode}
-                className="p-2"
-              >
-                {isDarkMode ? (
-                  <Sun className="w-4 h-4" />
-                ) : (
-                  <Moon className="w-4 h-4" />
-                )}
-              </Button> */}
             </div>
           </div>
         </Card>
       </div>
+
+      <ForgotPasswordDialog
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+      />
     </div>
   );
 };

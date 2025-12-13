@@ -1008,15 +1008,50 @@ router.post('/:id/certificate', authenticateToken, requireAdminPanel, validateOb
 router.get('/:id/warnings', authenticateToken, validateObjectId, requireOwnershipOrAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
+    const Warning = require('../models/Warning');
 
-    const warnings = await Notification.find({
+    // Fetch from Notifications first (legacy/primary source for some flows)
+    const notificationWarnings = await Notification.find({
       userId: userId,
       type: 'warning'
-    }).sort({ createdAt: -1 });
+    }).sort({ createdAt: -1 }).lean();
+
+    // Fetch from Warning model (if used)
+    const dbWarnings = await Warning.find({ userId: userId }).sort({ issuedAt: -1 }).lean();
+
+    // Normalize and merge
+    const normalizedWarnings = [
+      ...notificationWarnings.map(n => ({
+        _id: n._id,
+        title: n.title,
+        message: n.message,
+        severity: n.priority || 'medium', // Default severity if missing
+        createdAt: n.createdAt,
+        metadata: {
+          attachmentUrl: n.attachments && n.attachments.length > 0 ? n.attachments[0].filePath : null
+        }
+      })),
+      ...dbWarnings.map(w => ({
+        _id: w._id,
+        title: w.title,
+        message: w.description,
+        severity: w.severity,
+        createdAt: w.issuedAt,
+        metadata: {
+          attachmentUrl: w.metadata?.attachmentUrl || null
+        }
+      }))
+    ];
+
+    // Deduplicate based on ID if necessary (or just return all if they represent different events)
+    // For now, simple merge is likely enough as they tend to be separate records
+
+    // Sort combined list
+    normalizedWarnings.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     res.json({
       success: true,
-      warnings: warnings
+      warnings: normalizedWarnings
     });
 
   } catch (error) {
@@ -1035,6 +1070,7 @@ router.get('/:id/certificates', authenticateToken, validateObjectId, requireOwne
   try {
     const userId = req.params.id;
 
+    // Fetch from Notifications (primary source for certificates sent via Admin Panel)
     const certificates = await Notification.find({
       userId: userId,
       type: 'certificate'
@@ -1043,11 +1079,21 @@ router.get('/:id/certificates', authenticateToken, validateObjectId, requireOwne
       .sort({ createdAt: -1 })
       .lean();
 
-    console.log(`🏆 Found ${certificates.length} certificates for user ${userId}`);
+    // Map to normalized structure with metadata.attachmentUrl
+    const normalizedCertificates = certificates.map(cert => ({
+      _id: cert._id,
+      type: 'Certificate',
+      title: cert.title,
+      description: cert.message,
+      issueDate: cert.createdAt,
+      metadata: {
+        attachmentUrl: cert.attachments && cert.attachments.length > 0 ? cert.attachments[0].filePath : null
+      }
+    }));
 
     res.json({
       success: true,
-      certificates: certificates
+      certificates: normalizedCertificates
     });
 
   } catch (error) {

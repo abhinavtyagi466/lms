@@ -18,7 +18,7 @@ import { apiService, UPLOADS_BASE_URL } from '../../services/apiService';
 import { toast } from 'sonner';
 import { ModuleWithProgress } from '../../types';
 import { useAPIPerformance } from '../../hooks/usePerformance';
-import { ModuleScoreCard } from '../../components/ModuleScoreCard';
+
 
 interface UserStats {
   totalModules: number;
@@ -324,7 +324,7 @@ interface ModuleScore {
 }
 
 export const UserDashboard: React.FC = () => {
-  const { user, setCurrentPage } = useAuth();
+  const { user } = useAuth();
   const { measureAPI } = useAPIPerformance();
   const [userProfile, setUserProfile] = useState<any>(null);
   const [modules, setModules] = useState<ModuleWithProgress[]>([]);
@@ -360,9 +360,7 @@ export const UserDashboard: React.FC = () => {
     lastActivity: ''
   });
 
-  // NEW: Module Scores State (ADDED WITHOUT TOUCHING EXISTING)
-  const [moduleScores, setModuleScores] = useState<ModuleScore[]>([]);
-  const [loadingModuleScores, setLoadingModuleScores] = useState(false);
+
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -433,7 +431,7 @@ export const UserDashboard: React.FC = () => {
             setWarnings(secondaryData[0].status === 'fulfilled' ? (secondaryData[0].value as any).data?.warnings || [] : []);
             setAwards(secondaryData[1].status === 'fulfilled' ? (secondaryData[1].value as any).data?.awards || [] : []);
             // setLifecycleStats(secondaryData[2].status === 'fulfilled' ? (secondaryData[2].value as any).data?.statistics : null);
-            setRecentLifecycleEvents(secondaryData[3].status === 'fulfilled' ? (secondaryData[3].value as any).data?.events || [] : []);
+
             const quizStats = secondaryData[4].status === 'fulfilled' ? (secondaryData[4].value as any).data : null;
             const quizAttemptsData = secondaryData[5].status === 'fulfilled' ? (secondaryData[5].value as any).data || [] : [];
 
@@ -477,20 +475,7 @@ export const UserDashboard: React.FC = () => {
           }
         }, 300);
 
-        // NEW: Fetch module scores (ADDED WITHOUT TOUCHING EXISTING)
-        setTimeout(async () => {
-          try {
-            setLoadingModuleScores(true);
-            const moduleScoresResponse = await measureAPI(() => apiService.quizAttempts.getModuleScores(userId), 'quizAttempts/getModuleScores');
-            if (moduleScoresResponse && (moduleScoresResponse as any).success) {
-              setModuleScores((moduleScoresResponse as any).data || []);
-            }
-          } catch (error) {
-            console.error('Error fetching module scores:', error);
-          } finally {
-            setLoadingModuleScores(false);
-          }
-        }, 500);
+
 
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -511,25 +496,7 @@ export const UserDashboard: React.FC = () => {
     );
   }
 
-  const getEventIcon = (type: string) => {
-    switch (type) {
-      case 'achievement': return <Trophy className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />;
-      case 'warning': return <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />;
-      case 'milestone': return <Target className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
-      case 'certification': return <GraduationCap className="w-4 h-4 text-green-600 dark:text-green-400" />;
-      default: return <Activity className="w-4 h-4 text-gray-600 dark:text-gray-400" />;
-    }
-  };
 
-  const getEventColor = (type: string) => {
-    switch (type) {
-      case 'achievement': return 'border-l-yellow-500 bg-yellow-50';
-      case 'warning': return 'border-l-red-500 bg-red-50';
-      case 'milestone': return 'border-l-blue-500 bg-blue-50';
-      case 'certification': return 'border-l-green-500 bg-green-50';
-      default: return 'border-l-gray-500 bg-gray-50';
-    }
-  };
 
   const getKPIRatingColor = (rating: string) => {
     switch (rating?.toLowerCase()) {
@@ -899,36 +866,36 @@ export const UserDashboard: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                         <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                          {quizAttemptStats.totalAttempts}
+                          {quizAttemptStats?.totalAttempts}
                         </div>
                         <div className="text-sm text-gray-600 dark:text-gray-400">Total Attempts</div>
                       </div>
                       <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                         <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                          {quizAttemptStats.totalQuizzes}
+                          {quizAttemptStats?.totalQuizzes}
                         </div>
                         <div className="text-sm text-gray-600 dark:text-gray-400">Quizzes Taken</div>
                       </div>
                       <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                         <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                          {Math.round(quizAttemptStats.averageScore)}%
+                          {Math.round(quizAttemptStats?.averageScore || 0)}%
                         </div>
                         <div className="text-sm text-gray-600 dark:text-gray-400">Avg Score</div>
                       </div>
                       <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                         <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                          {Math.round(quizAttemptStats.passRate)}%
+                          {Math.round(quizAttemptStats?.passRate || 0)}%
                         </div>
                         <div className="text-sm text-gray-600 dark:text-gray-400">Pass Rate</div>
                       </div>
                     </div>
 
-                    {quizAttemptStats.violations > 0 && (
+                    {quizAttemptStats && quizAttemptStats.violations > 0 && (
                       <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                         <div className="flex items-center text-red-600 dark:text-red-400">
                           <AlertTriangle className="w-4 h-4 mr-2" />
                           <span className="text-sm font-medium">
-                            {quizAttemptStats.violations} Quiz Violation(s) Detected
+                            {quizAttemptStats?.violations} Quiz Violation(s) Detected
                           </span>
                         </div>
                       </div>

@@ -545,6 +545,39 @@ const emailTemplates = {
         </div>
       </div>
     `
+  }),
+
+  // Password reset template
+  passwordReset: (data) => ({
+    subject: 'Password Reset Request',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #2c3e50; margin-bottom: 20px;">Password Reset</h2>
+          <p>Dear ${data.userName},</p>
+          <p>We received a request to reset your password. Your password has been temporarily reset to:</p>
+          
+          <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0; text-align: center;">
+            <p style="margin: 0; font-family: monospace; font-size: 24px; font-weight: bold; color: #1976d2; letter-spacing: 2px;">${data.tempPassword}</p>
+          </div>
+          
+          <div style="background-color: #fff3e0; padding: 15px; border-radius: 5px; margin: 15px 0;">
+            <p style="margin: 0; color: #f57c00; font-size: 14px;">
+              <strong>Important:</strong> 
+              Please log in with this temporary password and change your password immediately from your profile settings for security.
+            </p>
+          </div>
+          
+          <p>If you didn't request this password reset, please contact the administrator immediately.</p>
+          
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="${process.env.CLIENT_ORIGIN || 'http://localhost:3000'}/login" style="background-color: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Login Now</a>
+          </div>
+          
+          <p>Best regards,<br>Security Team</p>
+        </div>
+      </div>
+    `
   })
 };
 
