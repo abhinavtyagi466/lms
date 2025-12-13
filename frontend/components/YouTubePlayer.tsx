@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Card } from './ui/card';
 import { Progress } from './ui/progress';
 import { Button } from './ui/button';
-import { Play, Pause, Volume2, VolumeX, Maximize, CheckCircle, Clock } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, CheckCircle, Clock } from 'lucide-react';
 import { apiService } from '../services/apiService';
 
 // YouTube IFrame Player API types
@@ -484,7 +484,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
                     onClick={toggleFullscreen}
                     className="text-white hover:bg-white/20"
                   >
-                    <Maximize className="w-4 h-4" />
+                    {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
                   </Button>
                 </div>
               </div>
