@@ -289,20 +289,20 @@ export const NotificationsPage: React.FC = () => {
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-blue-600 dark:text-blue-400 flex items-center gap-3">
-                <Bell className="w-10 h-10" />
+              <h1 className="text-3xl md:text-4xl font-bold text-blue-600 dark:text-blue-400 flex items-center gap-3">
+                <Bell className="w-8 h-8 md:w-10 md:h-10" />
                 Notifications & Updates
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
+              <p className="text-gray-600 dark:text-gray-400 mt-2 text-base md:text-lg">
                 {unreadCount > 0
                   ? `You have ${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
                   : 'You\'re all caught up! 🎉'}
               </p>
             </div>
             {unreadCount > 0 && (
-              <Button onClick={handleMarkAllAsRead} variant="outline" className="px-6 py-3 rounded-xl">
+              <Button onClick={handleMarkAllAsRead} variant="outline" className="w-full md:w-auto px-6 py-3 rounded-xl whitespace-nowrap">
                 <CheckCheck className="w-4 h-4 mr-2" />
                 Mark All as Read
               </Button>
@@ -531,23 +531,23 @@ export const NotificationsPage: React.FC = () => {
                         <Badge className="bg-green-200 text-green-800 dark:bg-green-700 dark:text-green-100">Sent</Badge>
                       </div>
 
-                      {/* Show attachment if available - check both attachments array and attachment field */}
+                      {/* Show attachment if available - check both attachments array and attachment/document fields */}
                       {((cert.attachments && cert.attachments.length > 0) || cert.attachment || cert.document) && (
                         <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-700">
                           <a
                             href={(() => {
                               // Check attachments array first (new format)
-                              if (cert.attachments && cert.attachments.length > 0) {
+                              if (cert.attachments && cert.attachments.length > 0 && cert.attachments[0].filePath) {
                                 const filePath = cert.attachments[0].filePath;
-                                return filePath.startsWith('http') ? filePath : `${UPLOADS_BASE_URL}${filePath}`;
+                                return filePath.startsWith('http') ? filePath : `${UPLOADS_BASE_URL}${filePath.startsWith('/') ? '' : '/'}${filePath}`;
                               }
                               // Fallback to attachment field
                               if (cert.attachment) {
-                                return cert.attachment.startsWith('http') ? cert.attachment : `${UPLOADS_BASE_URL}${cert.attachment}`;
+                                return cert.attachment.startsWith('http') ? cert.attachment : `${UPLOADS_BASE_URL}${cert.attachment.startsWith('/') ? '' : '/'}${cert.attachment}`;
                               }
                               // Fallback to document field
                               if (cert.document) {
-                                return cert.document.startsWith('http') ? cert.document : `${UPLOADS_BASE_URL}${cert.document}`;
+                                return cert.document.startsWith('http') ? cert.document : `${UPLOADS_BASE_URL}${cert.document.startsWith('/') ? '' : '/'}${cert.document}`;
                               }
                               return '#';
                             })()}
@@ -637,7 +637,7 @@ export const NotificationsPage: React.FC = () => {
                           <a
                             href={warning.metadata.attachmentUrl.startsWith('http')
                               ? warning.metadata.attachmentUrl
-                              : `${UPLOADS_BASE_URL}${warning.metadata.attachmentUrl}`}
+                              : `${UPLOADS_BASE_URL}${warning.metadata.attachmentUrl.startsWith('/') ? '' : '/'}${warning.metadata.attachmentUrl}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline text-sm"
