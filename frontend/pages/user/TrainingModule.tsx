@@ -349,30 +349,31 @@ export const TrainingModule: React.FC = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4 w-full md:w-auto">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => window.history.back()}
+              className="shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{module.title}</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-300">{module.description}</p>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white break-words">{module.title}</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1">{module.description}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Badge variant={module.status === 'published' ? 'default' : 'secondary'} className={module.status === 'published' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full md:w-auto pl-12 md:pl-0">
+            <Badge variant={module.status === 'published' ? 'default' : 'secondary'} className={`w-fit ${module.status === 'published' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}`}>
               {module.status}
             </Badge>
-            <Badge variant="outline" className="text-xs border-blue-300 text-blue-700 bg-blue-50">
+            <Badge variant="outline" className="text-xs border-blue-300 text-blue-700 bg-blue-50 w-fit">
               {Math.round(videoProgress)}% Complete
             </Badge>
             {module.difficulty && (
-              <Badge variant="outline" className="text-xs capitalize border-gray-300 text-gray-700">
+              <Badge variant="outline" className="text-xs capitalize border-gray-300 text-gray-700 w-fit">
                 {module.difficulty}
               </Badge>
             )}
