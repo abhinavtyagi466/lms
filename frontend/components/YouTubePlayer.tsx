@@ -346,18 +346,62 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     }
   };
 
-  const toggleFullscreen = () => {
-    if (playerRef.current) {
-      // Use the correct YouTube API method
-      try {
-        playerRef.current.requestFullscreen?.() ||
-          playerRef.current.getIframe()?.requestFullscreen?.() ||
-          console.log('Fullscreen not supported');
-      } catch (error) {
-        console.log('Fullscreen not available');
+  // Ref for the wrapper element that contains both video and controls
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Sync isFullscreen state with native fullscreen changes (e.g. Esc key)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!wrapperRef.current) return;
+
+    if (!isFullscreen) {
+      // Enter fullscreen
+      // Try native fullscreen API first (works on Desktop, Android)
+      const element = wrapperRef.current as any;
+      if (element.requestFullscreen) {
+        element.requestFullscreen().catch((err: any) => {
+          console.warn('Native fullscreen failed, falling back to CSS fullscreen:', err);
+          setIsFullscreen(true); // Fallback for iOS or errors
+        });
+      } else if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+      } else if (element.mozRequestFullScreen) {
+        element.mozRequestFullScreen();
+      } else if (element.msRequestFullscreen) {
+        element.msRequestFullscreen();
+      } else {
+        // Fallback for iOS/unsupported browsers
+        setIsFullscreen(true);
       }
+    } else {
+      // Exit fullscreen
+      if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => { });
+        } else if ((document as any).webkitExitFullscreen) {
+          (document as any).webkitExitFullscreen();
+        }
+      }
+      setIsFullscreen(false);
     }
-  };
+  }, [isFullscreen]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -387,7 +431,11 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     <Card className="overflow-hidden">
       <div className="relative">
         {/* Video Player Container */}
-        <div className="relative aspect-video bg-black">
+        {/* Apply fixed positioning when in fullscreen to cover viewport */}
+        <div
+          ref={wrapperRef}
+          className={`${isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen flex items-center justify-center bg-black' : 'relative aspect-video bg-black'}`}
+        >
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-white text-center">

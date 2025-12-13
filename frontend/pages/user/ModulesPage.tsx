@@ -369,29 +369,29 @@ export const ModulesPage: React.FC = () => {
               <Card key={module.moduleId} className={`overflow-hidden ${isLocked ? 'opacity-60 border-2 border-gray-300' : ''} ${isCompleted ? 'border-2 border-green-400' : ''}`}>
                 {/* Module Header */}
                 <div className="p-4 border-b relative">
-                  {isLocked && (
-                    <div className="absolute top-2 right-2">
-                      <Badge className="bg-gray-500 text-white flex items-center gap-1">
-                        <Lock className="w-3 h-3" />
-                        Locked
-                      </Badge>
+                  <div className="flex flex-col gap-2 mb-2">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 mr-2">
+                        <h3 className="font-semibold text-lg text-gray-900 break-words">{module.title}</h3>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 whitespace-nowrap">
+                          Training
+                        </Badge>
+                        {isLocked && (
+                          <Badge className="bg-gray-500 text-white flex items-center gap-1 whitespace-nowrap">
+                            <Lock className="w-3 h-3" />
+                            Locked
+                          </Badge>
+                        )}
+                        {isCompleted && !isLocked && (
+                          <Badge className="bg-green-500 text-white flex items-center gap-1 whitespace-nowrap">
+                            <CheckCircle className="w-3 h-3" />
+                            Completed
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  )}
-
-                  {isCompleted && !isLocked && (
-                    <div className="absolute top-2 right-2">
-                      <Badge className="bg-green-500 text-white flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3" />
-                        Completed
-                      </Badge>
-                    </div>
-                  )}
-
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-semibold text-lg text-gray-900">{module.title}</h3>
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                      Training
-                    </Badge>
                   </div>
 
                   {module.description && (
@@ -401,12 +401,12 @@ export const ModulesPage: React.FC = () => {
                   {module.tags && module.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {module.tags.slice(0, 3).map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
+                        <Badge key={index} variant="secondary" className="text-xs bg-gray-100 text-gray-700">
                           {tag}
                         </Badge>
                       ))}
                       {module.tags.length > 3 && (
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-700">
                           +{module.tags.length - 3}
                         </Badge>
                       )}
@@ -421,7 +421,7 @@ export const ModulesPage: React.FC = () => {
                       <div className="absolute inset-0 z-10 bg-gray-900 bg-opacity-75 flex flex-col items-center justify-center text-white p-4">
                         <Lock className="w-12 h-12 mb-3" />
                         <p className="text-lg font-semibold mb-1">Module Locked</p>
-                        <p className="text-sm text-center">{unlockMessage}</p>
+                        <p className="text-sm text-center line-clamp-2">{unlockMessage}</p>
                       </div>
                     )}
 

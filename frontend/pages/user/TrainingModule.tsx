@@ -475,7 +475,7 @@ export const TrainingModule: React.FC = () => {
             )}
 
             {/* Action Buttons */}
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               {/* Quiz Button - Only show after video completion */}
               {(() => {
                 console.log('Quiz button render check:', {
@@ -489,14 +489,14 @@ export const TrainingModule: React.FC = () => {
                 return showQuizButton && quiz && quiz.questions && quiz.questions.length > 0 ? (
                   <Button
                     onClick={startQuiz}
-                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    className="flex-1 bg-green-600 hover:bg-green-700 w-full sm:w-auto"
                   >
                     <FileQuestion className="h-4 w-4 mr-2" />
                     Start Quiz ({quiz.questions.length} questions)
                   </Button>
                 ) : (
                   <Button
-                    className="flex-1"
+                    className="flex-1 w-full sm:w-auto"
                     disabled
                     variant="outline"
                   >
@@ -508,6 +508,7 @@ export const TrainingModule: React.FC = () => {
 
               <Button
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => {
                   setVideoProgress(100);
                   updateProgress(100);
