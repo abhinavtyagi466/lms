@@ -58,7 +58,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userType, setUserType] = useState<'user' | 'admin' | 'hr' | 'manager' | 'hod' | null>(null);
   const [currentPage, setCurrentPage] = useState(() => {
-    const hash = window.location.hash.replace('#', '');
+    // consistently strip leading slash if present
+    const hash = window.location.hash.replace(/^#\/?/, '');
     const savedPage = localStorage.getItem('currentPage');
     return hash || savedPage || 'user-login';
   });
@@ -69,7 +70,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Handle URL hash changes
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '');
+      // consistently strip leading slash if present replacement
+      const hash = window.location.hash.replace(/^#\/?/, '');
       if (hash && hash !== currentPage) {
         const adminPages = [
           'admin-dashboard', 'user-management', 'exit-records', 'user-lifecycle',
@@ -138,7 +140,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               console.log('AuthProvider: Token valid, setting user state');
               setUser(response.user);
               setUserType(response.user.userType);
-              const currentHash = window.location.hash.replace('#', '');
+              const currentHash = window.location.hash.replace(/^#\/?/, '');
               const savedPage = localStorage.getItem('currentPage');
               if (!currentHash && !savedPage) {
                 const defaultPage = response.user.userType === 'user' ? 'user-dashboard' : 'admin-dashboard';

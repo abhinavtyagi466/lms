@@ -6,6 +6,7 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { apiService, UPLOADS_BASE_URL } from '../../services/apiService';
 import { useToast } from '../ui/use-toast';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Notification {
   _id: string;
@@ -40,6 +41,7 @@ export const NotificationBell: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const { setCurrentPage } = useAuth();
 
   // Fetch notifications on mount and periodically
   useEffect(() => {
@@ -291,7 +293,12 @@ export const NotificationBell: React.FC = () => {
                       }
                       if (notification.metadata?.actionUrl) {
                         setIsOpen(false);
-                        window.location.hash = notification.metadata.actionUrl;
+                        const url = notification.metadata.actionUrl;
+                        if (url.startsWith('#')) {
+                          setCurrentPage(url.replace(/^#\/?/, ''));
+                        } else {
+                          window.location.hash = url;
+                        }
                       }
                     }}
                   >
@@ -425,7 +432,7 @@ export const NotificationBell: React.FC = () => {
                   className="w-full text-sm font-semibold text-blue-700 hover:text-blue-900 hover:bg-blue-100 dark:text-blue-300 dark:hover:bg-blue-800 h-10 shadow-sm border border-blue-200 dark:border-blue-700"
                   onClick={() => {
                     setIsOpen(false);
-                    window.location.hash = '#/notifications';
+                    setCurrentPage('notifications');
                   }}
                 >
                   <Bell className="w-4 h-4 mr-2" />
