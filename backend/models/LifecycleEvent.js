@@ -18,7 +18,9 @@ const lifecycleEventSchema = new mongoose.Schema({
       'warning',         // Warning letters
       'achievement',     // Awards/recognitions
       'exit',            // When FE leaves
-      'left'             // Alternative for exit (when user is marked inactive)
+      'left',            // Alternative for exit (when user is marked inactive)
+      'reactivation',    // When user is reactivated after being inactive
+      'other'            // Other events
     ]
   },
   title: {

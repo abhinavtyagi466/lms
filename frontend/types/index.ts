@@ -26,6 +26,13 @@ export interface ModuleWithProgress {
     questionCount: number;
     estimatedTime: number;
   } | null;
+  // Personalised module fields
+  isPersonalised?: boolean;
+  personalisedReason?: string | null;
+  personalisedPriority?: string | null;
+  personalisedBy?: string | null;
+  personalisedAt?: string | null;
+  assignmentId?: string | null;
 }
 
 export interface Progress {

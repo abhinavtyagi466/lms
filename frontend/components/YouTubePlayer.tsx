@@ -53,17 +53,18 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout>();
   const lastMaxTimeRef = useRef<number>(0); // Track max watched time
+  const hasInitialSeekedRef = useRef<boolean>(false); // Flag to prevent repeated initial seeks
+  const isSeekingRef = useRef<boolean>(false); // Flag to prevent seek loops during buffering
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(50);
+  const [, setVolume] = useState(50); // Volume state - only setter used in onPlayerReady
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hasResumed, setHasResumed] = useState(false);
 
   // Keep latest callbacks and values in refs to avoid stale closures
   const onProgressRef = useRef(onProgress);
@@ -84,6 +85,10 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   // Initialize YouTube IFrame Player API
   useEffect(() => {
     if (!videoId) return;
+
+    // Reset initial seek flag when video changes (allows new videos to seek to their start position)
+    hasInitialSeekedRef.current = false;
+    isSeekingRef.current = false;
 
     // Load YouTube IFrame API if not already loaded
     if (!window.YT) {
@@ -223,38 +228,63 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     setDuration(event.target.getDuration());
     setVolume(event.target.getVolume());
 
-    // Seek to initial time if provided (use ref to get latest value)
+    // Seek to initial time ONLY ONCE (prevents looping when player reloads)
     const startTime = initialTimeRef.current;
-    if (startTime > 0) {
-      console.log(`Seeking to initial time: ${startTime}s`);
-      event.target.seekTo(startTime, true);
-      setCurrentTime(startTime);
-      lastMaxTimeRef.current = startTime;
+    if (startTime > 0 && !hasInitialSeekedRef.current) {
+      console.log(`Seeking to initial time: ${startTime}s (one-time seek)`);
+      hasInitialSeekedRef.current = true; // Mark as seeked to prevent repeated seeks
+
+      // Small delay to ensure player is fully ready
+      setTimeout(() => {
+        if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+          isSeekingRef.current = true;
+          playerRef.current.seekTo(startTime, true);
+          setCurrentTime(startTime);
+          lastMaxTimeRef.current = startTime;
+
+          // Reset seeking flag after seek completes
+          setTimeout(() => {
+            isSeekingRef.current = false;
+          }, 1000);
+        }
+      }, 500);
     }
 
     // Start progress tracking immediately
     startProgressTracking();
 
-    // Add seek event listener to track manual seeking
-    if (playerRef.current) {
-      let lastKnownTime = 0;
-      const seekCheckInterval = setInterval(async () => {
+    // Add seek check ONLY in restricted mode to prevent forward skipping
+    // Check less frequently and only when not already seeking to prevent loops
+    if (restricted && playerRef.current) {
+      const seekCheckInterval = setInterval(() => {
+        // Skip if we're in the middle of a seek operation or player is buffering
+        if (isSeekingRef.current) return;
+
         if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+          const playerState = playerRef.current.getPlayerState();
+
+          // Don't check during buffering (state 3) to prevent seek loops
+          if (playerState === window.YT.PlayerState.BUFFERING) return;
+
           const currentTime = playerRef.current.getCurrentTime();
 
-          // Check for forward seeking in restricted mode
-          if (restricted && currentTime > lastMaxTimeRef.current + 2 && !isCompleted) {
-            console.log('Seeking prevented in restricted mode');
+          // Check for forward seeking in restricted mode - only if jumped more than 3 seconds ahead
+          if (currentTime > lastMaxTimeRef.current + 3 && !isCompleted) {
+            console.log('Forward seeking prevented in restricted mode');
+            isSeekingRef.current = true;
             playerRef.current.seekTo(lastMaxTimeRef.current, true);
-            return;
-          }
 
+            // Reset seeking flag after seek completes
+            setTimeout(() => {
+              isSeekingRef.current = false;
+            }, 1500);
+          }
         }
-      }, 5000);
+      }, 2000); // Check every 2 seconds instead of 5
 
       (playerRef.current as any).seekCheckInterval = seekCheckInterval;
     }
-  }, []); // No dependencies needed as we use refs and direct player access
+  }, [restricted, isCompleted, startProgressTracking]); // Added proper dependencies
 
   // Player state change event
   const onPlayerStateChange = useCallback((event: any) => {

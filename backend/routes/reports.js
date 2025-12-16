@@ -391,19 +391,36 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
     const certificatesTrend = calculateTrend(currentMonthCertificates, prevMonthCertificates);
 
     // Calculate progress stats for User Progress Overview
-    const [
-      completedCountResult,
-      inProgressCountResult,
-      usersWithProgressResult
-    ] = await Promise.allSettled([
-      UserProgress.countDocuments({ status: { $in: ['completed', 'certified'] } }),
-      UserProgress.countDocuments({ status: 'in_progress' }),
-      UserProgress.distinct('userId') // Get unique users with any progress
+    // Get total published modules count first
+    const publishedModulesCount = await Module.countDocuments({ status: 'published' });
+
+    // Get unique users with their progress
+    const userProgressStats = await UserProgress.aggregate([
+      {
+        $group: {
+          _id: '$userId',
+          completedModules: {
+            $sum: {
+              $cond: [{ $in: ['$status', ['completed', 'certified']] }, 1, 0]
+            }
+          },
+          totalModulesStarted: { $sum: 1 }
+        }
+      }
     ]);
 
-    const completedCount = completedCountResult.status === 'fulfilled' ? completedCountResult.value : 0;
-    const inProgressCount = inProgressCountResult.status === 'fulfilled' ? inProgressCountResult.value : 0;
-    const usersWithProgress = usersWithProgressResult.status === 'fulfilled' ? usersWithProgressResult.value.length : 0;
+    // Count users who completed ALL available modules
+    const usersCompletedAll = userProgressStats.filter(
+      u => u.completedModules >= publishedModulesCount && publishedModulesCount > 0
+    ).length;
+
+    // Count users who have started but NOT completed all modules
+    const usersInProgress = userProgressStats.filter(
+      u => u.totalModulesStarted > 0 && (u.completedModules < publishedModulesCount || publishedModulesCount === 0)
+    ).length;
+
+    // Count users with any progress (for calculating not started)
+    const usersWithProgress = userProgressStats.length;
 
     // Not started = Total users who haven't started any module yet
     // This is calculated as: Total FE users - Users who have any progress record
@@ -428,11 +445,11 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
           progress: progressTrend,
           certificates: certificatesTrend
         },
-        // Progress stats for User Progress Overview section
+        // Progress stats for User Progress Overview section (unique users count)
         progressStats: {
-          completed: completedCount,
-          inProgress: inProgressCount,
-          notStarted: notStartedCount
+          completed: usersCompletedAll,      // Users who completed ALL available modules
+          inProgress: usersInProgress,        // Users who started but not completed all
+          notStarted: notStartedCount         // Users who haven't started any module
         },
         warningUsers: warningUsersResult.status === 'fulfilled' ? warningUsersResult.value : 0
       }

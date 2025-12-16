@@ -52,7 +52,7 @@ const DialogOverlay = React.forwardRef<
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
-// Main Content (PERFECTLY CENTERED with PROPER SPACING)
+// Main Content (PROPERLY CENTERED - works for both large and small dialogs)
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
@@ -63,38 +63,34 @@ const DialogContent = React.forwardRef<
       ref={ref}
       data-slot="dialog-content"
       className={cn(
-        // --- PERFECT POSITIONING with PROPER SPACING ---
+        // --- CENTERED POSITIONING ---
         "fixed z-[100]",
 
-        // Top: 80px from top (below browser nav) + centered vertically in remaining space
-        "top-[80px] h-[calc(100vh-160px)]", // 80px top + 80px bottom = 160px total margin
+        // Use inset-0 with flex to center the dialog properly
+        "inset-0 flex items-center justify-center p-4",
 
-        // Left: Start after sidebar (288px) + equal margins on both sides
-        "left-[calc(288px+2rem)] right-[2rem]", // 2rem = 32px margin on both sides
+        // The actual dialog box styling
+        "[&>*]:relative [&>*]:max-h-[90vh] [&>*]:w-full [&>*]:max-w-lg",
+        "[&>*]:overflow-auto [&>*]:rounded-xl [&>*]:border [&>*]:bg-background [&>*]:shadow-2xl",
+        "[&>*]:p-6",
 
         // --- Animation ---
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
-        "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
-
-        // --- Layout & look ---
-        "w-auto max-w-none rounded-xl border bg-background shadow-2xl",
-        "duration-300 ease-out",
-
-        // --- Content Management ---
-        "overflow-hidden flex flex-col",
 
         className
       )}
       {...props}
     >
-      {children}
-      <DialogPrimitive.Close
-        className="absolute right-4 top-4 rounded-md opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
-      >
-        <XIcon className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
+      <div className="relative">
+        {children}
+        <DialogPrimitive.Close
+          className="absolute right-4 top-4 rounded-md opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
+        >
+          <XIcon className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      </div>
     </DialogPrimitive.Content>
   </DialogPortal>
 ));

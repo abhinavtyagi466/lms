@@ -22,8 +22,9 @@ interface ModuleScoreCardProps {
 
 export const ModuleScoreCard: React.FC<ModuleScoreCardProps> = ({ score }) => {
   const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
+    const totalSeconds = Math.floor(seconds);
+    const minutes = Math.floor(totalSeconds / 60);
+    const remainingSeconds = Math.floor(totalSeconds % 60);
     return `${minutes}m ${remainingSeconds}s`;
   };
 
@@ -64,7 +65,7 @@ export const ModuleScoreCard: React.FC<ModuleScoreCardProps> = ({ score }) => {
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         {/* Score Progress Bar */}
         <div className="space-y-2">
@@ -88,7 +89,7 @@ export const ModuleScoreCard: React.FC<ModuleScoreCardProps> = ({ score }) => {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-purple-600 dark:text-purple-400" />
             <div>
@@ -98,7 +99,7 @@ export const ModuleScoreCard: React.FC<ModuleScoreCardProps> = ({ score }) => {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-orange-600 dark:text-orange-400" />
             <div>
@@ -108,7 +109,7 @@ export const ModuleScoreCard: React.FC<ModuleScoreCardProps> = ({ score }) => {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
             <div>

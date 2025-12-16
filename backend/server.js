@@ -324,7 +324,13 @@ app.use('/api/reports', (req, res, next) => {
   }
   return cacheMiddleware(60)(req, res, next); // 1 minute for other reports
 });
-app.use('/api/awards', cacheMiddleware(300)); // 5 minutes
+app.use('/api/awards', (req, res, next) => {
+  // Skip cache for user-specific award/certificate queries to show real-time data
+  if (req.path.includes('/user/') || req.query.userId) {
+    return next();
+  }
+  return cacheMiddleware(30)(req, res, next); // 30 seconds for general awards list
+});
 
 // Use routes
 app.use('/api/auth', authRoutes);

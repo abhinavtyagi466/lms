@@ -456,6 +456,11 @@ export const apiService = {
     deletePersonalisedModule: async (moduleId: string) => {
       const response = await apiClient.delete(`/modules/personalised/${moduleId}`);
       return response;
+    },
+
+    getAllPersonalisedModules: async () => {
+      const response = await apiClient.get('/modules/personalised/all');
+      return response;
     }
   },
 

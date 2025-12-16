@@ -729,6 +729,29 @@ router.post('/:id/warning', authenticateToken, requireAdminPanel, validateObject
       // Continue even if email fails - notification is already created
     }
 
+    // Clear cache for notifications and user-related endpoints to show instant updates
+    if (global.appCache) {
+      const cacheKeys = [
+        `__express__/api/notifications/user/${userId}`,
+        `__express__/api/users/${userId}/warnings`,
+        `__express__/api/audits/user/${userId}`,
+        '__express__/api/audits',
+        '__express__/api/notifications'
+      ];
+      cacheKeys.forEach(key => {
+        global.appCache.del(key);
+        console.log('🗑️ Cleared cache for:', key);
+      });
+      // Also clear any keys containing this userId
+      const allKeys = global.appCache.keys();
+      allKeys.forEach(key => {
+        if (key.includes(userId) || key.includes('notifications') || key.includes('warnings') || key.includes('audits')) {
+          global.appCache.del(key);
+          console.log('🗑️ Cleared cache for:', key);
+        }
+      });
+    }
+
     res.json({
       success: true,
       message: 'Warning sent successfully via email and dashboard notification',
@@ -982,6 +1005,29 @@ router.post('/:id/certificate', authenticateToken, requireAdminPanel, validateOb
       console.error('Failed to send certificate email:', emailError);
       console.error('Email error details:', emailError.message);
       // Continue even if email fails - notification is already created
+    }
+
+    // Clear cache for notifications and user-related endpoints to show instant updates
+    if (global.appCache) {
+      const cacheKeys = [
+        `__express__/api/notifications/user/${userId}`,
+        `__express__/api/users/${userId}/certificates`,
+        `__express__/api/awards/user/${userId}`,
+        '__express__/api/awards',
+        '__express__/api/notifications'
+      ];
+      cacheKeys.forEach(key => {
+        global.appCache.del(key);
+        console.log('🗑️ Cleared cache for:', key);
+      });
+      // Also clear any keys containing this userId
+      const allKeys = global.appCache.keys();
+      allKeys.forEach(key => {
+        if (key.includes(userId) || key.includes('notifications') || key.includes('awards') || key.includes('certificates')) {
+          global.appCache.del(key);
+          console.log('🗑️ Cleared cache for:', key);
+        }
+      });
     }
 
     res.json({
@@ -1995,6 +2041,28 @@ router.put('/:id/activate', authenticateToken, requireUserManagementAccess, vali
       });
     }
 
+    // Create lifecycle event for activation (shows in user details lifecycle tab)
+    try {
+      const LifecycleEvent = require('../models/LifecycleEvent');
+      await LifecycleEvent.createAutoEvent({
+        userId: user._id,
+        type: 'reactivation',
+        title: 'Account Activated',
+        description: `User account has been activated by ${req.user.name}. Exit details have been cleared.`,
+        category: 'positive',
+        metadata: {
+          activatedBy: req.user._id,
+          activatedByName: req.user.name,
+          activatedAt: new Date(),
+          previousStatus: 'Inactive'
+        },
+        createdBy: req.user._id
+      });
+      console.log('✅ Lifecycle event created for user activation');
+    } catch (lifecycleError) {
+      console.error('⚠️  Error creating lifecycle event (non-critical):', lifecycleError.message);
+    }
+
     // Create notification for dashboard
     try {
       const notification = new Notification({
@@ -2113,6 +2181,28 @@ router.put('/:id/reactivate', authenticateToken, requireUserManagementAccess, va
         global.appCache.del(key);
         console.log('🗑️ Cleared cache for:', key);
       });
+    }
+
+    // Create lifecycle event for reactivation (shows in user details lifecycle tab)
+    try {
+      const LifecycleEvent = require('../models/LifecycleEvent');
+      await LifecycleEvent.createAutoEvent({
+        userId: user._id,
+        type: 'reactivation',
+        title: 'Account Reactivated',
+        description: `User account has been reactivated by ${req.user.name}. Previous exit/inactive status has been cleared.`,
+        category: 'positive',
+        metadata: {
+          reactivatedBy: req.user._id,
+          reactivatedByName: req.user.name,
+          reactivatedAt: new Date(),
+          previousStatus: 'Inactive'
+        },
+        createdBy: req.user._id
+      });
+      console.log('✅ Lifecycle event created for user reactivation');
+    } catch (lifecycleError) {
+      console.error('⚠️  Error creating lifecycle event (non-critical):', lifecycleError.message);
     }
 
     // Create notification
@@ -3400,6 +3490,29 @@ router.post('/:userId/warning', authenticateToken, requireAdmin, warningUpload.s
     await warning.save();
 
     console.log('✅ Warning created:', warning._id);
+
+    // Clear cache for notifications and user-related endpoints to show instant updates
+    if (global.appCache) {
+      const cacheKeys = [
+        `__express__/api/notifications/user/${userId}`,
+        `__express__/api/users/${userId}/warnings`,
+        `__express__/api/audits/user/${userId}`,
+        '__express__/api/audits',
+        '__express__/api/notifications'
+      ];
+      cacheKeys.forEach(key => {
+        global.appCache.del(key);
+        console.log('🗑️ Cleared cache for:', key);
+      });
+      // Also clear any keys containing this userId 
+      const allKeys = global.appCache.keys();
+      allKeys.forEach(key => {
+        if (key.includes(userId) || key.includes('notifications') || key.includes('warnings')) {
+          global.appCache.del(key);
+          console.log('🗑️ Cleared cache for:', key);
+        }
+      });
+    }
 
     res.status(201).json({
       success: true,

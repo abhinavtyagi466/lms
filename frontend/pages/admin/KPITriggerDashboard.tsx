@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { 
-  Upload, 
-  Download, 
-  FileSpreadsheet, 
-  AlertTriangle, 
-  CheckCircle, 
+import {
+  Upload,
+  Download,
+  FileSpreadsheet,
+  AlertTriangle,
+  CheckCircle,
   Users,
   TrendingUp,
   Eye,
@@ -83,12 +83,12 @@ export const KPITriggerDashboard: React.FC = () => {
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.ms-excel'
       ];
-      
+
       if (!allowedTypes.includes(file.type)) {
         toast.error('Please select a valid Excel file (.xlsx or .xls)');
         return;
       }
-      
+
       setSelectedFile(file);
       // Clear previous preview results when new file is selected
       setPreviewResults([]);
@@ -106,11 +106,11 @@ export const KPITriggerDashboard: React.FC = () => {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to download template');
       }
-      
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -120,7 +120,7 @@ export const KPITriggerDashboard: React.FC = () => {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
+
       toast.success('Template downloaded successfully');
     } catch (error: any) {
       console.error('Download error:', error);
@@ -139,7 +139,7 @@ export const KPITriggerDashboard: React.FC = () => {
 
     try {
       setPreviewLoading(true);
-      
+
       const formData = new FormData();
       formData.append('excelFile', selectedFile);
       // Period is now optional - will be auto-detected from Excel's Month column
@@ -190,7 +190,7 @@ export const KPITriggerDashboard: React.FC = () => {
       toast.error('Please select a file');
       return;
     }
-    
+
     if (!period) {
       toast.error('Please preview first to detect the period from Excel');
       return;
@@ -198,12 +198,12 @@ export const KPITriggerDashboard: React.FC = () => {
 
     try {
       setUploading(true);
-      
+
       console.log('=== UPLOAD DEBUG ===');
       console.log('File:', selectedFile.name, selectedFile.size, 'bytes');
       console.log('Period:', period);
       console.log('API URL:', '/api/kpi-triggers/upload-excel');
-      
+
       const formData = new FormData();
       formData.append('excelFile', selectedFile);
       formData.append('period', period);
@@ -243,7 +243,7 @@ export const KPITriggerDashboard: React.FC = () => {
         setShowResults(true);
         setShowPreview(false);
         toast.success(`✅ Processed ${result.data.successfulRecords} records successfully!`);
-        
+
         // Refresh pending triggers
         await fetchPendingTriggers();
       } else {
@@ -256,7 +256,7 @@ export const KPITriggerDashboard: React.FC = () => {
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
       console.error('Full error:', error);
-      
+
       toast.error(`Upload failed: ${error.message}. Check console for details.`);
     } finally {
       setUploading(false);
@@ -437,7 +437,7 @@ export const KPITriggerDashboard: React.FC = () => {
                 </div>
               </div>
             )}
-            
+
             {selectedFile && period && !showPreview && (
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 flex items-start gap-2">
                 <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
@@ -456,7 +456,7 @@ export const KPITriggerDashboard: React.FC = () => {
                 onClick={handlePreview}
                 disabled={!selectedFile || previewLoading}
                 variant="outline"
-                className="w-full text-gray-900 dark:text-gray-100 border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500"
+                className="w-full text-gray-900 dark:text-gray-100 border-2 border-gray-400 dark:border-gray-500 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-500 dark:hover:border-gray-400 font-medium"
               >
                 {previewLoading ? (
                   <>
@@ -470,11 +470,11 @@ export const KPITriggerDashboard: React.FC = () => {
                   </>
                 )}
               </Button>
-              
+
               <Button
                 onClick={handleUpload}
                 disabled={!selectedFile || !period || uploading}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-black dark:text-black font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-white hover:bg-gray-100 text-gray-900 font-semibold shadow-lg border-2 border-gray-400 hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {uploading ? (
                   <>
@@ -666,7 +666,7 @@ export const KPITriggerDashboard: React.FC = () => {
                         <h5 className="font-semibold mb-2 text-sm text-gray-700 dark:text-gray-300">Actions to be Triggered:</h5>
                         <div className="flex flex-wrap gap-2">
                           {result.triggers.map((trigger: any, idx: number) => (
-                            <Badge 
+                            <Badge
                               key={idx}
                               className={getTriggerTypeColor(trigger.type) + ' px-3 py-1'}
                               variant="outline"
@@ -766,7 +766,7 @@ export const KPITriggerDashboard: React.FC = () => {
                 </div>
                 <Button
                   onClick={viewInAuditDashboard}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white flex items-center gap-2"
+                  className="bg-white hover:bg-gray-100 text-gray-900 font-semibold border-2 border-gray-400 hover:border-gray-500 flex items-center gap-2"
                 >
                   <BarChart3 className="w-4 h-4" />
                   View Live Data in Audit Dashboard
@@ -799,8 +799,8 @@ export const KPITriggerDashboard: React.FC = () => {
                         <td className="p-2">
                           <div className="space-y-1">
                             {result.triggers?.map((trigger: any, idx: number) => (
-                              <Badge 
-                                key={idx} 
+                              <Badge
+                                key={idx}
                                 className={getTriggerTypeColor(trigger.type)}
                                 variant="outline"
                               >

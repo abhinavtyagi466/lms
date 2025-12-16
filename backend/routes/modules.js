@@ -654,6 +654,66 @@ router.post('/personalised', authenticateToken, requireAdmin, async (req, res) =
   }
 });
 
+// @route   GET /api/modules/personalised/all
+// @desc    Get all personalised module assignments (Admin only)
+// @access  Private (Admin only)
+// NOTE: This route MUST come BEFORE /personalised/:userId to avoid "all" being treated as a userId
+router.get('/personalised/all', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const TrainingAssignment = require('../models/TrainingAssignment');
+
+    // Get all training assignments that have a trainingModuleId (personalised modules)
+    const assignments = await TrainingAssignment.find({
+      trainingModuleId: { $exists: true, $ne: null }
+    })
+      .populate('userId', 'name email employeeId')
+      .populate('trainingModuleId', 'title description ytVideoId tags status')
+      .populate('assignedByUser', 'name email')
+      .sort({ assignedAt: -1 });
+
+    // Transform to match expected format
+    const personalisedModules = assignments
+      .filter(a => a.trainingModuleId) // Filter out deleted modules
+      .map(assignment => ({
+        _id: assignment._id,
+        moduleId: assignment.trainingModuleId._id,
+        moduleTitle: assignment.trainingModuleId.title,
+        moduleDescription: assignment.trainingModuleId.description,
+        ytVideoId: assignment.trainingModuleId.ytVideoId,
+        tags: assignment.trainingModuleId.tags,
+        status: assignment.status,
+        assignedTo: {
+          _id: assignment.userId._id,
+          name: assignment.userId.name,
+          email: assignment.userId.email,
+          employeeId: assignment.userId.employeeId
+        },
+        assignedBy: assignment.assignedByUser ? {
+          _id: assignment.assignedByUser._id,
+          name: assignment.assignedByUser.name
+        } : null,
+        reason: assignment.reason,
+        priority: assignment.notes?.split('.')[0]?.replace('Priority: ', '').trim() || 'medium',
+        assignedAt: assignment.assignedAt,
+        dueDate: assignment.dueDate
+      }));
+
+    res.json({
+      success: true,
+      data: personalisedModules,
+      count: personalisedModules.length
+    });
+
+  } catch (error) {
+    console.error('Get all personalised modules error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching personalised modules',
+      error: error.message
+    });
+  }
+});
+
 // @route   GET /api/modules/personalised/:userId
 // @desc    Get personalised modules for a specific user
 // @access  Private (Admin or same user)

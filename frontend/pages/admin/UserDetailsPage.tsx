@@ -465,9 +465,11 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
   };
 
   const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
+    // Floor all values to remove decimals
+    const totalSeconds = Math.floor(seconds);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = Math.floor(totalSeconds % 60);
 
     if (hours > 0) {
       return `${hours}h ${minutes}m ${secs}s`;
@@ -1502,11 +1504,16 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                             iconColor = 'red';
                             bgColor = 'red-50';
                             borderColor = 'red-200';
-                          } else if (event.type === 'exit') {
+                          } else if (event.type === 'exit' || event.type === 'left') {
                             Icon = XCircle;
                             iconColor = 'gray';
                             bgColor = 'gray-50';
                             borderColor = 'gray-200';
+                          } else if (event.type === 'reactivation') {
+                            Icon = CheckCircle;
+                            iconColor = 'green';
+                            bgColor = 'green-50';
+                            borderColor = 'green-200';
                           }
 
                           return (

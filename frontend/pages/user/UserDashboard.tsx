@@ -1279,26 +1279,58 @@ export const UserDashboard: React.FC = () => {
               <CardContent>
                 <div className="space-y-4">
                   {modules.slice(0, 5).map((module) => (
-                    <div key={module.moduleId} className="flex items-center justify-between p-4 bg-gray-50/50 rounded-lg">
+                    <div
+                      key={module.moduleId}
+                      className={`flex items-center justify-between p-4 rounded-lg border-l-4 ${module.isPersonalised
+                          ? 'bg-purple-50/50 dark:bg-purple-900/20 border-l-purple-500'
+                          : 'bg-blue-50/50 dark:bg-blue-900/20 border-l-blue-500'
+                        }`}
+                    >
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                          <BookOpen className="w-5 h-5 text-white" />
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${module.isPersonalised
+                            ? 'bg-gradient-to-br from-purple-500 to-violet-600'
+                            : 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                          }`}>
+                          {module.isPersonalised ? (
+                            <User className="w-5 h-5 text-white" />
+                          ) : (
+                            <BookOpen className="w-5 h-5 text-white" />
+                          )}
                         </div>
                         <div>
-                          <h4 className="font-medium text-gray-900">{module.title}</h4>
-                          <p className="text-sm text-gray-600">{module.tags?.join(', ') || 'General'}</p>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium text-gray-900 dark:text-white">{module.title}</h4>
+                            <Badge
+                              variant="outline"
+                              className={`text-xs ${module.isPersonalised
+                                  ? 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-600'
+                                  : 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-600'
+                                }`}
+                            >
+                              {module.isPersonalised ? '👤 Personalised' : '🌐 General'}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {module.isPersonalised && module.personalisedReason
+                              ? module.personalisedReason
+                              : module.tags?.join(', ') || 'Training Module'
+                            }
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
                         <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
                             {Math.round(module.progress * 100)}%
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             {module.progress >= 0.95 ? 'Completed' : 'In Progress'}
                           </p>
                         </div>
-                        <Progress value={module.progress * 100} className="w-20 h-2" />
+                        <Progress
+                          value={module.progress * 100}
+                          className={`w-20 h-2 ${module.isPersonalised ? '[&>div]:bg-purple-500' : ''}`}
+                        />
                       </div>
                     </div>
                   ))}

@@ -10,7 +10,8 @@ import {
   FileQuestion,
   Upload,
   FileText,
-  Edit
+  Edit,
+  User
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -58,9 +59,34 @@ interface Quiz {
   createdAt: string;
 }
 
+interface PersonalisedModule {
+  _id: string;
+  moduleId: string;
+  moduleTitle: string;
+  moduleDescription: string;
+  ytVideoId: string;
+  tags: string[];
+  status: string;
+  assignedTo: {
+    _id: string;
+    name: string;
+    email: string;
+    employeeId: string;
+  };
+  assignedBy: {
+    _id: string;
+    name: string;
+  } | null;
+  reason: string;
+  priority: string;
+  assignedAt: string;
+  dueDate: string;
+}
+
 export const ModuleManagement: React.FC = () => {
   const [modules, setModules] = useState<Module[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [personalisedModules, setPersonalisedModules] = useState<PersonalisedModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -123,9 +149,14 @@ export const ModuleManagement: React.FC = () => {
 
 
   useEffect(() => {
-    fetchModules();
-    fetchQuizzes();
-    fetchUsers();
+    const loadData = async () => {
+      await fetchModules();
+      await fetchQuizzes();
+      await fetchUsers();
+      // fetchPersonalisedModules is defined below, call separately
+    };
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchModules = async () => {
@@ -199,6 +230,25 @@ export const ModuleManagement: React.FC = () => {
       setIsLoadingUsers(false);
     }
   };
+
+  const fetchPersonalisedModules = async () => {
+    try {
+      const response = await apiService.modules.getAllPersonalisedModules();
+      if (response && (response as any).success) {
+        setPersonalisedModules((response as any).data || []);
+      } else if (response && (response as any).data) {
+        setPersonalisedModules((response as any).data);
+      }
+    } catch (error) {
+      console.error('Error fetching personalised modules:', error);
+      setPersonalisedModules([]);
+    }
+  };
+
+  // Fetch personalised modules on mount
+  useEffect(() => {
+    fetchPersonalisedModules();
+  }, []);
 
   // Helper function to get thumbnail URL
   const getThumbnailUrl = (videoId: string) => {
@@ -754,6 +804,9 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
               <option value="all">All Status</option>
               <option value="draft">Draft</option>
               <option value="published">Published</option>
+              {/* Hidden for now - will enable for client on request
+              <option value="personalised">👤 Personalised</option>
+              */}
             </select>
           </div>
         </Card>
@@ -802,97 +855,161 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
               <FileQuestion className="w-8 h-8 text-purple-600" />
             </div>
           </Card>
+          {/* Hidden for now - will enable for client on request
+          <Card className="p-4 bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 border-purple-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-purple-700 dark:text-purple-300">Personalised</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {personalisedModules.length}
+                </p>
+              </div>
+              <User className="w-8 h-8 text-purple-600" />
+            </div>
+          </Card>
+          */}
         </div>
 
-        {/* Modules Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredModules.map((module) => {
+        {/* Modules Grid - Show only when NOT personalised filter */}
+        {filterStatus !== 'personalised' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredModules.map((module) => {
 
-            const moduleQuiz = getModuleQuiz(module._id);
-            console.log(`Module ${module._id} (${module.title}) - Quiz found:`, moduleQuiz);
-            console.log('Module ID type:', typeof module._id, 'Value:', module._id);
+              const moduleQuiz = getModuleQuiz(module._id);
+              console.log(`Module ${module._id} (${module.title}) - Quiz found:`, moduleQuiz);
+              console.log('Module ID type:', typeof module._id, 'Value:', module._id);
 
-            return (
-              <Card key={module._id} className="overflow-hidden">
-                <div className="aspect-video bg-gray-200 relative">
-                  {getThumbnailUrl(module.ytVideoId) ? (
-                    <img
-                      src={getThumbnailUrl(module.ytVideoId)!}
-                      alt={module.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <Eye className="w-12 h-12 text-gray-400" />
-                    </div>
-                  )}
-                </div>
+              return (
+                <Card key={module._id} className="overflow-hidden">
+                  <div className="aspect-video bg-gray-200 relative">
+                    {getThumbnailUrl(module.ytVideoId) ? (
+                      <img
+                        src={getThumbnailUrl(module.ytVideoId)!}
+                        alt={module.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <Eye className="w-12 h-12 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
 
-                <div className="p-4">
-                  <h3 className="font-semibold text-lg mb-2">{module.title}</h3>
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                    {module.description}
-                  </p>
+                  <div className="p-4">
+                    <h3 className="font-semibold text-lg mb-2">{module.title}</h3>
+                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                      {module.description}
+                    </p>
 
-                  {module.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {module.tags.slice(0, 3).map((tag, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                      {module.tags.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{module.tags.length - 3}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Quiz Management Section */}
-                  <div className="mb-3 border rounded-lg overflow-hidden">
-                    <div className="bg-gray-50 px-3 py-2 border-b">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <FileQuestion className="w-4 h-4 text-purple-600" />
-                          <span className="text-sm font-medium text-gray-700">Quiz Management</span>
-                        </div>
-                        {!moduleQuiz && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setCreateQuizData(prev => ({ ...prev, moduleId: module._id }));
-                              setShowQuizModal(true);
-                            }}
-                            className="text-xs h-6 px-2"
-                          >
-                            <Plus className="w-3 h-3 mr-1" />
-                            Add Quiz
-                          </Button>
+                    {module.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {module.tags.slice(0, 3).map((tag, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                        {module.tags.length > 3 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{module.tags.length - 3}
+                          </Badge>
                         )}
                       </div>
-                    </div>
+                    )}
 
-                    {moduleQuiz ? (
-                      <div className="p-3 space-y-3">
-                        {/* Quiz Status and Info */}
+                    {/* Quiz Management Section */}
+                    <div className="mb-3 border rounded-lg overflow-hidden">
+                      <div className="bg-gray-50 px-3 py-2 border-b">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Badge variant={moduleQuiz.isActive ? 'default' : 'secondary'} className={moduleQuiz.isActive ? 'bg-green-600 text-white' : 'bg-gray-500 text-white'}>
-                              {moduleQuiz.isActive ? 'Active' : 'Inactive'}
-                            </Badge>
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                              {moduleQuiz.questions.length} questions
-                            </span>
-                            <span className="text-sm text-gray-500">
-                              Pass: {moduleQuiz.passPercent}%
-                            </span>
-                            <span className="text-sm text-gray-500">
-                              Time: {moduleQuiz.estimatedTime}min
-                            </span>
+                            <FileQuestion className="w-4 h-4 text-purple-600" />
+                            <span className="text-sm font-medium text-gray-700">Quiz Management</span>
                           </div>
-                          <div className="flex gap-1">
+                          {!moduleQuiz && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setCreateQuizData(prev => ({ ...prev, moduleId: module._id }));
+                                setShowQuizModal(true);
+                              }}
+                              className="text-xs h-6 px-2"
+                            >
+                              <Plus className="w-3 h-3 mr-1" />
+                              Add Quiz
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {moduleQuiz ? (
+                        <div className="p-3 space-y-3">
+                          {/* Quiz Status and Info */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={moduleQuiz.isActive ? 'default' : 'secondary'} className={moduleQuiz.isActive ? 'bg-green-600 text-white' : 'bg-gray-500 text-white'}>
+                                {moduleQuiz.isActive ? 'Active' : 'Inactive'}
+                              </Badge>
+                              <span className="text-sm text-gray-600 dark:text-gray-400">
+                                {moduleQuiz.questions.length} questions
+                              </span>
+                              <span className="text-sm text-gray-500">
+                                Pass: {moduleQuiz.passPercent}%
+                              </span>
+                              <span className="text-sm text-gray-500">
+                                Time: {moduleQuiz.estimatedTime}min
+                              </span>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setCreateQuizData(prev => ({
+                                    ...prev,
+                                    moduleId: module._id,
+                                    passPercent: moduleQuiz.passPercent,
+                                    questions: moduleQuiz.questions
+                                  }));
+                                  setShowQuizModal(true);
+                                }}
+                                className="text-xs h-6 px-2"
+                              >
+                                <Eye className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleToggleQuizStatus(module._id, !moduleQuiz.isActive)}
+                                className={`text-xs h-6 px-2 ${moduleQuiz.isActive ? 'text-orange-600 hover:text-orange-700 border-orange-300 hover:bg-orange-50' : 'text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50'
+                                  }`}
+                              >
+                                {moduleQuiz.isActive ? 'Deactivate' : 'Activate'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDeleteQuiz(module._id)}
+                                className="text-red-600 hover:text-red-700 text-xs h-6 px-2"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Enhanced Quiz Actions */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedModuleId(module._id);
+                                setShowCSVModal(true);
+                              }}
+                              className="text-xs h-6 px-2"
+                            >
+                              <Upload className="w-3 h-3 mr-1" />
+                              CSV Upload
+                            </Button>
                             <Button
                               size="sm"
                               variant="outline"
@@ -907,159 +1024,209 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                               }}
                               className="text-xs h-6 px-2"
                             >
-                              <Eye className="w-3 h-3" />
+                              <FileText className="w-3 h-3 mr-1" />
+                              Edit Quiz
                             </Button>
+                          </div>
+
+                          {/* CSV Template Download */}
+                          <div className="text-center">
                             <Button
                               size="sm"
-                              variant="outline"
-                              onClick={() => handleToggleQuizStatus(module._id, !moduleQuiz.isActive)}
-                              className={`text-xs h-6 px-2 ${moduleQuiz.isActive ? 'text-orange-600 hover:text-orange-700 border-orange-300 hover:bg-orange-50' : 'text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50'
-                                }`}
+                              variant="ghost"
+                              onClick={downloadCSVTemplate}
+                              className="text-xs h-6 px-2 text-blue-600 hover:text-blue-700"
                             >
-                              {moduleQuiz.isActive ? 'Deactivate' : 'Activate'}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleDeleteQuiz(module._id)}
-                              className="text-red-600 hover:text-red-700 text-xs h-6 px-2"
-                            >
-                              <Trash2 className="w-3 h-3" />
+                              <FileText className="w-3 h-3 mr-1" />
+                              Download CSV Template
                             </Button>
                           </div>
                         </div>
+                      ) : (
+                        <div className="p-3 space-y-2">
+                          <p className="text-sm text-gray-500 text-center">No quiz available for this module</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setCreateQuizData(prev => ({ ...prev, moduleId: module._id }));
+                                setShowQuizModal(true);
+                              }}
+                              className="text-xs h-6 px-2"
+                            >
+                              <Plus className="w-3 h-3 mr-1" />
+                              Create Quiz
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedModuleId(module._id);
+                                setShowCSVModal(true);
+                              }}
+                              className="text-xs h-6 px-2"
+                            >
+                              <Upload className="w-3 h-3 mr-1" />
+                              CSV Upload
+                            </Button>
+                          </div>
 
-                        {/* Enhanced Quiz Actions */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedModuleId(module._id);
-                              setShowCSVModal(true);
-                            }}
-                            className="text-xs h-6 px-2"
-                          >
-                            <Upload className="w-3 h-3 mr-1" />
-                            CSV Upload
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setCreateQuizData(prev => ({
-                                ...prev,
-                                moduleId: module._id,
-                                passPercent: moduleQuiz.passPercent,
-                                questions: moduleQuiz.questions
-                              }));
-                              setShowQuizModal(true);
-                            }}
-                            className="text-xs h-6 px-2"
-                          >
-                            <FileText className="w-3 h-3 mr-1" />
-                            Edit Quiz
-                          </Button>
+                          {/* CSV Template Download */}
+                          <div className="text-center">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={downloadCSVTemplate}
+                              className="text-xs h-6 px-2 text-blue-600 hover:text-blue-700"
+                            >
+                              <FileText className="w-3 h-3 mr-1" />
+                              Download CSV Template
+                            </Button>
+                          </div>
                         </div>
-
-                        {/* CSV Template Download */}
-                        <div className="text-center">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={downloadCSVTemplate}
-                            className="text-xs h-6 px-2 text-blue-600 hover:text-blue-700"
-                          >
-                            <FileText className="w-3 h-3 mr-1" />
-                            Download CSV Template
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-3 space-y-2">
-                        <p className="text-sm text-gray-500 text-center">No quiz available for this module</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setCreateQuizData(prev => ({ ...prev, moduleId: module._id }));
-                              setShowQuizModal(true);
-                            }}
-                            className="text-xs h-6 px-2"
-                          >
-                            <Plus className="w-3 h-3 mr-1" />
-                            Create Quiz
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedModuleId(module._id);
-                              setShowCSVModal(true);
-                            }}
-                            className="text-xs h-6 px-2"
-                          >
-                            <Upload className="w-3 h-3 mr-1" />
-                            CSV Upload
-                          </Button>
-                        </div>
-
-                        {/* CSV Template Download */}
-                        <div className="text-center">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={downloadCSVTemplate}
-                            className="text-xs h-6 px-2 text-blue-600 hover:text-blue-700"
-                          >
-                            <FileText className="w-3 h-3 mr-1" />
-                            Download CSV Template
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs text-gray-500">
-                      Created by {module.createdBy?.name || 'Unknown'}
+                      )}
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleToggleModuleStatus(module._id, module.status)}
-                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 hover:scale-105 flex items-center gap-1 ${module.status === 'published'
-                          ? 'bg-green-600 text-white hover:bg-green-700'
-                          : 'bg-orange-500 text-white hover:bg-orange-600'
-                          }`}
-                        title={`Click to ${module.status === 'draft' ? 'publish' : 'unpublish'}`}
-                      >
-                        {module.status === 'published' ? '✓ Published' : '📝 Draft'}
-                      </button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => window.open(`https://www.youtube.com/watch?v=${module.ytVideoId}`, '_blank')}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDeleteModule(module._id)}
-                        disabled={module.status === 'published'}
-                        title={module.status === 'published' ? 'Published modules cannot be deleted. Unpublish first.' : 'Delete Module'}
-                        className={module.status === 'published' ? 'opacity-50 cursor-not-allowed' : 'text-red-600 hover:text-red-700 hover:bg-red-50'}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-gray-500">
+                        Created by {module.createdBy?.name || 'Unknown'}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleToggleModuleStatus(module._id, module.status)}
+                          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 hover:scale-105 flex items-center gap-1 ${module.status === 'published'
+                            ? 'bg-green-600 text-white hover:bg-green-700'
+                            : 'bg-orange-500 text-white hover:bg-orange-600'
+                            }`}
+                          title={`Click to ${module.status === 'draft' ? 'publish' : 'unpublish'}`}
+                        >
+                          {module.status === 'published' ? '✓ Published' : '📝 Draft'}
+                        </button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(`https://www.youtube.com/watch?v=${module.ytVideoId}`, '_blank')}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDeleteModule(module._id)}
+                          disabled={module.status === 'published'}
+                          title={module.status === 'published' ? 'Published modules cannot be deleted. Unpublish first.' : 'Delete Module'}
+                          className={module.status === 'published' ? 'opacity-50 cursor-not-allowed' : 'text-red-600 hover:text-red-700 hover:bg-red-50'}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Personalised Modules Section */}
+        {filterStatus === 'personalised' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <User className="w-5 h-5 text-purple-600" />
+                Personalised Module Assignments
+              </h2>
+              <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300">
+                {personalisedModules.length} Assignment{personalisedModules.length !== 1 ? 's' : ''}
+              </Badge>
+            </div>
+
+            {personalisedModules.length === 0 ? (
+              <Card className="p-8 text-center">
+                <User className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p className="text-gray-500">No personalised modules assigned yet</p>
+                <p className="text-sm text-gray-400 mt-1">Use the "Personalised Module" button to assign modules to specific users</p>
               </Card>
-            );
-          })}
-        </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {personalisedModules.map((pm) => (
+                  <Card key={pm._id} className="overflow-hidden border-l-4 border-l-purple-500 bg-gradient-to-br from-purple-50/50 to-white dark:from-purple-900/20 dark:to-gray-800">
+                    <div className="aspect-video bg-gray-200 relative">
+                      {pm.ytVideoId && (
+                        <img
+                          src={`https://img.youtube.com/vi/${pm.ytVideoId}/maxresdefault.jpg`}
+                          alt={pm.moduleTitle}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${pm.ytVideoId}/hqdefault.jpg`;
+                          }}
+                        />
+                      )}
+                      <div className="absolute top-2 left-2">
+                        <Badge className="bg-purple-600 text-white">
+                          <User className="w-3 h-3 mr-1" />
+                          Personalised
+                        </Badge>
+                      </div>
+                      <div className="absolute top-2 right-2">
+                        <Badge className={`${pm.priority === 'urgent' ? 'bg-red-500' :
+                          pm.priority === 'high' ? 'bg-orange-500' :
+                            pm.priority === 'medium' ? 'bg-yellow-500' :
+                              'bg-green-500'
+                          } text-white`}>
+                          {pm.priority}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      <div>
+                        <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-1">
+                          {pm.moduleTitle}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                          {pm.moduleDescription || 'No description'}
+                        </p>
+                      </div>
+
+                      {/* Assigned To Section */}
+                      <div className="bg-purple-100/50 dark:bg-purple-900/30 rounded-lg p-2">
+                        <p className="text-xs text-purple-700 dark:text-purple-300 font-medium">Assigned To:</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
+                            <User className="w-3 h-3 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">{pm.assignedTo.name}</p>
+                            <p className="text-xs text-gray-500">{pm.assignedTo.email}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Reason */}
+                      {pm.reason && (
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          <span className="font-medium">Reason:</span> {pm.reason}
+                        </div>
+                      )}
+
+                      {/* Meta Info */}
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>Assigned: {new Date(pm.assignedAt).toLocaleDateString()}</span>
+                        <Badge variant="outline" className={`${pm.status === 'completed' ? 'bg-green-100 text-green-700 border-green-300' :
+                          pm.status === 'in_progress' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                            'bg-yellow-100 text-yellow-700 border-yellow-300'
+                          }`}>
+                          {pm.status?.replace('_', ' ') || 'assigned'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Create Module Modal */}
         {

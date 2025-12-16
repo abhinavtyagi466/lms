@@ -99,9 +99,9 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
             <X className="w-5 h-5 text-gray-500" />
           </button>
 
-          {/* Icon Section */}
-          <div className={`${iconConfig.bgColor} px-6 py-8 flex flex-col items-center border-b ${iconConfig.borderColor}`}>
-            <div className={`p-4 rounded-full ${iconConfig.bgColor} border-2 ${iconConfig.borderColor} mb-4`}>
+          {/* Icon Section - Reduced padding to remove blank space */}
+          <div className={`${iconConfig.bgColor} px-6 pt-4 pb-4 flex flex-col items-center border-b ${iconConfig.borderColor}`}>
+            <div className={`p-3 rounded-full ${iconConfig.bgColor} border-2 ${iconConfig.borderColor} mb-2`}>
               {iconConfig.icon}
             </div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white text-center">
