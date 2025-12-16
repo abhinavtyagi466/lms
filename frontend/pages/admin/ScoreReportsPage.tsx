@@ -108,7 +108,11 @@ export const ScoreReportsPage: React.FC = () => {
             completedModules: score.completedModules || 0,
             averageScore: Math.round(score.averageScore || 0),
             lastActivity: score.lastActivity,
-            userStatus: score.userStatus || 'active'
+            userStatus: score.userStatus || 'active',
+            // New fields for detailed quiz breakdown
+            quizScores: score.quizScores || [],
+            attemptedQuizzes: score.attemptedQuizzes || 0,
+            passedQuizzes: score.passedQuizzes || 0
           }));
 
         setUserScores(transformedData);
@@ -399,7 +403,9 @@ export const ScoreReportsPage: React.FC = () => {
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
                         Modules <span className="text-xs font-normal text-gray-500">(Attempted / Total)</span>
                       </th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Avg Score</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                        Quiz Score <span className="text-xs font-normal text-gray-500">(Attempted / Total)</span>
+                      </th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Last Activity</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Status</th>
                     </tr>
@@ -432,10 +438,35 @@ export const ScoreReportsPage: React.FC = () => {
                           </div>
                         </td>
                         <td className="py-4 px-4">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-gray-900 dark:text-white">
-                              {Math.round(score.averageScore || 0)}%
-                            </span>
+                          <div className="flex flex-col">
+                            {/* Ratio: Attempted / Total Quizzes */}
+                            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mb-1">
+                              <span className="font-medium text-gray-700 dark:text-gray-300">
+                                {score.attemptedQuizzes || 0}
+                              </span>
+                              <span>/</span>
+                              <span>{totalPublishedModules}</span>
+                              <span className="ml-1">quizzes</span>
+                            </div>
+
+                            {/* Average Score */}
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-lg text-gray-900 dark:text-white">
+                                {Math.round(score.averageScore || 0)}%
+                              </span>
+                            </div>
+
+                            {/* Individual scores breakdown if multiple quizzes */}
+                            {score.quizScores && score.quizScores.length > 1 && (
+                              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                <span className="font-medium">Scores: </span>
+                                {score.quizScores.map((s: number, idx: number) => (
+                                  <span key={idx}>
+                                    {Math.round(s)}%{idx < score.quizScores.length - 1 ? ', ' : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </td>
                         {/* Completion bar hidden as requested */}

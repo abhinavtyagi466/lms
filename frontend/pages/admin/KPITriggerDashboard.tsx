@@ -511,7 +511,7 @@ export const KPITriggerDashboard: React.FC = () => {
                     <div key={trigger._id} className="p-3 border rounded-lg">
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="font-medium">{trigger.userId.name}</p>
+                          <p className="font-medium">{trigger.userId?.name || 'Unknown User'}</p>
                           <p className="text-sm text-gray-600">{trigger.trainingType}</p>
                           <p className="text-xs text-gray-500">{trigger.reason}</p>
                         </div>
@@ -541,7 +541,7 @@ export const KPITriggerDashboard: React.FC = () => {
                     <div key={trigger._id} className="p-3 border rounded-lg">
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="font-medium">{trigger.userId.name}</p>
+                          <p className="font-medium">{trigger.userId?.name || 'Unknown User'}</p>
                           <p className="text-sm text-gray-600">{trigger.auditType}</p>
                           <p className="text-xs text-gray-500">{trigger.reason}</p>
                         </div>
@@ -665,7 +665,7 @@ export const KPITriggerDashboard: React.FC = () => {
                       <div className="mt-4 pt-4 border-t">
                         <h5 className="font-semibold mb-2 text-sm text-gray-700 dark:text-gray-300">Actions to be Triggered:</h5>
                         <div className="flex flex-wrap gap-2">
-                          {result.triggers.map((trigger: any, idx: number) => (
+                          {result.triggers && result.triggers.length > 0 ? result.triggers.map((trigger: any, idx: number) => (
                             <Badge
                               key={idx}
                               className={getTriggerTypeColor(trigger.type) + ' px-3 py-1'}
@@ -674,46 +674,47 @@ export const KPITriggerDashboard: React.FC = () => {
                               {trigger.action}
                               {trigger.warning && ' + Warning Letter'}
                             </Badge>
-                          ))}
-                          {result.triggers.length === 0 && (
+                          )) : (
                             <span className="text-sm text-gray-500 italic">No triggers (Excellent performance!)</span>
                           )}
                         </div>
                       </div>
 
                       {/* Raw Data Summary */}
-                      <div className="mt-4 pt-4 border-t">
-                        <h5 className="font-semibold mb-2 text-sm text-gray-700 dark:text-gray-300">Performance Metrics:</h5>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                          <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
-                            <div className="text-gray-600 dark:text-gray-400">TAT</div>
-                            <div className="font-semibold">{result.rawData.tatPercentage}%</div>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
-                            <div className="text-gray-600 dark:text-gray-400">Major Neg</div>
-                            <div className="font-semibold">{result.rawData.majorNegPercentage}%</div>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
-                            <div className="text-gray-600 dark:text-gray-400">General Neg</div>
-                            <div className="font-semibold">{result.rawData.generalNegPercentage}%</div>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
-                            <div className="text-gray-600 dark:text-gray-400">Quality</div>
-                            <div className="font-semibold">{result.rawData.qualityPercentage}%</div>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
-                            <div className="text-gray-600 dark:text-gray-400">Online</div>
-                            <div className="font-semibold">{result.rawData.onlinePercentage}%</div>
-                          </div>
-                          <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
-                            <div className="text-gray-600 dark:text-gray-400">Insufficiency</div>
-                            <div className="font-semibold">{result.rawData.insuffPercentage}%</div>
+                      {result.rawData && (
+                        <div className="mt-4 pt-4 border-t">
+                          <h5 className="font-semibold mb-2 text-sm text-gray-700 dark:text-gray-300">Performance Metrics:</h5>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                            <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                              <div className="text-gray-600 dark:text-gray-400">TAT</div>
+                              <div className="font-semibold">{result.rawData.tatPercentage || 0}%</div>
+                            </div>
+                            <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                              <div className="text-gray-600 dark:text-gray-400">Major Neg</div>
+                              <div className="font-semibold">{result.rawData.majorNegPercentage || 0}%</div>
+                            </div>
+                            <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                              <div className="text-gray-600 dark:text-gray-400">General Neg</div>
+                              <div className="font-semibold">{result.rawData.generalNegPercentage || 0}%</div>
+                            </div>
+                            <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                              <div className="text-gray-600 dark:text-gray-400">Quality</div>
+                              <div className="font-semibold">{result.rawData.qualityPercentage || 0}%</div>
+                            </div>
+                            <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                              <div className="text-gray-600 dark:text-gray-400">Online</div>
+                              <div className="font-semibold">{result.rawData.onlinePercentage || 0}%</div>
+                            </div>
+                            <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                              <div className="text-gray-600 dark:text-gray-400">Insufficiency</div>
+                              <div className="font-semibold">{result.rawData.insuffPercentage || 0}%</div>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* Email Notification Info */}
-                      {result.matchedUser && result.triggers.length > 0 && (
+                      {result.matchedUser && result.triggers && result.triggers.length > 0 && (
                         <div className="mt-4 pt-4 border-t">
                           <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border border-green-200 dark:border-green-800 rounded-lg p-3">
                             <div className="flex items-start gap-2">

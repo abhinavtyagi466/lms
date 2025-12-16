@@ -51,6 +51,42 @@ const getUserScoresPipeline = (searchTerm, selectedUser, sortBy, sortOrder) => {
             }
           }
         },
+        // Get individual quiz scores (only completed ones)
+        quizScores: {
+          $map: {
+            input: {
+              $filter: {
+                input: '$quizAttempts',
+                cond: { $eq: ['$$this.status', 'completed'] }
+              }
+            },
+            as: 'attempt',
+            in: '$$attempt.score'
+          }
+        },
+        // Count of attempted quizzes
+        attemptedQuizzes: {
+          $size: {
+            $filter: {
+              input: '$quizAttempts',
+              cond: { $eq: ['$$this.status', 'completed'] }
+            }
+          }
+        },
+        // Count of passed quizzes
+        passedQuizzes: {
+          $size: {
+            $filter: {
+              input: '$quizAttempts',
+              cond: {
+                $and: [
+                  { $eq: ['$$this.status', 'completed'] },
+                  { $eq: ['$$this.passed', true] }
+                ]
+              }
+            }
+          }
+        },
         averageScore: {
           $cond: {
             if: { $gt: [{ $size: '$quizAttempts' }, 0] },

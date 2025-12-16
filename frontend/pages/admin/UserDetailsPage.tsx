@@ -297,7 +297,12 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
       // For duplicates, prefer the one with higher progress or personalized version
       const uniqueModulesMap = new Map();
       mappedModules.forEach((module: any) => {
-        const key = (module._id || module.moduleId)?.toString();
+        // Create a composite key that includes the personalized status
+        // This ensures we keep both the regular version and the personalized version of the same module
+        const baseId = (module._id || module.moduleId)?.toString();
+        if (!baseId) return;
+
+        const key = `${baseId}_${!!module.isPersonalised}`;
         if (!key) return;
 
         const existing = uniqueModulesMap.get(key);
@@ -980,7 +985,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {modules.map((module) => {
+                    {modules.filter((m: any) => !m.isPersonalised).map((module) => {
                       // Use the progress calculated by the backend (prioritizes UserProgress)
                       // module.progress is 0-1, convert to 0-100
                       const progressPercentage = Math.round((module.progress || 0) * 100);
@@ -1141,6 +1146,71 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                         </div>
                       </Card>
                     ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'personalised' && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <TrendingUp className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-lg font-semibold">Personalised Training Modules</h3>
+                </div>
+
+                {modules.filter((m: any) => m.isPersonalised).length === 0 ? (
+                  <div className="text-center py-8">
+                    <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">No personalised modules assigned</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {modules.filter((m: any) => m.isPersonalised).map((module) => {
+                      const progressPercentage = Math.round((module.progress || 0) * 100);
+                      return (
+                        <Card key={module._id} className="p-4 border-l-4 border-l-purple-500">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                              <Play className="w-5 h-5 text-purple-600" />
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                              <h4 className="font-semibold text-sm truncate" title={module.title}>{module.title}</h4>
+                              <div className="flex items-center gap-2 text-xs text-gray-600">
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 border-purple-200 text-purple-700 bg-purple-50">
+                                  {module.personalisedPriority || 'Personalised'}
+                                </Badge>
+                                <span className="truncate">{formatDate(module.personalisedAt || module.createdAt)}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div className="bg-gray-50 p-2 rounded text-xs text-gray-600">
+                              <span className="font-medium">Reason: </span>
+                              {module.personalisedReason || 'Special assignment'}
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span>Progress</span>
+                                <span className="font-medium">{progressPercentage}%</span>
+                              </div>
+                              <Progress value={progressPercentage} className="h-2" />
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t text-xs text-gray-500">
+                              {module.quizPassed ? (
+                                <Badge className="bg-green-100 text-green-800 text-[10px]">
+                                  <CheckCircle className="w-3 h-3 mr-1" /> Quiz Passed
+                                </Badge>
+                              ) : (
+                                <span>{module.quizAvailable ? 'Quiz Available' : 'Watch video to unlock quiz'}</span>
+                              )}
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
                   </div>
                 )}
               </div>

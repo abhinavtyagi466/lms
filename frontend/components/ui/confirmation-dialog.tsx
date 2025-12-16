@@ -88,7 +88,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
       {/* Dialog - TRULY CENTERED */}
       <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
         <div
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+          className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Close Button */}
