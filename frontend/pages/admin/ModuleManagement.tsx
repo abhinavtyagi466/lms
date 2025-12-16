@@ -23,6 +23,7 @@ import { AdminModuleForm } from '../../components/AdminModuleForm';
 import { apiService } from '../../services/apiService';
 import { toast } from 'sonner';
 import { ModalPortal } from '../../components/common/ModalPortal';
+import { ConfirmationDialog } from '../../components/ui/confirmation-dialog';
 
 interface Module {
   _id: string;
@@ -114,7 +115,11 @@ export const ModuleManagement: React.FC = () => {
     explanation: string;
     marks: number;
   } | null>(null);
+
   const [isUpdatingQuestion, setIsUpdatingQuestion] = useState(false);
+
+  // Delete Confirmation State
+  const [deleteModuleId, setDeleteModuleId] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -226,12 +231,14 @@ export const ModuleManagement: React.FC = () => {
       return;
     }
 
-    if (!confirm('Are you sure you want to delete this module? This action cannot be undone.')) {
-      return;
-    }
+    setDeleteModuleId(moduleId);
+  };
+
+  const executeDeleteModule = async () => {
+    if (!deleteModuleId) return;
 
     try {
-      const response = await apiService.modules.deleteModule(moduleId);
+      const response = await apiService.modules.deleteModule(deleteModuleId);
       if (response && ((response as any).success || (response as any).data?.success)) {
         toast.success('Module deleted successfully');
         fetchModules();
@@ -239,6 +246,8 @@ export const ModuleManagement: React.FC = () => {
     } catch (error) {
       console.error('Error deleting module:', error);
       toast.error('Failed to delete module');
+    } finally {
+      setDeleteModuleId(null);
     }
   };
 
@@ -798,6 +807,7 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
         {/* Modules Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredModules.map((module) => {
+
             const moduleQuiz = getModuleQuiz(module._id);
             console.log(`Module ${module._id} (${module.title}) - Quiz found:`, moduleQuiz);
             console.log('Module ID type:', typeof module._id, 'Value:', module._id);
@@ -1052,53 +1062,301 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
         </div>
 
         {/* Create Module Modal */}
-        {showCreateModal && (
-          <ModalPortal>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 dark:border-gray-700">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold">Create New YouTube Module</h2>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowCreateModal(false)}
-                  >
-                    ✕
-                  </Button>
-                </div>
+        {
+          showCreateModal && (
+            <ModalPortal>
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-semibold">Create New YouTube Module</h2>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowCreateModal(false)}
+                    >
+                      ✕
+                    </Button>
+                  </div>
 
-                <AdminModuleForm
-                  onModuleCreated={() => {
-                    setShowCreateModal(false);
-                    fetchModules();
-                  }}
-                />
+                  <AdminModuleForm
+                    onModuleCreated={() => {
+                      setShowCreateModal(false);
+                      fetchModules();
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          </ModalPortal>
-        )}
+            </ModalPortal>
+          )
+        }
 
         {/* Create/Edit Quiz Modal */}
-        {showQuizModal && (
-          <ModalPortal>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 dark:border-gray-700">
-                <h2 className="text-xl font-semibold mb-4">
-                  {createQuizData.moduleId && getModuleQuiz(createQuizData.moduleId) ? 'Edit Quiz' : 'Create New Quiz'} for Module: {modules.find(m => m._id === createQuizData.moduleId)?.title || 'Unknown'}
-                </h2>
+        {
+          showQuizModal && (
+            <ModalPortal>
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 dark:border-gray-700">
+                  <h2 className="text-xl font-semibold mb-4">
+                    {createQuizData.moduleId && getModuleQuiz(createQuizData.moduleId) ? 'Edit Quiz' : 'Create New Quiz'} for Module: {modules.find(m => m._id === createQuizData.moduleId)?.title || 'Unknown'}
+                  </h2>
 
-                <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="moduleId">Module *</Label>
+                        <Select
+                          value={createQuizData.moduleId}
+                          onValueChange={(value) => setCreateQuizData(prev => ({ ...prev, moduleId: value }))}
+                          disabled={true}
+                        >
+                          <SelectTrigger className="bg-gray-100 text-gray-500 cursor-not-allowed opacity-75">
+                            <SelectValue placeholder="Select a module" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {modules.map(module => (
+                              <SelectItem key={module._id} value={module._id}>
+                                {module.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="passPercent">Pass Percentage (%)</Label>
+                        <Input
+                          id="passPercent"
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={createQuizData.passPercent}
+                          onChange={(e) => setCreateQuizData(prev => ({ ...prev, passPercent: parseInt(e.target.value) || 70 }))}
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="estimatedTime">Estimated Time (minutes)</Label>
+                        <Input
+                          id="estimatedTime"
+                          type="number"
+                          min="1"
+                          max="120"
+                          value={createQuizData.estimatedTime}
+                          onChange={(e) => setCreateQuizData(prev => ({ ...prev, estimatedTime: parseInt(e.target.value) || 10 }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-4">
+                      <h3 className="font-semibold mb-3">Add Questions</h3>
+
+                      <div className="space-y-4 p-4 border rounded-lg">
+                        <div>
+                          <Label htmlFor="questionPrompt">Question *</Label>
+                          <Input
+                            id="questionPrompt"
+                            value={currentQuestion.question}
+                            onChange={(e) => setCurrentQuestion(prev => ({ ...prev, question: e.target.value }))}
+                            placeholder="Enter your question"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label>Options (min 2, max 10)</Label>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={addQuestionOption}
+                              disabled={currentQuestion.options.length >= 10}
+                              className="text-xs h-6 px-2"
+                            >
+                              <Plus className="w-3 h-3 mr-1" />
+                              Add Option
+                            </Button>
+                          </div>
+                          {currentQuestion.options.map((option, index) => (
+                            <div key={index} className="flex gap-2 items-center">
+                              <span className="w-6 text-sm text-gray-500">{index + 1}.</span>
+                              <Input
+                                value={option}
+                                onChange={(e) => {
+                                  const newOptions = [...currentQuestion.options];
+                                  newOptions[index] = e.target.value;
+                                  setCurrentQuestion(prev => ({ ...prev, options: newOptions }));
+                                }}
+                                placeholder={`Option ${index + 1}`}
+                                className="flex-1"
+                              />
+                              <input
+                                type="radio"
+                                name="correctAnswer"
+                                checked={currentQuestion.correctOption === index}
+                                onChange={() => setCurrentQuestion(prev => ({ ...prev, correctOption: index }))}
+                                title="Mark as correct answer"
+                                className="w-4 h-4"
+                              />
+                              {currentQuestion.options.length > 2 && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => removeQuestionOption(index)}
+                                  className="text-red-500 hover:text-red-700 p-1 h-6 w-6"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          <p className="text-xs text-gray-500">Select the radio button to mark correct answer</p>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="explanation">Explanation (Optional)</Label>
+                          <Input
+                            id="explanation"
+                            value={currentQuestion.explanation}
+                            onChange={(e) => setCurrentQuestion(prev => ({ ...prev, explanation: e.target.value }))}
+                            placeholder="Explanation for the correct answer"
+                          />
+                        </div>
+
+                        <Button
+                          onClick={addQuestion}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                          disabled={!currentQuestion.question.trim() || currentQuestion.options.filter(opt => opt.trim()).length < 2}
+                        >
+                          Add Question
+                        </Button>
+                      </div>
+                    </div>
+
+                    {createQuizData.questions.length > 0 && (
+                      <div className="border-t pt-4">
+                        <h3 className="font-semibold mb-3">Added Questions ({createQuizData.questions.length})</h3>
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {createQuizData.questions.map((question, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                              <div className="flex-1">
+                                <div className="text-sm font-medium">
+                                  {index + 1}. {question.question}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  Options: {question.options.join(', ')} | Correct: {question.options[question.correctOption]}
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                {/* NEW: Edit Button (ADDED WITHOUT TOUCHING EXISTING) */}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleEditQuestion(question, index)}
+                                  className="text-blue-600 hover:text-blue-700"
+                                >
+                                  <Edit className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDeleteQuestion(index)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quiz Summary */}
+                    <div className="border-t pt-4">
+                      <div className="bg-blue-50 p-3 rounded-lg">
+                        <h4 className="font-medium text-blue-900 mb-2">Quiz Summary</h4>
+                        <div className="grid grid-cols-2 gap-4 text-sm text-blue-800">
+                          <div>
+                            <span className="font-medium">Module:</span> {modules.find(m => m._id === createQuizData.moduleId)?.title || 'Not selected'}
+                          </div>
+                          <div>
+                            <span className="font-medium">Questions:</span> {createQuizData.questions.length}
+                          </div>
+                          <div>
+                            <span className="font-medium">Pass Percentage:</span> {createQuizData.passPercent}%
+                          </div>
+                          <div>
+                            <span className="font-medium">Estimated Time:</span> {createQuizData.estimatedTime} minutes
+                          </div>
+                          <div>
+                            <span className="font-medium">Status:</span> {createQuizData.questions.length > 0 ? 'Ready to create' : 'Add questions first'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 mt-6">
+                    <Button
+                      onClick={handleCreateQuiz}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={createQuizData.questions.length === 0 || !createQuizData.moduleId || isCreatingQuiz}
+                    >
+                      {isCreatingQuiz ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          {createQuizData.moduleId && getModuleQuiz(createQuizData.moduleId) ? 'Updating...' : 'Creating...'}
+                        </>
+                      ) : (
+                        createQuizData.moduleId && getModuleQuiz(createQuizData.moduleId) ? 'Update Quiz' : 'Create Quiz'
+                      )}
+                    </Button>
+
+
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowQuizModal(false);
+                        setCreateQuizData({
+                          moduleId: '',
+                          passPercent: 70,
+                          estimatedTime: 10,
+                          questions: []
+                        });
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </ModalPortal>
+          )
+        }
+
+        {/* CSV Upload Modal */}
+        {
+          showCSVModal && (
+            <ModalPortal>
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-700">
+                  <h2 className="text-xl font-semibold mb-4">
+                    Upload Questions via CSV for Module: {modules.find(m => m._id === selectedModuleId)?.title || 'Unknown'}
+                  </h2>
+
+                  <div className="space-y-4">
                     <div>
-                      <Label htmlFor="moduleId">Module *</Label>
+                      <Label htmlFor="csvModuleId">Module</Label>
                       <Select
-                        value={createQuizData.moduleId}
-                        onValueChange={(value) => setCreateQuizData(prev => ({ ...prev, moduleId: value }))}
+                        value={selectedModuleId}
+                        onValueChange={setSelectedModuleId}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select a module" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="z-[200]">
                           {modules.map(module => (
                             <SelectItem key={module._id} value={module._id}>
                               {module.title}
@@ -1109,256 +1367,14 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                     </div>
 
                     <div>
-                      <Label htmlFor="passPercent">Pass Percentage (%)</Label>
-                      <Input
-                        id="passPercent"
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={createQuizData.passPercent}
-                        onChange={(e) => setCreateQuizData(prev => ({ ...prev, passPercent: parseInt(e.target.value) || 70 }))}
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="estimatedTime">Estimated Time (minutes)</Label>
-                      <Input
-                        id="estimatedTime"
-                        type="number"
-                        min="1"
-                        max="120"
-                        value={createQuizData.estimatedTime}
-                        onChange={(e) => setCreateQuizData(prev => ({ ...prev, estimatedTime: parseInt(e.target.value) || 10 }))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <h3 className="font-semibold mb-3">Add Questions</h3>
-
-                    <div className="space-y-4 p-4 border rounded-lg">
-                      <div>
-                        <Label htmlFor="questionPrompt">Question *</Label>
-                        <Input
-                          id="questionPrompt"
-                          value={currentQuestion.question}
-                          onChange={(e) => setCurrentQuestion(prev => ({ ...prev, question: e.target.value }))}
-                          placeholder="Enter your question"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label>Options (min 2, max 10)</Label>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={addQuestionOption}
-                            disabled={currentQuestion.options.length >= 10}
-                            className="text-xs h-6 px-2"
-                          >
-                            <Plus className="w-3 h-3 mr-1" />
-                            Add Option
-                          </Button>
-                        </div>
-                        {currentQuestion.options.map((option, index) => (
-                          <div key={index} className="flex gap-2 items-center">
-                            <span className="w-6 text-sm text-gray-500">{index + 1}.</span>
-                            <Input
-                              value={option}
-                              onChange={(e) => {
-                                const newOptions = [...currentQuestion.options];
-                                newOptions[index] = e.target.value;
-                                setCurrentQuestion(prev => ({ ...prev, options: newOptions }));
-                              }}
-                              placeholder={`Option ${index + 1}`}
-                              className="flex-1"
-                            />
-                            <input
-                              type="radio"
-                              name="correctAnswer"
-                              checked={currentQuestion.correctOption === index}
-                              onChange={() => setCurrentQuestion(prev => ({ ...prev, correctOption: index }))}
-                              title="Mark as correct answer"
-                              className="w-4 h-4"
-                            />
-                            {currentQuestion.options.length > 2 && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => removeQuestionOption(index)}
-                                className="text-red-500 hover:text-red-700 p-1 h-6 w-6"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            )}
-                          </div>
-                        ))}
-                        <p className="text-xs text-gray-500">Select the radio button to mark correct answer</p>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="explanation">Explanation (Optional)</Label>
-                        <Input
-                          id="explanation"
-                          value={currentQuestion.explanation}
-                          onChange={(e) => setCurrentQuestion(prev => ({ ...prev, explanation: e.target.value }))}
-                          placeholder="Explanation for the correct answer"
-                        />
-                      </div>
-
-                      <Button
-                        onClick={addQuestion}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                        disabled={!currentQuestion.question.trim() || currentQuestion.options.filter(opt => opt.trim()).length < 2}
-                      >
-                        Add Question
-                      </Button>
-                    </div>
-                  </div>
-
-                  {createQuizData.questions.length > 0 && (
-                    <div className="border-t pt-4">
-                      <h3 className="font-semibold mb-3">Added Questions ({createQuizData.questions.length})</h3>
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
-                        {createQuizData.questions.map((question, index) => (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                            <div className="flex-1">
-                              <div className="text-sm font-medium">
-                                {index + 1}. {question.question}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                Options: {question.options.join(', ')} | Correct: {question.options[question.correctOption]}
-                              </div>
-                            </div>
-                            <div className="flex gap-1">
-                              {/* NEW: Edit Button (ADDED WITHOUT TOUCHING EXISTING) */}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleEditQuestion(question, index)}
-                                className="text-blue-600 hover:text-blue-700"
-                              >
-                                <Edit className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDeleteQuestion(index)}
-                                className="text-red-600 hover:text-red-700"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Quiz Summary */}
-                  <div className="border-t pt-4">
-                    <div className="bg-blue-50 p-3 rounded-lg">
-                      <h4 className="font-medium text-blue-900 mb-2">Quiz Summary</h4>
-                      <div className="grid grid-cols-2 gap-4 text-sm text-blue-800">
-                        <div>
-                          <span className="font-medium">Module:</span> {modules.find(m => m._id === createQuizData.moduleId)?.title || 'Not selected'}
-                        </div>
-                        <div>
-                          <span className="font-medium">Questions:</span> {createQuizData.questions.length}
-                        </div>
-                        <div>
-                          <span className="font-medium">Pass Percentage:</span> {createQuizData.passPercent}%
-                        </div>
-                        <div>
-                          <span className="font-medium">Estimated Time:</span> {createQuizData.estimatedTime} minutes
-                        </div>
-                        <div>
-                          <span className="font-medium">Status:</span> {createQuizData.questions.length > 0 ? 'Ready to create' : 'Add questions first'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                  <Button
-                    onClick={handleCreateQuiz}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                    disabled={createQuizData.questions.length === 0 || !createQuizData.moduleId || isCreatingQuiz}
-                  >
-                    {isCreatingQuiz ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        {createQuizData.moduleId && getModuleQuiz(createQuizData.moduleId) ? 'Updating...' : 'Creating...'}
-                      </>
-                    ) : (
-                      createQuizData.moduleId && getModuleQuiz(createQuizData.moduleId) ? 'Update Quiz' : 'Create Quiz'
-                    )}
-                  </Button>
-
-
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowQuizModal(false);
-                      setCreateQuizData({
-                        moduleId: '',
-                        passPercent: 70,
-                        estimatedTime: 10,
-                        questions: []
-                      });
-                    }}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </ModalPortal>
-        )}
-
-        {/* CSV Upload Modal */}
-        {showCSVModal && (
-          <ModalPortal>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-700">
-                <h2 className="text-xl font-semibold mb-4">
-                  Upload Questions via CSV for Module: {modules.find(m => m._id === selectedModuleId)?.title || 'Unknown'}
-                </h2>
-
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="csvModuleId">Module</Label>
-                    <Select
-                      value={selectedModuleId}
-                      onValueChange={setSelectedModuleId}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a module" />
-                      </SelectTrigger>
-                      <SelectContent className="z-[200]">
-                        {modules.map(module => (
-                          <SelectItem key={module._id} value={module._id}>
-                            {module.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="csvFile">Upload CSV File</Label>
-                    <div className="mt-2">
-                      <input
-                        type="file"
-                        id="csvFile"
-                        accept=".csv,text/csv"
-                        onChange={handleFileChange}
-                        className="block w-full text-sm text-gray-900
+                      <Label htmlFor="csvFile">Upload CSV File</Label>
+                      <div className="mt-2">
+                        <input
+                          type="file"
+                          id="csvFile"
+                          accept=".csv,text/csv"
+                          onChange={handleFileChange}
+                          className="block w-full text-sm text-gray-900
                       file:mr-4 file:py-2 file:px-4
                       file:rounded-md file:border-0
                       file:text-sm file:font-semibold
@@ -1366,387 +1382,403 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
                       hover:file:bg-gray-900
                       file:cursor-pointer
                       border border-gray-300 rounded-md p-2"
-                      />
+                        />
+                      </div>
+                      {csvFile && (
+                        <p className="mt-2 text-sm text-gray-600">
+                          Selected file: <span className="font-medium">{csvFile.name}</span>
+                        </p>
+                      )}
                     </div>
-                    {csvFile && (
-                      <p className="mt-2 text-sm text-gray-600">
-                        Selected file: <span className="font-medium">{csvFile.name}</span>
-                      </p>
-                    )}
+
+                    <div className="text-xs text-gray-600">
+                      <p><strong>CSV Format:</strong></p>
+                      <p>question,optionA,optionB,optionC,optionD,correctOption,explanation</p>
+                      <p>First row should be headers. correctOption: 0=A, 1=B, 2=C, 3=D</p>
+                    </div>
                   </div>
 
-                  <div className="text-xs text-gray-600">
-                    <p><strong>CSV Format:</strong></p>
-                    <p>question,optionA,optionB,optionC,optionD,correctOption,explanation</p>
-                    <p>First row should be headers. correctOption: 0=A, 1=B, 2=C, 3=D</p>
+                  <div className="flex gap-3 mt-6">
+                    <Button
+                      onClick={handleUploadCSV}
+                      className="flex-1 bg-black hover:bg-gray-800 text-white"
+                      disabled={isUploadingCSV || !selectedModuleId || !csvData.trim()}
+                    >
+                      {isUploadingCSV ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Upload CSV
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowCSVModal(false);
+                        setCsvData('');
+                        setCsvFile(null);
+                        setSelectedModuleId('');
+                        // Reset file input
+                        const fileInput = document.getElementById('csvFile') as HTMLInputElement;
+                        if (fileInput) fileInput.value = '';
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
                   </div>
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                  <Button
-                    onClick={handleUploadCSV}
-                    className="flex-1 bg-black hover:bg-gray-800 text-white"
-                    disabled={isUploadingCSV || !selectedModuleId || !csvData.trim()}
-                  >
-                    {isUploadingCSV ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload CSV
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowCSVModal(false);
-                      setCsvData('');
-                      setCsvFile(null);
-                      setSelectedModuleId('');
-                      // Reset file input
-                      const fileInput = document.getElementById('csvFile') as HTMLInputElement;
-                      if (fileInput) fileInput.value = '';
-                    }}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
                 </div>
               </div>
-            </div>
-          </ModalPortal>
-        )}
+            </ModalPortal>
+          )
+        }
 
         {/* Personalised Module Modal */}
-        {showPersonalisedModal && (
-          <ModalPortal>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-700">
-                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                  <Plus className="w-5 h-5 text-purple-600" />
-                  Assign Personalised Module
-                </h2>
+        {
+          showPersonalisedModal && (
+            <ModalPortal>
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-700">
+                  <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-purple-600" />
+                    Assign Personalised Module
+                  </h2>
 
-                <div className="space-y-4">
+                  <div className="space-y-4">
 
 
-                  <div>
-                    <Label htmlFor="personalisedUser">Search User</Label>
-                    <div className="relative">
-                      <Input
-                        id="personalisedUser"
-                        type="text"
-                        placeholder="Type to search by name, employee ID, or email..."
-                        value={personalisedModuleData.userSearch || ''}
-                        onChange={(e) => {
-                          const searchValue = e.target.value;
-                          setPersonalisedModuleData(prev => ({
-                            ...prev,
-                            userSearch: searchValue,
-                            userId: '' // Clear selection when searching
-                          }));
-                        }}
-                        className="pr-10"
-                      />
-                      <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <div>
+                      <Label htmlFor="personalisedUser">Search User</Label>
+                      <div className="relative">
+                        <Input
+                          id="personalisedUser"
+                          type="text"
+                          placeholder="Type to search by name, employee ID, or email..."
+                          value={personalisedModuleData.userSearch || ''}
+                          onChange={(e) => {
+                            const searchValue = e.target.value;
+                            setPersonalisedModuleData(prev => ({
+                              ...prev,
+                              userSearch: searchValue,
+                              userId: '' // Clear selection when searching
+                            }));
+                          }}
+                          className="pr-10"
+                        />
+                        <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      </div>
+
+                      {/* Filtered Users List */}
+                      {personalisedModuleData.userSearch && personalisedModuleData.userSearch.length > 0 && (
+                        <div className="mt-2 max-h-60 overflow-y-auto border rounded-lg bg-white dark:bg-gray-900">
+                          {isLoadingUsers ? (
+                            <div className="p-3 text-sm text-gray-500 text-center">
+                              Loading users...
+                            </div>
+                          ) : (() => {
+                            const searchTerm = personalisedModuleData.userSearch.toLowerCase();
+                            const filteredUsers = users.filter(user =>
+                              user.name?.toLowerCase().includes(searchTerm) ||
+                              user.employeeId?.toLowerCase().includes(searchTerm) ||
+                              user.email?.toLowerCase().includes(searchTerm)
+                            );
+
+                            return filteredUsers.length === 0 ? (
+                              <div className="p-3 text-sm text-gray-500 text-center">
+                                No users found matching "{personalisedModuleData.userSearch}"
+                              </div>
+                            ) : (
+                              filteredUsers.map((user) => (
+                                <div
+                                  key={user._id}
+                                  onClick={() => {
+                                    setPersonalisedModuleData(prev => ({
+                                      ...prev,
+                                      userId: user._id,
+                                      userSearch: '' // Clear search to hide dropdown
+                                    }));
+                                  }}
+                                  className={`p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 border-b last:border-b-0 transition-colors ${personalisedModuleData.userId === user._id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                                    }`}
+                                >
+                                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                    {user.name || 'Unknown'}
+                                  </div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    {user.employeeId || 'No ID'} - {user.email || 'No email'}
+                                  </div>
+                                </div>
+                              ))
+                            );
+                          })()}
+                        </div>
+                      )}
+
+                      {/* Selected User Display */}
+                      {personalisedModuleData.userId && (
+                        <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                                Selected: {users.find(u => u._id === personalisedModuleData.userId)?.name || 'Unknown'}
+                              </div>
+                              <div className="text-xs text-blue-700 dark:text-blue-300">
+                                {users.find(u => u._id === personalisedModuleData.userId)?.employeeId || 'No ID'} - {users.find(u => u._id === personalisedModuleData.userId)?.email || 'No email'}
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setPersonalisedModuleData(prev => ({
+                                  ...prev,
+                                  userId: '',
+                                  userSearch: ''
+                                }));
+                              }}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                            >
+                              ✕
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Filtered Users List */}
-                    {personalisedModuleData.userSearch && personalisedModuleData.userSearch.length > 0 && (
-                      <div className="mt-2 max-h-60 overflow-y-auto border rounded-lg bg-white dark:bg-gray-900">
-                        {isLoadingUsers ? (
-                          <div className="p-3 text-sm text-gray-500 text-center">
-                            Loading users...
-                          </div>
-                        ) : (() => {
-                          const searchTerm = personalisedModuleData.userSearch.toLowerCase();
-                          const filteredUsers = users.filter(user =>
-                            user.name?.toLowerCase().includes(searchTerm) ||
-                            user.employeeId?.toLowerCase().includes(searchTerm) ||
-                            user.email?.toLowerCase().includes(searchTerm)
-                          );
+                    <div>
+                      <Label htmlFor="personalisedModule">Select Module</Label>
+                      <Select
+                        value={personalisedModuleData.moduleId}
+                        onValueChange={(value) => setPersonalisedModuleData(prev => ({ ...prev, moduleId: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a module..." />
+                        </SelectTrigger>
+                        <SelectContent className="z-[200]">
+                          {modules.filter(m => m.status === 'published').map((module) => (
+                            <SelectItem key={module._id} value={module._id}>
+                              {module.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                          return filteredUsers.length === 0 ? (
-                            <div className="p-3 text-sm text-gray-500 text-center">
-                              No users found matching "{personalisedModuleData.userSearch}"
-                            </div>
-                          ) : (
-                            filteredUsers.map((user) => (
-                              <div
-                                key={user._id}
-                                onClick={() => {
-                                  setPersonalisedModuleData(prev => ({
-                                    ...prev,
-                                    userId: user._id,
-                                    userSearch: '' // Clear search to hide dropdown
-                                  }));
-                                }}
-                                className={`p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 border-b last:border-b-0 transition-colors ${personalisedModuleData.userId === user._id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                                  }`}
-                              >
-                                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {user.name || 'Unknown'}
-                                </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {user.employeeId || 'No ID'} - {user.email || 'No email'}
-                                </div>
-                              </div>
-                            ))
-                          );
-                        })()}
-                      </div>
-                    )}
+                    <div>
+                      <Label htmlFor="personalisedPriority">Priority</Label>
+                      <Select
+                        value={personalisedModuleData.priority}
+                        onValueChange={(value: 'low' | 'medium' | 'high' | 'urgent') =>
+                          setPersonalisedModuleData(prev => ({ ...prev, priority: value }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select priority..." />
+                        </SelectTrigger>
+                        <SelectContent className="z-[200]">
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="urgent">Urgent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                    {/* Selected User Display */}
-                    {personalisedModuleData.userId && (
-                      <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                              Selected: {users.find(u => u._id === personalisedModuleData.userId)?.name || 'Unknown'}
-                            </div>
-                            <div className="text-xs text-blue-700 dark:text-blue-300">
-                              {users.find(u => u._id === personalisedModuleData.userId)?.employeeId || 'No ID'} - {users.find(u => u._id === personalisedModuleData.userId)?.email || 'No email'}
-                            </div>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setPersonalisedModuleData(prev => ({
-                                ...prev,
-                                userId: '',
-                                userSearch: ''
-                              }));
-                            }}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
-                          >
-                            ✕
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                    <div>
+                      <Label htmlFor="personalisedReason">Reason for Personalisation</Label>
+                      <Input
+                        id="personalisedReason"
+                        placeholder="e.g., Performance improvement, Special training requirement..."
+                        value={personalisedModuleData.reason}
+                        onChange={(e) => setPersonalisedModuleData(prev => ({ ...prev, reason: e.target.value }))}
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="personalisedModule">Select Module</Label>
-                    <Select
-                      value={personalisedModuleData.moduleId}
-                      onValueChange={(value) => setPersonalisedModuleData(prev => ({ ...prev, moduleId: value }))}
+                  <div className="flex gap-3 mt-6">
+                    <Button
+                      onClick={handleCreatePersonalisedModule}
+                      disabled={isCreatingPersonalised}
+                      className="bg-purple-600 hover:bg-purple-700 flex-1"
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a module..." />
-                      </SelectTrigger>
-                      <SelectContent className="z-[200]">
-                        {modules.filter(m => m.status === 'published').map((module) => (
-                          <SelectItem key={module._id} value={module._id}>
-                            {module.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="personalisedPriority">Priority</Label>
-                    <Select
-                      value={personalisedModuleData.priority}
-                      onValueChange={(value: 'low' | 'medium' | 'high' | 'urgent') =>
-                        setPersonalisedModuleData(prev => ({ ...prev, priority: value }))
-                      }
+                      {isCreatingPersonalised ? 'Assigning...' : 'Assign Personalised Module'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowPersonalisedModal(false);
+                        setPersonalisedModuleData({
+                          userId: '',
+                          moduleId: '',
+                          reason: '',
+                          priority: 'medium',
+                          userSearch: ''
+                        });
+                      }}
+                      className="flex-1"
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select priority..." />
-                      </SelectTrigger>
-                      <SelectContent className="z-[200]">
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      Cancel
+                    </Button>
                   </div>
-
-                  <div>
-                    <Label htmlFor="personalisedReason">Reason for Personalisation</Label>
-                    <Input
-                      id="personalisedReason"
-                      placeholder="e.g., Performance improvement, Special training requirement..."
-                      value={personalisedModuleData.reason}
-                      onChange={(e) => setPersonalisedModuleData(prev => ({ ...prev, reason: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                  <Button
-                    onClick={handleCreatePersonalisedModule}
-                    disabled={isCreatingPersonalised}
-                    className="bg-purple-600 hover:bg-purple-700 flex-1"
-                  >
-                    {isCreatingPersonalised ? 'Assigning...' : 'Assign Personalised Module'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowPersonalisedModal(false);
-                      setPersonalisedModuleData({
-                        userId: '',
-                        moduleId: '',
-                        reason: '',
-                        priority: 'medium',
-                        userSearch: ''
-                      });
-                    }}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
                 </div>
               </div>
-            </div>
-          </ModalPortal>
-        )}
+            </ModalPortal>
+          )
+        }
 
         {/* NEW: Edit Question Modal (ADDED WITHOUT TOUCHING EXISTING) */}
-        {showEditQuestionModal && editingQuestion && (
-          <ModalPortal>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 dark:border-gray-700">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-                  Edit Question
-                </h3>
+        {
+          showEditQuestionModal && editingQuestion && (
+            <ModalPortal>
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 dark:border-gray-700">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+                    Edit Question
+                  </h3>
 
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="editQuestion">Question</Label>
-                    <Input
-                      id="editQuestion"
-                      placeholder="Enter your question..."
-                      value={editingQuestion.question}
-                      onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, question: e.target.value } : null)}
-                    />
-                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="editQuestion">Question</Label>
+                      <Input
+                        id="editQuestion"
+                        placeholder="Enter your question..."
+                        value={editingQuestion.question}
+                        onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, question: e.target.value } : null)}
+                      />
+                    </div>
 
-                  <div>
-                    <Label>Options</Label>
-                    <div className="space-y-2">
-                      {editingQuestion.options.map((option, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <Input
-                            placeholder={`Option ${index + 1}`}
-                            value={option}
-                            onChange={(e) => {
-                              const newOptions = [...editingQuestion.options];
-                              newOptions[index] = e.target.value;
-                              setEditingQuestion(prev => prev ? { ...prev, options: newOptions } : null);
-                            }}
-                          />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const newOptions = editingQuestion.options.filter((_, i) => i !== index);
-                              setEditingQuestion(prev => prev ? { ...prev, options: newOptions } : null);
-                            }}
-                            disabled={editingQuestion.options.length <= 2}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      ))}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingQuestion(prev => prev ? {
-                            ...prev,
-                            options: [...prev.options, '']
-                          } : null);
-                        }}
-                        disabled={editingQuestion.options.length >= 6}
+                    <div>
+                      <Label>Options</Label>
+                      <div className="space-y-2">
+                        {editingQuestion.options.map((option, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <Input
+                              placeholder={`Option ${index + 1}`}
+                              value={option}
+                              onChange={(e) => {
+                                const newOptions = [...editingQuestion.options];
+                                newOptions[index] = e.target.value;
+                                setEditingQuestion(prev => prev ? { ...prev, options: newOptions } : null);
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const newOptions = editingQuestion.options.filter((_, i) => i !== index);
+                                setEditingQuestion(prev => prev ? { ...prev, options: newOptions } : null);
+                              }}
+                              disabled={editingQuestion.options.length <= 2}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingQuestion(prev => prev ? {
+                              ...prev,
+                              options: [...prev.options, '']
+                            } : null);
+                          }}
+                          disabled={editingQuestion.options.length >= 6}
+                        >
+                          Add Option
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="editCorrectOption">Correct Option</Label>
+                      <Select
+                        value={editingQuestion.correctOption.toString()}
+                        onValueChange={(value) => setEditingQuestion(prev => prev ? {
+                          ...prev,
+                          correctOption: parseInt(value)
+                        } : null)}
                       >
-                        Add Option
-                      </Button>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select correct option..." />
+                        </SelectTrigger>
+                        <SelectContent className="z-[200]">
+                          {editingQuestion.options.map((option, index) => (
+                            <SelectItem key={index} value={index.toString()}>
+                              Option {index + 1}: {option || 'Empty'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="editExplanation">Explanation (Optional)</Label>
+                      <Input
+                        id="editExplanation"
+                        placeholder="Explain why this is the correct answer..."
+                        value={editingQuestion.explanation}
+                        onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, explanation: e.target.value } : null)}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="editMarks">Marks</Label>
+                      <Input
+                        id="editMarks"
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={editingQuestion.marks}
+                        onChange={(e) => setEditingQuestion(prev => prev ? {
+                          ...prev,
+                          marks: parseInt(e.target.value) || 1
+                        } : null)}
+                      />
                     </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="editCorrectOption">Correct Option</Label>
-                    <Select
-                      value={editingQuestion.correctOption.toString()}
-                      onValueChange={(value) => setEditingQuestion(prev => prev ? {
-                        ...prev,
-                        correctOption: parseInt(value)
-                      } : null)}
+                  <div className="flex gap-3 mt-6">
+                    <Button
+                      onClick={handleUpdateQuestion}
+                      disabled={isUpdatingQuestion}
+                      className="bg-blue-600 hover:bg-blue-700 flex-1"
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select correct option..." />
-                      </SelectTrigger>
-                      <SelectContent className="z-[200]">
-                        {editingQuestion.options.map((option, index) => (
-                          <SelectItem key={index} value={index.toString()}>
-                            Option {index + 1}: {option || 'Empty'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      {isUpdatingQuestion ? 'Updating...' : 'Update Question'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowEditQuestionModal(false);
+                        setEditingQuestion(null);
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
                   </div>
-
-                  <div>
-                    <Label htmlFor="editExplanation">Explanation (Optional)</Label>
-                    <Input
-                      id="editExplanation"
-                      placeholder="Explain why this is the correct answer..."
-                      value={editingQuestion.explanation}
-                      onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, explanation: e.target.value } : null)}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="editMarks">Marks</Label>
-                    <Input
-                      id="editMarks"
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={editingQuestion.marks}
-                      onChange={(e) => setEditingQuestion(prev => prev ? {
-                        ...prev,
-                        marks: parseInt(e.target.value) || 1
-                      } : null)}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                  <Button
-                    onClick={handleUpdateQuestion}
-                    disabled={isUpdatingQuestion}
-                    className="bg-blue-600 hover:bg-blue-700 flex-1"
-                  >
-                    {isUpdatingQuestion ? 'Updating...' : 'Update Question'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowEditQuestionModal(false);
-                      setEditingQuestion(null);
-                    }}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
                 </div>
               </div>
-            </div>
-          </ModalPortal>
-        )}
+            </ModalPortal>
+          )
+        }
+
+        <ConfirmationDialog
+          isOpen={!!deleteModuleId}
+          onClose={() => setDeleteModuleId(null)}
+          onConfirm={executeDeleteModule}
+          title="Delete Module"
+          description="Are you sure you want to delete this module? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          type="danger"
+        />
       </div>
-    </div >
+    </div>
   );
 };

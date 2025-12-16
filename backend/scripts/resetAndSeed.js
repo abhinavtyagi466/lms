@@ -306,41 +306,41 @@ async function resetAndSeed() {
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/edutech-pro');
     console.log('✅ Connected to MongoDB\n');
 
-    // ==================== FLUSH COLLECTIONS (Module & Quiz PRESERVED) ====================
-    console.log('🗑️  Flushing database (Module & Quiz preserved)...');
+    // ==================== FLUSH COLLECTIONS (EVERYTHING) ====================
+    console.log('🗑️  Flushing database (Everything)...');
 
-    // Only flush collections that exist
-    try {
-      const userResult = await User.deleteMany({});
-      console.log(`   ✓ Cleared ${userResult.deletedCount} Users`);
-    } catch (e) { console.log('   ⚠ Users collection not found'); }
+    // Import all other models dynamically or explicitly
+    const models = [
+      'AuditNotice', 'AuditRecord', 'AuditSchedule', 'Award', 'EmailLog',
+      'KPIScore', 'LifecycleEvent', 'Module', 'Notification', 'Progress',
+      'Question', 'Quiz', 'QuizAttempt', 'QuizResult', 'RecipientGroup',
+      'TrainingAssignment', 'UnmatchedKPI', 'UserActivity', 'UserModule',
+      'UserProgress', 'UserSession', 'Warning'
+    ];
 
+    // Explicitly delete User and EmailTemplate first
     try {
-      const emailResult = await EmailTemplate.deleteMany({});
-      console.log(`   ✓ Cleared ${emailResult.deletedCount} Email Templates`);
-    } catch (e) { console.log('   ⚠ EmailTemplate collection not found'); }
-
-    try {
-      const progressResult = await UserProgress.deleteMany({});
-      console.log(`   ✓ Cleared ${progressResult.deletedCount} User Progress`);
-    } catch (e) { console.log('   ⚠ UserProgress collection not found'); }
-
-    try {
-      const kpiResult = await KPIScore.deleteMany({});
-      console.log(`   ✓ Cleared ${kpiResult.deletedCount} KPI Scores`);
-    } catch (e) { console.log('   ⚠ KPIScore collection not found'); }
+      await User.deleteMany({});
+      console.log('   ✓ Cleared Users');
+    } catch (e) { }
 
     try {
-      const notifResult = await Notification.deleteMany({});
-      console.log(`   ✓ Cleared ${notifResult.deletedCount} Notifications`);
-    } catch (e) { console.log('   ⚠ Notification collection not found'); }
+      await EmailTemplate.deleteMany({});
+      console.log('   ✓ Cleared EmailTemplates');
+    } catch (e) { }
 
-    try {
-      const emailLogResult = await EmailLog.deleteMany({});
-      console.log(`   ✓ Cleared ${emailLogResult.deletedCount} Email Logs`);
-    } catch (e) { console.log('   ⚠ EmailLog collection not found'); }
+    // Delete everything else
+    for (const modelName of models) {
+      try {
+        const Model = require(`../models/${modelName}`);
+        await Model.deleteMany({});
+        console.log(`   ✓ Cleared ${modelName}s`);
+      } catch (e) {
+        // console.log(`   Model ${modelName} issue: ${e.message}`);
+      }
+    }
 
-    console.log('\n✅ Database flushed successfully! (Module & Quiz preserved)\n');
+    console.log('\n✅ Database flushed successfully!\n');
 
     // ==================== SEED ADMIN USER ====================
     console.log('👤 Creating Admin User...');

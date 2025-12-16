@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card } from './ui/card';
-import { Badge } from './ui/badge';
+
 import { Plus, Youtube, AlertCircle, CheckCircle } from 'lucide-react';
 import { apiService } from '../services/apiService';
 import { toast } from 'sonner';
@@ -26,18 +26,18 @@ export const AdminModuleForm: React.FC<AdminModuleFormProps> = ({ onModuleCreate
   // Extract YouTube video ID from various URL formats
   const extractVideoId = (url: string): string | null => {
     if (!url) return null;
-    
+
     // Handle different YouTube URL formats
     const patterns = [
       /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
       /^([a-zA-Z0-9_-]{11})$/
     ];
-    
+
     for (const pattern of patterns) {
       const match = url.match(pattern);
       if (match) return match[1];
     }
-    
+
     return null;
   };
 
@@ -56,7 +56,7 @@ export const AdminModuleForm: React.FC<AdminModuleFormProps> = ({ onModuleCreate
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.title || !formData.youtubeLink) {
       toast.error('Title and YouTube link are required');
       return;
@@ -69,7 +69,7 @@ export const AdminModuleForm: React.FC<AdminModuleFormProps> = ({ onModuleCreate
 
     try {
       setLoading(true);
-      
+
       const moduleData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
@@ -80,9 +80,9 @@ export const AdminModuleForm: React.FC<AdminModuleFormProps> = ({ onModuleCreate
 
       const response = await apiService.modules.createModule(moduleData);
 
-      if (response && (response.success || response.data?.success)) {
+      if (response && ((response as any).success || response.data?.success)) {
         toast.success('Module created successfully!');
-        
+
         // Reset form
         setFormData({
           title: '',
@@ -92,7 +92,7 @@ export const AdminModuleForm: React.FC<AdminModuleFormProps> = ({ onModuleCreate
           status: 'draft'
         });
         setExtractedVideoId(null);
-        
+
         // Notify parent component
         if (onModuleCreated) {
           onModuleCreated();
@@ -158,7 +158,7 @@ export const AdminModuleForm: React.FC<AdminModuleFormProps> = ({ onModuleCreate
               Browse
             </Button>
           </div>
-          
+
           {/* Video ID validation */}
           {formData.youtubeLink && (
             <div className="mt-2">

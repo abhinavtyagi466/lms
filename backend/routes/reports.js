@@ -19,7 +19,7 @@ const router = express.Router();
 const getUserScoresPipeline = (searchTerm, selectedUser, sortBy, sortOrder) => {
   const pipeline = [
     // Start with only active users (case-insensitive)
-    { $match: { userType: 'user', status: { $regex: /^active$/i } } },
+    { $match: { userType: 'user', isActive: true } },
     {
       $lookup: {
         from: 'quizattempts',
@@ -484,10 +484,24 @@ router.get('/admin/user-progress', authenticateToken, requireAdminPanel, async (
       .lean()
       .exec();
 
-    // Filter out any documents with null references
-    const validProgress = userProgress.filter(progress =>
-      progress.userId && progress.moduleId
-    );
+    // Filter out any documents with null references and cap progress at 100
+    const validProgress = userProgress
+      .filter(progress => progress.userId && progress.moduleId)
+      .map(progress => {
+        let videoProgress = Math.min(Math.round(progress.videoProgress || 0), 100);
+        let status = progress.status;
+
+        // Fix inconsistent status/progress for display
+        if (status === 'not_started' && videoProgress > 0) {
+          status = 'in_progress';
+        }
+
+        return {
+          ...progress,
+          videoProgress,
+          status
+        };
+      });
 
     res.json({
       success: true,

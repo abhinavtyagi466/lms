@@ -311,17 +311,7 @@ interface SessionData {
 }
 
 // NEW: Module Score Interface (ADDED WITHOUT TOUCHING EXISTING)
-interface ModuleScore {
-  moduleId: string;
-  moduleTitle: string;
-  score: number;
-  attempts: number;
-  bestScore: number;
-  lastAttempt: string;
-  passed: boolean;
-  timeSpent: number;
-  completionDate?: string;
-}
+
 
 export const UserDashboard: React.FC = () => {
   const { user } = useAuth();

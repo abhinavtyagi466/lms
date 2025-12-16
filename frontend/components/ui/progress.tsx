@@ -18,7 +18,7 @@ function Progress({
   showLabel?: boolean;
 }) {
   const progressValue = value || 0;
-  
+
   const variantClasses = {
     default: "bg-blue-500",
     success: "bg-green-500",
@@ -63,7 +63,7 @@ function Progress({
             "h-full w-full flex-1 transition-all duration-500 ease-out rounded-full shadow-sm",
             variantClasses[variant]
           )}
-          style={{ transform: `translateX(-${100 - progressValue}%)` }}
+          style={{ transform: `translateX(-${100 - Math.min(progressValue, 100)}%)` }}
         />
       </ProgressPrimitive.Root>
     </div>

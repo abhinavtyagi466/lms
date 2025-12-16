@@ -99,10 +99,10 @@ interface Warning {
 export const NotificationsPage: React.FC = () => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [awards, setAwards] = useState<Award[]>([]);
+
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [warnings, setWarnings] = useState<Warning[]>([]);
-  const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'notifications' | 'awards' | 'certificates' | 'warnings' | 'training'>('all');
 
@@ -112,9 +112,7 @@ export const NotificationsPage: React.FC = () => {
     }
   }, [user]);
 
-  useEffect(() => {
-    applyFilter();
-  }, [activeTab, notifications]);
+
 
   const fetchAllData = async () => {
     if (!user || !(user as any)?._id) return;
@@ -124,7 +122,7 @@ export const NotificationsPage: React.FC = () => {
       const userId = (user as any)._id;
       const [notifRes, awardsRes, certsRes, warningsRes]: any[] = await Promise.all([
         apiService.notifications.getAll(false).catch(() => ({ data: [] })),
-        apiService.awards.getUserAwards(userId).catch(() => ({ awards: [] })),
+
         apiService.users.getUserCertificates(userId).catch(() => ({ certificates: [] })),
         apiService.users.getUserWarnings(userId).catch(() => ({ warnings: [] }))
       ]);
@@ -132,8 +130,7 @@ export const NotificationsPage: React.FC = () => {
       const notificationsData = notifRes?.data || notifRes || [];
       setNotifications(Array.isArray(notificationsData) ? notificationsData : []);
 
-      const awardsData = awardsRes?.awards || awardsRes?.data || awardsRes || [];
-      setAwards(Array.isArray(awardsData) ? awardsData : []);
+
 
       const certsData = certsRes?.certificates || certsRes?.data || certsRes || [];
       setCertificates(Array.isArray(certsData) ? certsData : []);
@@ -144,7 +141,7 @@ export const NotificationsPage: React.FC = () => {
 
       console.log('📋 Loaded data:', {
         notifications: notificationsData.length,
-        awards: awardsData.length,
+
         certificates: certsData.length,
         warnings: warningsData.length
       });
@@ -156,25 +153,7 @@ export const NotificationsPage: React.FC = () => {
     }
   };
 
-  const applyFilter = () => {
-    let filtered = [...notifications];
 
-    switch (activeTab) {
-      case 'warnings':
-        filtered = filtered.filter(n => n.type === 'warning' || n.type === 'error');
-        break;
-      case 'training':
-        filtered = filtered.filter(n => n.type === 'training');
-        break;
-      case 'notifications':
-        filtered = filtered.filter(n => !['certificate', 'warning', 'training'].includes(n.type));
-        break;
-      default:
-        break;
-    }
-
-    setFilteredNotifications(filtered);
-  };
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
@@ -200,18 +179,7 @@ export const NotificationsPage: React.FC = () => {
     }
   };
 
-  const handleAcknowledge = async (notificationId: string) => {
-    try {
-      await apiService.notifications.acknowledge(notificationId);
-      setNotifications(prev =>
-        prev.map(n => n._id === notificationId ? { ...n, acknowledged: true, read: true } : n)
-      );
-      toast.success('Notification acknowledged');
-    } catch (error) {
-      console.error('Error acknowledging:', error);
-      toast.error('Failed to acknowledge');
-    }
-  };
+
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -282,7 +250,7 @@ export const NotificationsPage: React.FC = () => {
 
   const unreadCount = notifications.filter(n => !n.read).length;
   const warningCount = warnings.length; // Use dedicated warnings array
-  const trainingCount = notifications.filter(n => n.type === 'training').length;
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">

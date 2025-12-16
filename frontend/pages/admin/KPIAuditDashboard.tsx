@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 import { useAuth } from '../../contexts/AuthContext';
+import { ModalPortal } from '../../components/common/ModalPortal';
 
 interface UserKPIData {
   userId: string;
@@ -864,189 +865,193 @@ const KPIAuditDashboard: React.FC = () => {
 
       {/* User Details Modal */}
       {showDetailsModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  User KPI Details
-                </h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowDetailsModal(false)}
-                >
-                  ✕
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                {/* User Info */}
-                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                  <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Employee Information</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-gray-600 dark:text-gray-400">Name:</span>
-                      <span className="ml-2 font-medium text-gray-900 dark:text-white">{selectedUser.name}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600 dark:text-gray-400">Employee ID:</span>
-                      <span className="ml-2 font-medium text-gray-900 dark:text-white">{selectedUser.employeeId}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600 dark:text-gray-400">Email:</span>
-                      <span className="ml-2 font-medium text-gray-900 dark:text-white">{selectedUser.email}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600 dark:text-gray-400">Department:</span>
-                      <span className="ml-2 font-medium text-gray-900 dark:text-white">{selectedUser.department}</span>
-                    </div>
-                  </div>
+        <ModalPortal>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 dark:border-gray-700">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    User KPI Details
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowDetailsModal(false)}
+                  >
+                    ✕
+                  </Button>
                 </div>
 
-                {/* KPI Score */}
-                <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg">
-                  <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">KPI Performance</h3>
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                        {selectedUser.kpiScore.toFixed(2)}%
-                      </p>
-                      <Badge className={getRatingColor(selectedUser.rating)}>
-                        {selectedUser.rating}
-                      </Badge>
-                    </div>
-                    <div className="text-sm text-gray-700 dark:text-gray-300">
-                      <p>Period: {selectedUser.period}</p>
+                <div className="space-y-4">
+                  {/* User Info */}
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Employee Information</h3>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Name:</span>
+                        <span className="ml-2 font-medium text-gray-900 dark:text-white">{selectedUser.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Employee ID:</span>
+                        <span className="ml-2 font-medium text-gray-900 dark:text-white">{selectedUser.employeeId}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Email:</span>
+                        <span className="ml-2 font-medium text-gray-900 dark:text-white">{selectedUser.email}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Department:</span>
+                        <span className="ml-2 font-medium text-gray-900 dark:text-white">{selectedUser.department}</span>
+                      </div>
                     </div>
                   </div>
+
+                  {/* KPI Score */}
+                  <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg">
+                    <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">KPI Performance</h3>
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                          {selectedUser.kpiScore.toFixed(2)}%
+                        </p>
+                        <Badge className={getRatingColor(selectedUser.rating)}>
+                          {selectedUser.rating}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-gray-700 dark:text-gray-300">
+                        <p>Period: {selectedUser.period}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Metrics */}
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Performance Metrics</h3>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">TAT:</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.tat}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Major Negativity:</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.majorNegativity}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Quality:</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.quality}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Neighbor Check:</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.neighborCheck}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">App Usage:</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.appUsage}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Insufficiency:</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.insufficiency}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Requirements */}
+                  <div className="bg-yellow-50 dark:bg-yellow-900 p-4 rounded-lg">
+                    <h5 className="font-semibold mb-2 text-sm text-gray-700 dark:text-gray-300">Actions to be Taken:</h5>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="text-gray-700 dark:text-gray-300 font-medium">Training:</span>
+                        <span className="ml-2 text-gray-900 dark:text-white">{selectedUser.trainingRequirement}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-700 dark:text-gray-300 font-medium">Audit:</span>
+                        <span className="ml-2 text-gray-900 dark:text-white">{selectedUser.auditRequirement}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pending Actions */}
+                  {(selectedUser.pendingAudits.length > 0 || selectedUser.pendingTraining.length > 0) && (
+                    <div className="bg-orange-50 dark:bg-orange-900 p-4 rounded-lg">
+                      <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Pending Actions</h3>
+                      {selectedUser.pendingAudits.length > 0 && (
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                          Audits: {selectedUser.pendingAudits.length} scheduled
+                        </p>
+                      )}
+                      {selectedUser.pendingTraining.length > 0 && (
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                          Training: {selectedUser.pendingTraining.length} assigned
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* Metrics */}
-                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                  <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Performance Metrics</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">TAT:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.tat}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Major Negativity:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.majorNegativity}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Quality:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.quality}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Neighbor Check:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.neighborCheck}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">App Usage:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.appUsage}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Insufficiency:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">{selectedUser.metrics.insufficiency}%</span>
-                    </div>
-                  </div>
+                <div className="mt-6 flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowDetailsModal(false)}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      setTimeout(() => openEmailModal(selectedUser), 0);
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Mail className="w-4 h-4 mr-2" />
+                    Send Email
+                  </Button>
                 </div>
-
-                {/* Requirements */}
-                <div className="bg-yellow-50 dark:bg-yellow-900 p-4 rounded-lg">
-                  <h5 className="font-semibold mb-2 text-sm text-gray-700 dark:text-gray-300">Actions to be Taken:</h5>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-gray-700 dark:text-gray-300 font-medium">Training:</span>
-                      <span className="ml-2 text-gray-900 dark:text-white">{selectedUser.trainingRequirement}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-700 dark:text-gray-300 font-medium">Audit:</span>
-                      <span className="ml-2 text-gray-900 dark:text-white">{selectedUser.auditRequirement}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Pending Actions */}
-                {(selectedUser.pendingAudits.length > 0 || selectedUser.pendingTraining.length > 0) && (
-                  <div className="bg-orange-50 dark:bg-orange-900 p-4 rounded-lg">
-                    <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Pending Actions</h3>
-                    {selectedUser.pendingAudits.length > 0 && (
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        Audits: {selectedUser.pendingAudits.length} scheduled
-                      </p>
-                    )}
-                    {selectedUser.pendingTraining.length > 0 && (
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        Training: {selectedUser.pendingTraining.length} assigned
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-6 flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowDetailsModal(false)}
-                >
-                  Close
-                </Button>
-                <Button
-                  onClick={() => {
-                    setShowDetailsModal(false);
-                    setTimeout(() => openEmailModal(selectedUser), 0);
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Mail className="w-4 h-4 mr-2" />
-                  Send Email
-                </Button>
               </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
       {showEmailModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="p-6 space-y-4">
-              <div className="flex justify-between items-start">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Send Email</h2>
-                <Button variant="ghost" size="sm" onClick={() => setShowEmailModal(false)}>✕</Button>
-              </div>
+        <ModalPortal>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-700">
+              <div className="p-6 space-y-4">
+                <div className="flex justify-between items-start">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Send Email</h2>
+                  <Button variant="ghost" size="sm" onClick={() => setShowEmailModal(false)}>✕</Button>
+                </div>
 
-              <div className="text-sm text-gray-700 dark:text-gray-300">
-                <div className="mb-2"><span className="font-medium">To:</span> {selectedUser.name} ({selectedUser.email})</div>
-                <div className="mb-2"><span className="font-medium">Employee ID:</span> {selectedUser.employeeId}</div>
-                <div className="mb-2"><span className="font-medium">Period:</span> {selectedUser.period}</div>
-              </div>
+                <div className="text-sm text-gray-700 dark:text-gray-300">
+                  <div className="mb-2"><span className="font-medium">To:</span> {selectedUser.name} ({selectedUser.email})</div>
+                  <div className="mb-2"><span className="font-medium">Employee ID:</span> {selectedUser.employeeId}</div>
+                  <div className="mb-2"><span className="font-medium">Period:</span> {selectedUser.period}</div>
+                </div>
 
-              <div>
-                <label className="text-sm text-gray-600">Template</label>
-                <select
-                  className="w-full mt-1 border rounded px-3 py-2 bg-white dark:bg-gray-900"
-                  value={emailTemplate}
-                  onChange={(e) => setEmailTemplate(e.target.value as any)}
-                >
-                  <option value="kpiScore">KPI Score</option>
-                  <option value="trainingAssignment">Training Assignment</option>
-                  <option value="auditNotification">Audit Notification</option>
-                  <option value="warning">Warning Letter</option>
-                </select>
-              </div>
+                <div>
+                  <label className="text-sm text-gray-600">Template</label>
+                  <select
+                    className="w-full mt-1 border rounded px-3 py-2 bg-white dark:bg-gray-900"
+                    value={emailTemplate}
+                    onChange={(e) => setEmailTemplate(e.target.value as any)}
+                  >
+                    <option value="kpiScore">KPI Score</option>
+                    <option value="trainingAssignment">Training Assignment</option>
+                    <option value="auditNotification">Audit Notification</option>
+                    <option value="warning">Warning Letter</option>
+                  </select>
+                </div>
 
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowEmailModal(false)}>Cancel</Button>
-                <Button onClick={confirmSendEmail} disabled={emailSending} className="bg-blue-600 hover:bg-blue-700 text-white">
-                  {emailSending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  Send
-                </Button>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowEmailModal(false)}>Cancel</Button>
+                  <Button onClick={confirmSendEmail} disabled={emailSending} className="bg-blue-600 hover:bg-blue-700 text-white">
+                    {emailSending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    Send
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );

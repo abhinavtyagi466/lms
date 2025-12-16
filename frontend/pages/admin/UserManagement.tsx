@@ -2230,8 +2230,9 @@ export const UserManagement: React.FC = () => {
                         <Select
                           value={editUserData.userType}
                           onValueChange={(value) => setEditUserData(prev => ({ ...prev, userType: value }))}
+                          disabled={true}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="bg-gray-100 text-gray-500 cursor-not-allowed opacity-75">
                             <SelectValue placeholder="Select user type" />
                           </SelectTrigger>
                           <SelectContent>
@@ -2243,11 +2244,7 @@ export const UserManagement: React.FC = () => {
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {editUserData.userType === 'user' && 'User will login to user panel only'}
-                          {editUserData.userType === 'manager' && 'Manager will login to admin panel'}
-                          {editUserData.userType === 'hod' && 'HOD will login to admin panel'}
-                          {editUserData.userType === 'hr' && 'HR will login to admin panel'}
-                          {editUserData.userType === 'admin' && 'Admin will have full access to admin panel'}
+                          Member role cannot be changed after creation.
                         </p>
                       </div>
 

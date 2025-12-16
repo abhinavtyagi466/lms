@@ -21,7 +21,9 @@ export const ScoreReportsPage: React.FC = () => {
   // State for users and their scores
   const [users, setUsers] = useState<any[]>([]);
   const [userScores, setUserScores] = useState<any[]>([]);
+
   const [loadingScores, setLoadingScores] = useState(false);
+  const [totalPublishedModules, setTotalPublishedModules] = useState(0);
 
   // Filter and search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,7 +42,34 @@ export const ScoreReportsPage: React.FC = () => {
   useEffect(() => {
     fetchUsers();
     fetchUserScores();
+    fetchModules();
   }, []);
+
+  const fetchModules = async () => {
+    try {
+      const response = await apiService.modules.getAllModules();
+      console.log('Modules response for report:', response);
+
+      let modulesList = [];
+      if (response && Array.isArray(response)) {
+        modulesList = response;
+      } else if (response && (response as any).data && Array.isArray((response as any).data)) {
+        modulesList = (response as any).data;
+      } else if (response && (response as any).modules && Array.isArray((response as any).modules)) {
+        modulesList = (response as any).modules;
+      }
+
+      // Count modules that are published (case-insensitive)
+      const publishedCount = modulesList.filter((m: any) =>
+        m.status && m.status.toLowerCase() === 'published'
+      ).length;
+
+      console.log('Total published modules found:', publishedCount);
+      setTotalPublishedModules(publishedCount);
+    } catch (error) {
+      console.error('Error fetching modules:', error);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -109,7 +138,9 @@ export const ScoreReportsPage: React.FC = () => {
         const status = score.averageScore >= 85 ? 'Outstanding' : score.averageScore >= 70 ? 'Excellent' : score.averageScore >= 50 ? 'Satisfactory' : 'Needs Improvement';
         const lastActivity = score.lastActivity ? new Date(score.lastActivity).toLocaleDateString() : 'Never';
 
-        return `"${score.userName || 'Unknown'}","${score.userEmail || ''}","${score.employeeId || ''}",${score.totalModules},${score.completedModules},${score.averageScore}%,${completionRate}%,"${lastActivity}","${status}"`;
+        // Use totalPublishedModules for the total count
+        const attempted = score.totalModules || 0;
+        return `"${score.userName || 'Unknown'}","${score.userEmail || ''}","${score.employeeId || ''}","${attempted} / ${totalPublishedModules}",${score.completedModules},${score.averageScore}%,${completionRate}%,"${lastActivity}","${status}"`;
       }).join('\n');
 
       const csvData = csvHeader + csvRows;
@@ -365,7 +396,9 @@ export const ScoreReportsPage: React.FC = () => {
                     <tr>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">User</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Employee ID</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Modules</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                        Modules <span className="text-xs font-normal text-gray-500">(Attempted / Total)</span>
+                      </th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Avg Score</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Last Activity</th>
                       <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Status</th>
@@ -390,11 +423,11 @@ export const ScoreReportsPage: React.FC = () => {
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-gray-900 dark:text-white">
-                              {score.completedModules || 0}
+                              {score.totalModules || 0}
                             </span>
                             <span className="text-gray-500 dark:text-gray-400">/</span>
                             <span className="text-gray-500 dark:text-gray-400">
-                              {score.totalModules || 0}
+                              {totalPublishedModules}
                             </span>
                           </div>
                         </td>

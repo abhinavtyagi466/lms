@@ -314,7 +314,7 @@ export const AdminDashboard: React.FC = () => {
                         <div className="flex items-center space-x-3">
                           <div className="text-right">
                             <p className="text-sm font-medium text-gray-900 dark:text-white">
-                              {Math.round(progress.videoProgress)}%
+                              {Math.min(Math.round(progress.videoProgress || 0), 100)}%
                             </p>
                             <Badge className={getStatusColor(progress.status)}>
                               {progress.status.replace('_', ' ')}
@@ -493,7 +493,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 
