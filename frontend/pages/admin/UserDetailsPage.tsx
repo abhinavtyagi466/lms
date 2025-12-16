@@ -1005,8 +1005,8 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                             </div>
                             <Progress value={progressPercentage} className="h-2" />
                             <div className="flex justify-between text-xs text-gray-500">
-                              {/* Show time only if we have legacy data, otherwise just show percentage */}
-                              <span>{legacyProgress.duration > 0 ? formatTime(legacyProgress.currentTime) : `${progressPercentage}%`}</span>
+                              {/* Show time based progress */}
+                              <span>{legacyProgress.duration > 0 ? formatTime(legacyProgress.currentTime || (module.progress || 0) * legacyProgress.duration) : `${progressPercentage}%`}</span>
                               <span>{legacyProgress.duration > 0 ? formatTime(legacyProgress.duration) : 'Total'}</span>
                             </div>
                           </div>

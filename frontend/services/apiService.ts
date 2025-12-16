@@ -688,8 +688,12 @@ export const apiService = {
       return response;
     },
 
-    getAllUserProgress: async (page: number = 1, limit: number = 100) => {
-      const response = await apiClient.get(`/reports/admin/user-progress?page=${page}&limit=${limit}`);
+    getAllUserProgress: async (page: number = 1, limit: number = 100, moduleId?: string) => {
+      let url = `/reports/admin/user-progress?page=${page}&limit=${limit}`;
+      if (moduleId) {
+        url += `&moduleId=${moduleId}`;
+      }
+      const response = await apiClient.get(url);
       return response;
     },
 

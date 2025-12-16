@@ -117,7 +117,7 @@ export const AdminDashboardEnhanced: React.FC = () => {
     } else {
       setLoading(false);
     }
-  }, [user, userType]);
+  }, [user, userType, selectedModule]);
 
   const fetchDashboardData = async (showLoading = false) => {
     try {
@@ -132,7 +132,7 @@ export const AdminDashboardEnhanced: React.FC = () => {
         progressResponse
       ] = await Promise.allSettled([
         apiService.reports.getAdminStats(),
-        apiService.reports.getAllUserProgress(1, 100) // Only fetch first 100 records for faster load
+        apiService.reports.getAllUserProgress(1, 100, selectedModule) // Pass selectedModule
       ]);
 
       // Handle stats data
@@ -178,9 +178,9 @@ export const AdminDashboardEnhanced: React.FC = () => {
     }
   };
 
+  // Use userProgress directly as backend now handles filtering
   const getFilteredProgress = () => {
-    if (selectedModule === 'all') return userProgress;
-    return userProgress.filter(progress => progress.moduleId._id === selectedModule);
+    return userProgress;
   };
 
   const getProgressStats = () => {

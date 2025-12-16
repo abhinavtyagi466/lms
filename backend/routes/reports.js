@@ -449,74 +449,129 @@ router.get('/admin/stats', authenticateToken, requireAdminPanel, async (req, res
 });
 
 // @route   GET /api/reports/admin/user-progress
-// @desc    Get all user progress for admin dashboard
+// @desc    Get all active users with their progress (Aggregate or Specific Module)
 // @access  Private (Admin only)
 router.get('/admin/user-progress', authenticateToken, requireAdminPanel, async (req, res) => {
   try {
-    const { limit = 100, page = 1 } = req.query; // Add pagination
+    const { limit = 100, page = 1, moduleId } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    const limitNum = Math.min(parseInt(limit), 200); // Max 200 records per request
+    const limitNum = Math.min(parseInt(limit), 200);
 
-    // First check if UserProgress collection exists and has data
-    const progressCount = await UserProgress.countDocuments();
+    // 1. Get All Active Users (non-admin)
+    // We want to show ALL active users, not just those with progress
+    const users = await User.find({ userType: 'user', isActive: true })
+      .select('name email lastLogin _id')
+      .sort({ name: 1 })
+      .limit(limitNum)
+      .skip(skip)
+      .lean();
 
-    if (progressCount === 0) {
+    const totalUsers = await User.countDocuments({ userType: 'user', isActive: true });
+
+    if (users.length === 0) {
       return res.json({
         success: true,
         data: [],
-        pagination: {
-          total: 0,
-          page: 1,
-          limit: limitNum,
-          totalPages: 0
-        },
-        message: 'No user progress data found'
+        pagination: { total: 0, page: 1, limit: limitNum, totalPages: 0 }
       });
     }
 
-    // Use lean() for better performance, add limit and pagination
-    const userProgress = await UserProgress.find()
-      .populate('userId', 'name email')
-      .populate('moduleId', 'title ytVideoId')
-      .sort({ lastAccessedAt: -1 })
-      .limit(limitNum)
-      .skip(skip)
-      .lean()
-      .exec();
+    const userIds = users.map(u => u._id);
+    let resultData = [];
 
-    // Filter out any documents with null references and cap progress at 100
-    const validProgress = userProgress
-      .filter(progress => progress.userId && progress.moduleId)
-      .map(progress => {
-        let videoProgress = Math.min(Math.round(progress.videoProgress || 0), 100);
-        let status = progress.status;
+    // 2. Fetch Module Info
+    let targetModule = null;
+    let totalPublishedModules = 0;
 
-        // Fix inconsistent status/progress for display
-        if (status === 'not_started' && videoProgress > 0) {
-          status = 'in_progress';
+    if (moduleId && moduleId !== 'all') {
+      targetModule = await Module.findById(moduleId).select('title ytVideoId');
+    } else {
+      totalPublishedModules = await Module.countDocuments({ status: 'published' });
+    }
+
+    // 3. Fetch Progress Records
+    let progressQuery = { userId: { $in: userIds } };
+    if (moduleId && moduleId !== 'all') {
+      progressQuery.moduleId = moduleId;
+    }
+    // Optimization: If aggregate, we need all progress. If specific, only specific.
+
+    // FETCH PROGRESS
+    const progressRecords = await UserProgress.find(progressQuery)
+      .populate('moduleId', 'title ytVideoId') // populate for specific details if needed
+      .lean();
+
+    // 4. Map Users to Progress
+    resultData = users.map(user => {
+      const userProgressEntries = progressRecords.filter(p => p.userId.toString() === user._id.toString());
+
+      let finalProgress = 0;
+      let status = 'not_started';
+      let lastAccessed = user.lastLogin; // Default to last login if no specific module access
+      let displayModule = targetModule || { _id: 'all', title: 'Overall Progress' };
+
+      if (moduleId && moduleId !== 'all') {
+        // --- SPECIFIC MODULE CASE ---
+        const entry = userProgressEntries[0]; // Should be unique per module
+        if (entry) {
+          finalProgress = Math.min(entry.videoProgress || 0, 100);
+          status = entry.status;
+          lastAccessed = entry.lastAccessedAt;
+          displayModule = entry.moduleId || targetModule;
+        }
+      } else {
+        // --- AGGREGATE CASE (ALL MODULES) ---
+        // Formula: (Sum of completion of all started modules) / (Total Published Modules)
+        // Note: If user hasn't started a module, it contributes 0 to sum, but count is still TotalPublished.
+
+        if (totalPublishedModules > 0) {
+          let totalScore = 0;
+          userProgressEntries.forEach(p => {
+            // Only count progress for published modules? 
+            // Ideally yes, but let's assume UserProgress is mostly clean or effectively valid.
+            // Cap each module at 100%
+            totalScore += Math.min(p.videoProgress || 0, 100);
+
+            // finding latest access
+            if (new Date(p.lastAccessedAt) > new Date(lastAccessed || 0)) {
+              lastAccessed = p.lastAccessedAt;
+            }
+          });
+
+          // Calculate Average
+          finalProgress = totalScore / totalPublishedModules;
+        } else {
+          finalProgress = 0;
         }
 
-        return {
-          ...progress,
-          videoProgress,
-          status
-        };
-      });
+        // Status Logic for Aggregate
+        if (finalProgress >= 100) status = 'completed';
+        else if (finalProgress > 0) status = 'in_progress';
+      }
+
+      return {
+        _id: user._id, // Use userId as unique key for table row if no process ID
+        userId: user,
+        moduleId: displayModule,
+        videoProgress: finalProgress, // Will be 0-100 (can be float, frontend rounds it)
+        status: status,
+        lastAccessedAt: lastAccessed
+      };
+    });
 
     res.json({
       success: true,
-      data: validProgress,
+      data: resultData,
       pagination: {
-        total: progressCount,
+        total: totalUsers,
         page: parseInt(page),
         limit: limitNum,
-        totalPages: Math.ceil(progressCount / limitNum)
+        totalPages: Math.ceil(totalUsers / limitNum)
       }
     });
 
   } catch (error) {
     console.error('Get user progress error:', error);
-    console.error('Error details:', error.message);
     res.status(500).json({
       error: 'Server Error',
       message: 'Error fetching user progress: ' + error.message
