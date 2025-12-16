@@ -228,24 +228,30 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     setDuration(event.target.getDuration());
     setVolume(event.target.getVolume());
 
-    // Seek to initial time ONLY ONCE (prevents looping when player reloads)
+    // Seek to initial time and PLAY immediately (Continue where left off)
     const startTime = initialTimeRef.current;
     if (startTime > 0 && !hasInitialSeekedRef.current) {
-      console.log(`Seeking to initial time: ${startTime}s (one-time seek)`);
-      hasInitialSeekedRef.current = true; // Mark as seeked to prevent repeated seeks
+      console.log(`Seeking to initial time: ${startTime}s and playing`);
+      hasInitialSeekedRef.current = true; // Mark as seeked
 
-      // Small delay to ensure player is fully ready
+      // Seek and Play
       setTimeout(() => {
-        if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
-          isSeekingRef.current = true;
-          playerRef.current.seekTo(startTime, true);
+        if (playerRef.current) {
+          if (typeof playerRef.current.seekTo === 'function') {
+            playerRef.current.seekTo(startTime, true);
+          }
+          if (typeof playerRef.current.playVideo === 'function') {
+            playerRef.current.playVideo();
+          }
           setCurrentTime(startTime);
           lastMaxTimeRef.current = startTime;
-
-          // Reset seeking flag after seek completes
-          setTimeout(() => {
-            isSeekingRef.current = false;
-          }, 1000);
+        }
+      }, 500);
+    } else {
+      // If no start time, just play from beginning
+      setTimeout(() => {
+        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+          playerRef.current.playVideo();
         }
       }, 500);
     }
@@ -253,8 +259,15 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     // Start progress tracking immediately
     startProgressTracking();
 
+    // REMOVED explicit seek restriction logic to prevent "auto check" issues as requested
+    // The user wants a smoother experience without strict anti-seek interference during playback
+
+    // Start progress tracking immediately
+    // startProgressTracking(); // Duplicate call removed
+
     // Add seek check ONLY in restricted mode to prevent forward skipping
     // Check less frequently and only when not already seeking to prevent loops
+    /* REMOVED RESTRICTION LOGIC AS REQUESTED
     if (restricted && playerRef.current) {
       const seekCheckInterval = setInterval(() => {
         // Skip if we're in the middle of a seek operation or player is buffering
@@ -284,6 +297,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
 
       (playerRef.current as any).seekCheckInterval = seekCheckInterval;
     }
+    */
   }, [restricted, isCompleted, startProgressTracking]); // Added proper dependencies
 
   // Player state change event
@@ -292,23 +306,35 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
 
     switch (state) {
       case window.YT.PlayerState.PLAYING:
+        console.log('Player State: PLAYING');
         setIsPlaying(true);
         startProgressTracking();
         break;
       case window.YT.PlayerState.PAUSED:
+        console.log('Player State: PAUSED');
         setIsPlaying(false);
         stopProgressTracking();
         break;
       case window.YT.PlayerState.ENDED:
+        console.log('Player State: ENDED - Stopping Video explicitly');
         setIsPlaying(false);
         setIsCompleted(true);
-        stopProgressTracking(); // Add this line to stop tracking when video ends
+        stopProgressTracking();
+
+        // Explicitly stop video to prevent looping or related videos
+        if (playerRef.current) {
+          if (typeof playerRef.current.stopVideo === 'function') {
+            playerRef.current.stopVideo();
+          }
+        }
+
         if (onComplete) onComplete();
         break;
       case window.YT.PlayerState.BUFFERING:
-        // Keep current state
+        console.log('Player State: BUFFERING');
         break;
       default:
+        console.log('Player State: ', state);
         break;
     }
   }, [onComplete, startProgressTracking, stopProgressTracking]);

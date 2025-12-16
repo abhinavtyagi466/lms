@@ -31,115 +31,89 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
     switch (type) {
       case 'warning':
         return {
-          icon: <AlertTriangle className="w-10 h-10 text-amber-500" />,
-          bgColor: 'bg-amber-50',
-          borderColor: 'border-amber-200'
+          icon: <AlertTriangle className="w-12 h-12 text-amber-500 mb-4" />,
+          buttonColor: 'bg-amber-500 hover:bg-amber-600'
         };
       case 'success':
         return {
-          icon: <CheckCircle className="w-10 h-10 text-green-500" />,
-          bgColor: 'bg-green-50',
-          borderColor: 'border-green-200'
+          icon: <CheckCircle className="w-12 h-12 text-green-500 mb-4" />,
+          buttonColor: 'bg-green-600 hover:bg-green-700'
         };
       case 'info':
         return {
-          icon: <Info className="w-10 h-10 text-blue-500" />,
-          bgColor: 'bg-blue-50',
-          borderColor: 'border-blue-200'
+          icon: <Info className="w-12 h-12 text-blue-500 mb-4" />,
+          buttonColor: 'bg-blue-600 hover:bg-blue-700'
         };
       case 'danger':
         return {
-          icon: <XCircle className="w-10 h-10 text-red-500" />,
-          bgColor: 'bg-red-50',
-          borderColor: 'border-red-200'
+          icon: <XCircle className="w-12 h-12 text-red-500 mb-4" />,
+          buttonColor: 'bg-red-600 hover:bg-red-700'
         };
       default:
         return {
-          icon: <Shield className="w-10 h-10 text-amber-500" />,
-          bgColor: 'bg-amber-50',
-          borderColor: 'border-amber-200'
+          icon: <Shield className="w-12 h-12 text-blue-500 mb-4" />,
+          buttonColor: 'bg-blue-600 hover:bg-blue-700'
         };
     }
   };
 
-  const getConfirmButtonStyle = () => {
-    switch (type) {
-      case 'danger':
-        return 'bg-red-600 hover:bg-red-700 text-white';
-      case 'success':
-        return 'bg-green-600 hover:bg-green-700 text-white';
-      case 'warning':
-        return 'bg-amber-500 hover:bg-amber-600 text-white';
-      default:
-        return 'bg-blue-600 hover:bg-blue-700 text-white';
-    }
-  };
-
-  const iconConfig = getIconConfig();
+  const config = getIconConfig();
 
   return (
     <>
-      {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999]"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999]"
         onClick={onClose}
       />
-
-      {/* Dialog - TRULY CENTERED */}
-      <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 pointer-events-none">
         <div
-          className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+          className="relative bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-700 pointer-events-auto transform transition-all"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Close Button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10"
+            className="absolute top-4 right-4 p-1 rounded-full text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-5 h-5" />
           </button>
 
-          {/* Icon Section - Reduced padding to remove blank space */}
-          <div className={`${iconConfig.bgColor} px-6 pt-4 pb-4 flex flex-col items-center border-b ${iconConfig.borderColor}`}>
-            <div className={`p-3 rounded-full ${iconConfig.bgColor} border-2 ${iconConfig.borderColor} mb-2`}>
-              {iconConfig.icon}
-            </div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white text-center">
+          <div className="flex flex-col items-center text-center">
+            {/* Icon - directly in the white container */}
+            {config.icon}
+
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
               {title}
             </h2>
-          </div>
 
-          {/* Description */}
-          <div className="px-6 py-6 bg-white dark:bg-gray-800">
-            <p className="text-gray-600 dark:text-gray-300 text-center text-sm leading-relaxed">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">
               {description}
             </p>
-          </div>
 
-          {/* Buttons - BOTH VISIBLE */}
-          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-600 flex gap-4 justify-center">
-            <Button
-              variant="outline"
-              onClick={onClose}
-              disabled={isLoading}
-              className="min-w-[120px] border-2 border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 font-medium"
-            >
-              {cancelText}
-            </Button>
-            <Button
-              onClick={onConfirm}
-              disabled={isLoading}
-              className={`min-w-[140px] font-semibold ${getConfirmButtonStyle()}`}
-            >
-              {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Processing...
-                </div>
-              ) : (
-                confirmText
-              )}
-            </Button>
+            <div className="flex gap-3 w-full">
+              <Button
+                variant="outline"
+                onClick={onClose}
+                disabled={isLoading}
+                className="flex-1 h-11 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg"
+              >
+                {cancelText}
+              </Button>
+              <Button
+                onClick={onConfirm}
+                disabled={isLoading}
+                className={`flex-1 h-11 text-white font-medium rounded-lg shadow-sm ${config.buttonColor}`}
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Processing...
+                  </div>
+                ) : (
+                  confirmText
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

@@ -1151,7 +1151,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
               </div>
             )}
 
-            {activeTab === 'personalised' && (
+            {activeTab === 'personalised' && false && (
               <div className="space-y-6">
                 <div className="flex items-center gap-2 mb-4">
                   <TrendingUp className="w-5 h-5 text-blue-600" />
@@ -1666,33 +1666,46 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                         </div>
 
                         {/* Show attachment if available - check both attachments array and attachment field */}
-                        {(cert.attachments && cert.attachments.length > 0) || cert.attachment ? (
-                          <div className="mt-3 pt-3 border-t border-green-200">
-                            <a
-                              href={(() => {
-                                // Check attachments array first (new format)
-                                if (cert.attachments && cert.attachments.length > 0) {
-                                  const filePath = cert.attachments[0].filePath;
-                                  return filePath.startsWith('http') ? filePath : `${UPLOADS_BASE_URL}${filePath}`;
-                                }
-                                // Fallback to attachment field (old format)
-                                if (cert.attachment) {
-                                  return cert.attachment.startsWith('http') ? cert.attachment : `${UPLOADS_BASE_URL}${cert.attachment}`;
-                                }
-                                return '#';
-                              })()}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 text-green-600 hover:text-green-800 hover:underline text-sm"
-                            >
-                              <FileText className="w-4 h-4" />
-                              View Attachment
-                              {cert.attachments && cert.attachments.length > 0 && cert.attachments[0].fileName && (
-                                <span className="text-xs text-gray-500">({cert.attachments[0].fileName})</span>
-                              )}
-                            </a>
-                          </div>
-                        ) : null}
+                        {/* Show attachment if available - Enhanced visibility and robustness */}
+                        {(() => {
+                          let attachmentUrl = null;
+                          let fileName = null;
+
+                          // Check all possible locations for the attachment
+                          if (cert.attachments && cert.attachments.length > 0) {
+                            attachmentUrl = cert.attachments[0].filePath;
+                            fileName = cert.attachments[0].fileName;
+                          } else if (cert.attachment) {
+                            attachmentUrl = cert.attachment;
+                          } else if (cert.attachmentUrl) {
+                            attachmentUrl = cert.attachmentUrl;
+                          } else if (cert.metadata?.attachmentUrl) {
+                            attachmentUrl = cert.metadata.attachmentUrl;
+                          }
+
+                          if (!attachmentUrl) return null;
+
+                          const finalUrl = attachmentUrl.startsWith('http')
+                            ? attachmentUrl
+                            : `${UPLOADS_BASE_URL}${attachmentUrl.startsWith('/') || attachmentUrl.startsWith('\\') ? '' : '/'}${attachmentUrl}`;
+
+                          return (
+                            <div className="mt-3 pt-3 border-t border-green-200">
+                              <div className="flex flex-col sm:flex-row gap-3">
+                                <a
+                                  href={finalUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-green-300 rounded-lg text-green-700 hover:bg-green-50 hover:text-green-800 transition-all font-medium text-sm shadow-sm"
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  <span>View Attached Document</span>
+                                  {fileName && <span className="text-green-600/80 font-normal ml-1">({fileName})</span>}
+                                </a>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </Card>
                     ))}
                   </div>

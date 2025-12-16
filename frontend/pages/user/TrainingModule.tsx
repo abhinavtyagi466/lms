@@ -217,6 +217,7 @@ export const TrainingModule: React.FC = () => {
   };
 
   // Update video progress with API integration
+  /*
   const updateProgress = async (progress: number) => {
     try {
       setVideoProgress(progress);
@@ -246,6 +247,7 @@ export const TrainingModule: React.FC = () => {
       console.error('Error updating progress:', error);
     }
   };
+  */
 
   // Start quiz - now integrated with the new quiz system
   const startQuiz = () => {
@@ -507,6 +509,7 @@ export const TrainingModule: React.FC = () => {
                 );
               })()}
 
+              {/* Mark Complete button hidden as requested
               <Button
                 variant="outline"
                 className="w-full sm:w-auto"
@@ -519,6 +522,7 @@ export const TrainingModule: React.FC = () => {
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Mark Complete
               </Button>
+              */}
 
               {/* Temporary debug button - Hidden as requested */}
               {/* {quiz && quiz.questions && quiz.questions.length > 0 && (
