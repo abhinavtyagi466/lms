@@ -357,6 +357,19 @@ router.post('/', authenticateToken, requireAdmin, validateCreateUser, async (req
       });
     }
 
+    // Check for duplicate Phone number
+    if (phone && phone.trim()) {
+      const existingPhone = await User.findOne({ phone: phone.trim() });
+      if (existingPhone) {
+        console.log('Duplicate Phone number:', phone);
+        return res.status(409).json({
+          error: 'Duplicate Phone',
+          message: 'This mobile number is already registered with another user',
+          field: 'phone'
+        });
+      }
+    }
+
     // Check for duplicate Aadhaar number
     if (aadhaarNo && aadhaarNo.trim()) {
       const existingAadhaar = await User.findOne({ aadhaarNo: aadhaarNo.trim() });
@@ -1540,6 +1553,51 @@ router.put('/:id', authenticateToken, validateObjectId, requireUserManagementAcc
         return res.status(409).json({
           error: 'Email Exists',
           message: 'User with this email already exists'
+        });
+      }
+    }
+
+    // Check for Phone uniqueness
+    if (updateData.phone && updateData.phone !== user.phone) {
+      const existingPhone = await User.findOne({
+        phone: updateData.phone.trim(),
+        _id: { $ne: userId }
+      });
+      if (existingPhone) {
+        return res.status(409).json({
+          error: 'Duplicate Phone',
+          message: 'This mobile number is already registered with another user',
+          field: 'phone'
+        });
+      }
+    }
+
+    // Check for Aadhaar uniqueness
+    if (updateData.aadhaarNo && updateData.aadhaarNo !== user.aadhaarNo) {
+      const existingAadhaar = await User.findOne({
+        aadhaarNo: updateData.aadhaarNo.trim(),
+        _id: { $ne: userId }
+      });
+      if (existingAadhaar) {
+        return res.status(409).json({
+          error: 'Duplicate Aadhaar',
+          message: 'This Aadhaar number is already registered with another user',
+          field: 'aadhaarNo'
+        });
+      }
+    }
+
+    // Check for PAN uniqueness
+    if (updateData.panNo && updateData.panNo !== user.panNo) {
+      const existingPan = await User.findOne({
+        panNo: updateData.panNo.trim().toUpperCase(),
+        _id: { $ne: userId }
+      });
+      if (existingPan) {
+        return res.status(409).json({
+          error: 'Duplicate PAN',
+          message: 'This PAN number is already registered with another user',
+          field: 'panNo'
         });
       }
     }
