@@ -47,6 +47,7 @@ const KPIConfigurationPage = lazy(() => import('./pages/admin/KPIConfigurationPa
 const ScoreReportsPage = lazy(() => import('./pages/admin/ScoreReportsPage').then(module => ({ default: module.ScoreReportsPage })));
 const ExitRecordsPage = lazy(() => import('./pages/admin/ExitRecordsPage').then(module => ({ default: module.ExitRecordsPage })));
 const KPIAuditDashboard = lazy(() => import('./pages/admin/KPIAuditDashboard').then(module => ({ default: module.default })));
+const NotFound = lazy(() => import('./pages/NotFound').then(module => ({ default: module.NotFound })));
 
 // Navigation items
 const userSidebarItems = [
@@ -275,7 +276,7 @@ const AppContent: React.FC = () => {
         case 'awards': return <AwardsRecognition />;
         case 'lifecycle': return <LifecycleDashboard />;
         case 'mail-preview': return <MailPreview />;
-        default: return <UserLogin />;
+        default: return <NotFound />;
       }
     };
 
@@ -287,6 +288,20 @@ const AppContent: React.FC = () => {
       const dashboardPage = userType === 'user' ? 'user-dashboard' : 'admin-dashboard';
       setCurrentPage(dashboardPage);
     }
+
+    // List of all known/valid pages to determine if we should show standard layout
+    const knownPages = [
+      'user-login', 'user-register', 'user-dashboard', 'user-profile',
+      'modules', 'training-module', 'quiz', 'quizzes', 'notifications',
+      'kpi-scores', 'admin-login', 'admin-dashboard', 'user-management',
+      'exit-records', 'user-lifecycle', 'module-management', 'score-reports',
+      'kpi-triggers', 'kpi-audit-dashboard', 'kpi-configuration',
+      'email-templates', 'warnings-audit', 'awards', 'lifecycle', 'mail-preview'
+    ];
+
+    const isKnownPage = knownPages.includes(currentPage) ||
+      currentPage.startsWith('user-details/') ||
+      currentPage.startsWith('kpi-scores/');
 
     return (
       <div className="h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300">
@@ -320,7 +335,7 @@ const AppContent: React.FC = () => {
               {renderPage()}
             </Suspense>
           </div>
-        ) : user ? (
+        ) : user && isKnownPage ? (
           /* Logged in user - show sidebar + content */
           <div className="flex h-full">
             <Sidebar
