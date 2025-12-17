@@ -147,6 +147,10 @@ export const ModuleManagement: React.FC = () => {
   // Delete Confirmation State
   const [deleteModuleId, setDeleteModuleId] = useState<string | null>(null);
 
+  // Quiz Delete Confirmation State
+  const [deleteQuizModuleId, setDeleteQuizModuleId] = useState<string | null>(null);
+  const [isDeletingQuiz, setIsDeletingQuiz] = useState(false);
+
 
   useEffect(() => {
     const loadData = async () => {
@@ -392,13 +396,16 @@ export const ModuleManagement: React.FC = () => {
     }
   };
 
-  const handleDeleteQuiz = async (moduleId: string) => {
-    if (!confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteQuiz = (moduleId: string) => {
+    setDeleteQuizModuleId(moduleId);
+  };
+
+  const executeDeleteQuiz = async () => {
+    if (!deleteQuizModuleId) return;
 
     try {
-      const response = await apiService.quizzes.deleteQuiz(moduleId);
+      setIsDeletingQuiz(true);
+      const response = await apiService.quizzes.deleteQuiz(deleteQuizModuleId);
       if (response && ((response as any).success || (response as any).data?.success)) {
         toast.success('Quiz deleted successfully');
         // Refresh both modules and quizzes to ensure UI updates
@@ -408,6 +415,9 @@ export const ModuleManagement: React.FC = () => {
     } catch (error) {
       console.error('Error deleting quiz:', error);
       toast.error('Failed to delete quiz');
+    } finally {
+      setIsDeletingQuiz(false);
+      setDeleteQuizModuleId(null);
     }
   };
 
@@ -1944,6 +1954,18 @@ What color is the sky?,Blue,Red,Green,Yellow,0,Basic observation`;
           confirmText="Delete"
           cancelText="Cancel"
           type="danger"
+        />
+
+        <ConfirmationDialog
+          isOpen={!!deleteQuizModuleId}
+          onClose={() => setDeleteQuizModuleId(null)}
+          onConfirm={executeDeleteQuiz}
+          title="Delete Quiz"
+          description="Are you sure you want to delete this quiz? This action cannot be undone and all questions will be removed."
+          confirmText="Delete Quiz"
+          cancelText="Cancel"
+          type="danger"
+          isLoading={isDeletingQuiz}
         />
       </div>
     </div>

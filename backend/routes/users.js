@@ -2181,6 +2181,15 @@ router.put('/:id/reactivate', authenticateToken, requireUserManagementAccess, va
         global.appCache.del(key);
         console.log('🗑️ Cleared cache for:', key);
       });
+
+      // Also clear any keys containing 'exit-records' to ensure instant removal from Exit Records table
+      const allKeys = global.appCache.keys();
+      allKeys.forEach(key => {
+        if (key.includes('exit-records')) {
+          global.appCache.del(key);
+          console.log('🗑️ Cleared cache for:', key);
+        }
+      });
     }
 
     // Create lifecycle event for reactivation (shows in user details lifecycle tab)

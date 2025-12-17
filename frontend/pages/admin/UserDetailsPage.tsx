@@ -33,6 +33,7 @@ interface QuizResult {
   timeSpent: number;
   passed: boolean;
   completedAt: string;
+  percentage?: number;
   answers: Array<{
     questionId: string;
     selectedAnswer: number;
@@ -528,7 +529,13 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
 
     const totalQuizzes = quizResults.length;
     const passedQuizzes = quizResults.filter(result => result.passed).length;
-    const totalScore = quizResults.reduce((sum, result) => sum + result.score, 0);
+    const totalScore = quizResults.reduce((sum, result) => {
+      // Use percentage if available, otherwise calculate it from score/totalQuestions
+      const percentage = result.percentage !== undefined
+        ? result.percentage
+        : (result.totalQuestions > 0 ? (result.score / result.totalQuestions) * 100 : 0);
+      return sum + percentage;
+    }, 0);
     const totalTimeSpent = quizResults.reduce((sum, result) => sum + result.timeSpent, 0);
 
     return {
@@ -1083,7 +1090,7 @@ export const UserDetailsPage: React.FC<UserDetailsPageProps> = ({ userId }) => {
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="font-semibold">{result.score}%</div>
+                              <div className="font-semibold">{result.percentage !== undefined ? result.percentage : Math.round((result.score / result.totalQuestions) * 100)}%</div>
                               <div className="text-sm text-gray-600">{formatTime(result.timeSpent)}</div>
                             </div>
                           </div>
