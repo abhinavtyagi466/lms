@@ -198,12 +198,12 @@ const AuditManager: React.FC = () => {
       console.warn('Audits is not an array:', audits);
       return [];
     }
-    
+
     return audits.filter(audit => {
       if (!audit || !audit.userId) return false;
-      
+
       const matchesSearch = audit.userId.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           audit.userId.email?.toLowerCase().includes(searchTerm.toLowerCase());
+        audit.userId.email?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = filterStatus === 'all' || audit.status === filterStatus;
       const matchesType = filterType === 'all' || audit.auditType === filterType;
       return matchesSearch && matchesStatus && matchesType;
@@ -220,7 +220,7 @@ const AuditManager: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Audit Manager</h1>
           <p className="text-gray-600 dark:text-gray-400">Manage and track audit schedules and compliance</p>
         </div>
-        <Button 
+        <Button
           className="flex items-center gap-2"
           onClick={() => setShowScheduleDialog(true)}
         >
@@ -380,9 +380,9 @@ const AuditManager: React.FC = () => {
                               <Eye className="w-4 h-4" />
                             </Button>
                             {audit.status !== 'completed' && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => {
                                   setSelectedAudit(audit);
                                   setShowCompleteDialog(true);
@@ -472,13 +472,13 @@ const AuditManager: React.FC = () => {
               <Input
                 id="userId"
                 value={scheduleForm.userId}
-                onChange={(e) => setScheduleForm({...scheduleForm, userId: e.target.value})}
+                onChange={(e) => setScheduleForm({ ...scheduleForm, userId: e.target.value })}
                 placeholder="Enter user ID"
               />
             </div>
             <div>
               <Label htmlFor="auditType">Audit Type</Label>
-              <Select value={scheduleForm.auditType} onValueChange={(value) => setScheduleForm({...scheduleForm, auditType: value})}>
+              <Select value={scheduleForm.auditType} onValueChange={(value) => setScheduleForm({ ...scheduleForm, auditType: value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select audit type" />
                 </SelectTrigger>
@@ -495,7 +495,7 @@ const AuditManager: React.FC = () => {
                 id="scheduledDate"
                 type="datetime-local"
                 value={scheduleForm.scheduledDate}
-                onChange={(e) => setScheduleForm({...scheduleForm, scheduledDate: e.target.value})}
+                onChange={(e) => setScheduleForm({ ...scheduleForm, scheduledDate: e.target.value })}
               />
             </div>
             <div>
@@ -503,7 +503,7 @@ const AuditManager: React.FC = () => {
               <Textarea
                 id="notes"
                 value={scheduleForm.notes}
-                onChange={(e) => setScheduleForm({...scheduleForm, notes: e.target.value})}
+                onChange={(e) => setScheduleForm({ ...scheduleForm, notes: e.target.value })}
                 placeholder="Additional notes"
               />
             </div>
@@ -527,7 +527,7 @@ const AuditManager: React.FC = () => {
               <Textarea
                 id="findings"
                 value={completeForm.findings}
-                onChange={(e) => setCompleteForm({...completeForm, findings: e.target.value})}
+                onChange={(e) => setCompleteForm({ ...completeForm, findings: e.target.value })}
                 placeholder="Enter audit findings and observations"
                 rows={4}
               />

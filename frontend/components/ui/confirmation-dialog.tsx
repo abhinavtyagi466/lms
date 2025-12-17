@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle, Info, XCircle, Shield, X } from 'lucide-react';
 import { Button } from './button';
 
@@ -31,27 +32,27 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
     switch (type) {
       case 'warning':
         return {
-          icon: <AlertTriangle className="w-12 h-12 text-amber-500 mb-2" />,
+          icon: <AlertTriangle className="w-12 h-12 text-amber-500 mb-4" />,
           buttonColor: 'bg-amber-500 hover:bg-amber-600'
         };
       case 'success':
         return {
-          icon: <CheckCircle className="w-12 h-12 text-green-500 mb-2" />,
+          icon: <CheckCircle className="w-12 h-12 text-green-500 mb-4" />,
           buttonColor: 'bg-green-600 hover:bg-green-700'
         };
       case 'info':
         return {
-          icon: <Info className="w-12 h-12 text-blue-500 mb-2" />,
+          icon: <Info className="w-12 h-12 text-blue-500 mb-4" />,
           buttonColor: 'bg-blue-600 hover:bg-blue-700'
         };
       case 'danger':
         return {
-          icon: <XCircle className="w-12 h-12 text-red-500 mb-2" />,
+          icon: <XCircle className="w-12 h-12 text-red-500 mb-4" />,
           buttonColor: 'bg-red-600 hover:bg-red-700'
         };
       default:
         return {
-          icon: <Shield className="w-12 h-12 text-blue-500 mb-2" />,
+          icon: <Shield className="w-12 h-12 text-blue-500 mb-4" />,
           buttonColor: 'bg-blue-600 hover:bg-blue-700'
         };
     }
@@ -59,7 +60,10 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 
   const config = getIconConfig();
 
-  return (
+  // Render the dialog into document.body to avoid stacking context/transform issues
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <>
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999]"
@@ -73,9 +77,9 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
           {/* Close Button */}
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 p-1 rounded-full text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="absolute top-4 right-4 p-1 rounded-full text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
 
           <div className="flex flex-col items-center text-center">
@@ -117,6 +121,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 };

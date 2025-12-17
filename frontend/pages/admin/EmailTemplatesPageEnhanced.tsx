@@ -508,7 +508,10 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
 
         {/* Preview Modal */}
         <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
-          <DialogContent className="p-0 max-h-[90vh]">
+          <DialogContent
+            className="p-0 max-h-[90vh] [&>*]:max-w-none"
+            style={{ top: '5%', bottom: '5%', left: '10%', right: '10%' }}
+          >
             <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-900">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
@@ -626,7 +629,10 @@ export const EmailTemplatesPageEnhanced: React.FC = () => {
 
         {/* Edit Modal */}
         <Dialog open={isEditModalOpen} onOpenChange={(open) => { setIsEditModalOpen(open); if (!open) setIsEditFullscreen(false); }}>
-          <DialogContent className={`p-0 transition-all duration-300 ${isEditFullscreen ? 'fixed inset-4 max-w-none max-h-none w-auto h-auto' : 'max-h-[90vh]'}`}>
+          <DialogContent
+            className={`p-0 transition-all duration-300 ${isEditFullscreen ? 'inset-0 p-0 [&>*]:max-w-none [&>*]:w-full [&>*]:h-full [&>*]:max-h-none' : 'max-h-[90vh] [&>*]:max-w-none'}`}
+            style={!isEditFullscreen ? { top: '5%', bottom: '5%', left: '10%', right: '10%' } : undefined}
+          >
             <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-900">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
