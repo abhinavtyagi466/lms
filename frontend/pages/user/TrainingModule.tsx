@@ -142,14 +142,12 @@ export const TrainingModule: React.FC = () => {
     }
   };
 
-  // Handle progress updates from YouTube player
+  // Throttle state for progress updates - prevent API spam
+  const lastSavedProgressRef = React.useRef<number>(0);
+  const lastSaveTimeRef = React.useRef<number>(0);
+
+  // Handle progress updates from YouTube player with THROTTLING
   const handleProgressUpdate = (videoId: string, currentTime: number, duration: number) => {
-    const debugAssignmentId = localStorage.getItem('currentAssignmentId');
-    const debugIsPersonalised = localStorage.getItem('isPersonalisedModule');
-    console.log(`[Progress Debug] Video: ${videoId}, Time: ${currentTime}, AssignmentId: ${debugAssignmentId}, IsPersonalised: ${debugIsPersonalised}`);
-
-    console.log(`Progress update received for ${videoId}: ${currentTime}s / ${duration}s (${Math.round((currentTime / duration) * 100)}%)`);
-
     const progressPercent = Math.round((currentTime / duration) * 100);
     setVideoProgress(progressPercent);
 
@@ -163,27 +161,44 @@ export const TrainingModule: React.FC = () => {
       setShowQuizButton(true);
     }
 
+    // THROTTLING: Only update backend every 10 seconds OR if progress changed by 5% or more
+    const now = Date.now();
+    const timeSinceLastSave = now - lastSaveTimeRef.current;
+    const progressDelta = Math.abs(progressPercent - lastSavedProgressRef.current);
+
+    // Skip update if:
+    // - Less than 10 seconds since last save AND
+    // - Progress hasn't changed by 5% or more
+    if (timeSinceLastSave < 10000 && progressDelta < 5) {
+      return; // Skip this update
+    }
+
+    console.log(`[Progress] Saving - ${progressPercent}% (delta: ${progressDelta}%, time: ${timeSinceLastSave}ms)`);
+
     // Update backend progress
-    const userId = (user as any)._id || (user as any).id;
+    const userId = (user as any)?._id || (user as any)?.id;
     const isPersonalisedModule = localStorage.getItem('isPersonalisedModule') === 'true';
     const assignmentId = localStorage.getItem('currentAssignmentId') || undefined;
 
-    if (userId) {
-      // Update module-specific progress in UserProgress model (works for both types)
-      if (selectedModuleId) {
-        apiService.userProgress.updateVideoProgress(
-          userId,
-          selectedModuleId,
-          progressPercent,
-          isPersonalisedModule ? assignmentId : undefined, // Pass assignmentId only for personalised
-          currentTime
-        ).catch(error => {
-          console.error('Failed to update user module progress:', error);
-        });
-      }
+    if (userId && selectedModuleId) {
+      // Record this save
+      lastSavedProgressRef.current = progressPercent;
+      lastSaveTimeRef.current = now;
+
+      // Update module-specific progress in UserProgress model
+      apiService.userProgress.updateVideoProgress(
+        userId,
+        selectedModuleId,
+        progressPercent,
+        isPersonalisedModule ? assignmentId : undefined,
+        currentTime
+      ).then(() => {
+        console.log(`[Progress] Saved successfully - ${progressPercent}%`);
+      }).catch(error => {
+        console.error('[Progress] Failed to save:', error.message || error);
+      });
 
       // Update Legacy Progress ONLY for regular modules (not personalised)
-      // This keeps progress separate between personalised and regular modules
       if (!isPersonalisedModule) {
         apiService.progress.updateProgress({
           userId,
@@ -193,7 +208,7 @@ export const TrainingModule: React.FC = () => {
           assignmentId: undefined,
           isPersonalised: false
         }).catch(error => {
-          console.error('Failed to update progress (legacy):', error);
+          console.error('[Progress] Legacy update failed:', error);
         });
       }
     }

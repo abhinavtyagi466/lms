@@ -153,11 +153,29 @@ userProgressSchema.index({ status: 1, lastAccessedAt: -1 }); // Compound index f
 // Static method to get user progress
 userProgressSchema.statics.getUserProgress = function (userId, moduleId, assignmentId = null) {
   const query = { userId, moduleId };
+
+  // Handle assignmentId - convert string to ObjectId if needed
   if (assignmentId) {
-    query.assignmentId = assignmentId;
+    // If it's already an ObjectId, use it directly
+    if (assignmentId instanceof mongoose.Types.ObjectId) {
+      query.assignmentId = assignmentId;
+    } else if (typeof assignmentId === 'string' && assignmentId.length === 24) {
+      // Convert valid string to ObjectId
+      try {
+        query.assignmentId = new mongoose.Types.ObjectId(assignmentId);
+      } catch (e) {
+        console.warn('[UserProgress.getUserProgress] Invalid assignmentId format:', assignmentId);
+        query.assignmentId = null;
+      }
+    } else {
+      // Invalid format, treat as null
+      query.assignmentId = null;
+    }
   } else {
     query.assignmentId = null;
   }
+
+  console.log('[UserProgress.getUserProgress] Query:', JSON.stringify(query));
   return this.findOne(query).populate('moduleId');
 };
 
@@ -231,16 +249,17 @@ userProgressSchema.methods.issueCertificate = function () {
 };
 
 // Post-save middleware to trigger auto KPI generation
-userProgressSchema.post('save', async function (doc) {
-  try {
-    // Only trigger for significant updates
-    if (doc.isModified('videoProgress') || doc.isModified('passed') || doc.isModified('bestPercentage')) {
-      const autoKPIScheduler = require('../services/autoKPIScheduler');
-      await autoKPIScheduler.triggerUserKPI(doc.userId, 'user_progress_update');
-    }
-  } catch (error) {
-    console.error('Error triggering auto KPI after user progress update:', error);
-  }
-});
+// TEMPORARILY DISABLED - causing issues with video progress updates
+// userProgressSchema.post('save', async function (doc) {
+//   try {
+//     // Only trigger for significant updates
+//     if (doc.isModified('videoProgress') || doc.isModified('passed') || doc.isModified('bestPercentage')) {
+//       const autoKPIScheduler = require('../services/autoKPIScheduler');
+//       await autoKPIScheduler.triggerUserKPI(doc.userId, 'user_progress_update');
+//     }
+//   } catch (error) {
+//     console.error('Error triggering auto KPI after user progress update:', error);
+//   }
+// });
 
 module.exports = mongoose.model('UserProgress', userProgressSchema);

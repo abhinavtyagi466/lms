@@ -178,10 +178,13 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     // Create a map of video progress (New)
     const progressMapNew = {};
     userProgressNew.forEach(progress => {
-      // Key by moduleId and assignmentId (if exists)
-      const key = progress.assignmentId
-        ? `${progress.moduleId}_${progress.assignmentId}`
-        : progress.moduleId.toString();
+      // Key by moduleId and assignmentId (if exists) - use toString() for consistent matching
+      const moduleIdStr = progress.moduleId.toString();
+      const assignmentIdStr = progress.assignmentId ? progress.assignmentId.toString() : null;
+
+      const key = assignmentIdStr
+        ? `${moduleIdStr}_${assignmentIdStr}`
+        : moduleIdStr;
 
       progressMapNew[key] = progress.videoProgress;
     });
@@ -228,9 +231,12 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       // Try to get progress from New model first
       let progressPercent = 0;
 
-      const key = module.assignmentId
-        ? `${module._id}_${module.assignmentId}`
-        : module._id.toString();
+      // Build key with toString() for consistent matching
+      const moduleIdStr = module._id.toString();
+      const assignmentIdStr = module.assignmentId ? module.assignmentId.toString() : null;
+      const key = assignmentIdStr
+        ? `${moduleIdStr}_${assignmentIdStr}`
+        : moduleIdStr;
 
       if (progressMapNew[key] !== undefined) {
         progressPercent = progressMapNew[key] / 100; // Convert 0-100 to 0-1
@@ -758,12 +764,16 @@ router.get('/personalised/:userId', authenticateToken, async (req, res) => {
     // Create a map of video progress (New)
     const progressMapNew = {};
     userProgressNew.forEach(progress => {
-      // Key by moduleId and assignmentId (if exists)
-      const key = progress.assignmentId
-        ? `${progress.moduleId}_${progress.assignmentId}`
-        : progress.moduleId.toString();
+      // Key by moduleId and assignmentId (if exists) - use toString() for consistent matching
+      const moduleIdStr = progress.moduleId.toString();
+      const assignmentIdStr = progress.assignmentId ? progress.assignmentId.toString() : null;
+
+      const key = assignmentIdStr
+        ? `${moduleIdStr}_${assignmentIdStr}`
+        : moduleIdStr;
 
       progressMapNew[key] = progress.videoProgress;
+      console.log('[progressMapNew] Added:', key, '=', progress.videoProgress);
     });
 
     // Map assignments to module format
@@ -774,10 +784,16 @@ router.get('/personalised/:userId', authenticateToken, async (req, res) => {
 
       // Try to get progress from New model first
       let progressPercent = 0;
-      const key = `${module._id}_${assignment._id}`;
+      const key = `${module._id.toString()}_${assignment._id.toString()}`;
+
+      console.log('[Personalised Progress] Looking for key:', key);
+      console.log('[Personalised Progress] Available keys:', Object.keys(progressMapNew));
 
       if (progressMapNew[key] !== undefined) {
         progressPercent = progressMapNew[key] / 100; // Convert 0-100 to 0-1
+        console.log('[Personalised Progress] Found progress:', progressMapNew[key], '% -> ', progressPercent);
+      } else {
+        console.log('[Personalised Progress] No progress found for key:', key);
       }
 
       return {
