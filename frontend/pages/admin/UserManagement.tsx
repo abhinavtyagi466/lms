@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   Plus,
@@ -66,6 +66,15 @@ export const UserManagement: React.FC = () => {
     return false;
   };
   const [loading, setLoading] = useState(true);
+  // Backend stats for role-wise counts (fetched from API for better performance)
+  const [backendStats, setBackendStats] = useState<{
+    total: number;
+    users: number;
+    managers: number;
+    hod: number;
+    hr: number;
+    admins: number;
+  } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -110,6 +119,10 @@ export const UserManagement: React.FC = () => {
     attachment: null as File | null
   });
   const [selectedTab, setSelectedTab] = useState('all');
+
+  // Pagination state
+  const [currentPage, setCurrentTablePage] = useState(1);
+  const USERS_PER_PAGE = 40;
 
   // Popup states
   const [showDeletePopup, setShowDeletePopup] = useState(false);
@@ -169,18 +182,41 @@ export const UserManagement: React.FC = () => {
     }
   }, [filterStatus, user, userType]);
 
+  // Reset pagination when tab, filter, or search changes
+  useEffect(() => {
+    setCurrentTablePage(1);
+  }, [selectedTab, filterStatus, searchTerm]);
+
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response: any = await apiService.users.getAllUsers({ filter: filterStatus });
 
-      // Check if response has users array
-      if (response && Array.isArray(response.users)) {
-        setUsers(response.users);
-      } else if (response && Array.isArray(response)) {
-        setUsers(response);
+      // Fetch users and stats concurrently for better performance
+      const [usersResponse, statsResponse]: [any, any] = await Promise.all([
+        apiService.users.getAllUsers({ filter: filterStatus, limit: 500 }),
+        apiService.users.getUserStats().catch(() => null) // Don't fail if stats API fails
+      ]);
+
+      // Handle users response
+      if (usersResponse && Array.isArray(usersResponse.users)) {
+        setUsers(usersResponse.users);
+      } else if (usersResponse && Array.isArray(usersResponse)) {
+        setUsers(usersResponse);
       } else {
         setUsers([]);
+      }
+
+      // Handle stats response (for role-wise counts from backend)
+      if (statsResponse && statsResponse.success && statsResponse.stats) {
+        const s = statsResponse.stats;
+        setBackendStats({
+          total: s.total || 0,
+          users: s.users || 0,
+          managers: s.managers || 0,
+          hod: s.hod || 0,
+          hr: s.hr || 0,
+          admins: s.admins || 0
+        });
       }
     } catch (error: any) {
       console.error('Error fetching users:', error);
@@ -774,8 +810,8 @@ export const UserManagement: React.FC = () => {
     }
   };
 
-  // Group users by role
-  const groupedUsers = {
+  // Group users by role - Memoized for performance (prevents recalculation on every render)
+  const groupedUsers = useMemo(() => ({
     all: users.filter(u => {
       const matchesSearch = u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -795,7 +831,7 @@ export const UserManagement: React.FC = () => {
       return matchesSearch && matchesFilter;
     }),
     users: users.filter(u => {
-      const isUser = u.userType === 'user'; // Only exact 'user' type
+      const isUser = u.userType === 'user';
       const matchesSearch = u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.employeeId?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -861,16 +897,36 @@ export const UserManagement: React.FC = () => {
 
       return isAdmin && matchesSearch && matchesFilter;
     })
-  };
+  }), [users, searchTerm, filterStatus]);
 
-  // Role-wise statistics - Exact matching only
-  const roleStats = {
+  // Role-wise statistics - Memoized, uses backend stats if available (fallback to local calc)
+  const roleStats = useMemo(() => backendStats || {
     total: users.length,
-    users: users.filter(u => u.userType === 'user').length, // Only exact 'user'
+    users: users.filter(u => u.userType === 'user').length,
     managers: users.filter(u => u.userType === 'manager').length,
     hod: users.filter(u => u.userType === 'hod').length,
     hr: users.filter(u => u.userType === 'hr').length,
     admins: users.filter(u => u.userType === 'admin').length
+  }, [backendStats, users]);
+
+  // Paginated users - slice for current page display only
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * USERS_PER_PAGE;
+    const endIndex = startIndex + USERS_PER_PAGE;
+    return {
+      all: groupedUsers.all.slice(startIndex, endIndex),
+      users: groupedUsers.users.slice(startIndex, endIndex),
+      managers: groupedUsers.managers.slice(startIndex, endIndex),
+      hod: groupedUsers.hod.slice(startIndex, endIndex),
+      hr: groupedUsers.hr.slice(startIndex, endIndex),
+      admins: groupedUsers.admins.slice(startIndex, endIndex)
+    };
+  }, [groupedUsers, currentPage, USERS_PER_PAGE]);
+
+  // Pagination helper function
+  const getTotalPages = (tabName: string) => {
+    const totalItems = groupedUsers[tabName as keyof typeof groupedUsers]?.length || 0;
+    return Math.ceil(totalItems / USERS_PER_PAGE);
   };
 
   if (loading) {
@@ -1040,151 +1096,152 @@ export const UserManagement: React.FC = () => {
 
           {/* All Users Tab */}
           <TabsContent value="all">
-            <Card className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-lg rounded-2xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  All Users
-                </CardTitle>
-                <CardDescription>Complete list of all users across all roles</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-b border-gray-200 dark:border-gray-700">
-                        <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Phone</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>City</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {groupedUsers.all.map((user) => (
-                        <TableRow key={user._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                          <TableCell>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">ID: {user.employeeId}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-gray-900 dark:text-white">{user.email}</TableCell>
-                          <TableCell className="text-gray-900 dark:text-white">{user.phone}</TableCell>
-                          <TableCell>
-                            <Badge
-                              className={`${user.userType === 'admin' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
-                                user.userType === 'manager' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                                  user.userType === 'hod' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' :
-                                    user.userType === 'hr' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' :
-                                      'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                                }`}
-                            >
-                              {user.userType === 'admin' ? 'Admin' :
-                                user.userType === 'manager' ? 'Manager' :
-                                  user.userType === 'hod' ? 'HOD' :
-                                    user.userType === 'hr' ? 'HR' : 'User'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-gray-900 dark:text-white">{user.city || '-'}</TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <Badge variant={
-                                user.isActive ? 'default' : 'destructive'
-                              } className={
-                                user.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
-                                  'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
-                              }>
-                                {user.isActive ? 'Active' : 'Inactive'}
+            {selectedTab === 'all' && (
+              <Card className="p-6 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-md rounded-2xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    All Users
+                  </CardTitle>
+                  <CardDescription>Complete list of all users across all roles</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-b border-gray-200 dark:border-gray-700">
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Phone</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>City</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedUsers.all.map((user) => (
+                          <TableRow key={user._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <TableCell>
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">ID: {user.employeeId}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-gray-900 dark:text-white">{user.email}</TableCell>
+                            <TableCell className="text-gray-900 dark:text-white">{user.phone}</TableCell>
+                            <TableCell>
+                              <Badge
+                                className={`${user.userType === 'admin' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                                  user.userType === 'manager' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                                    user.userType === 'hod' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' :
+                                      user.userType === 'hr' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' :
+                                        'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                                  }`}
+                              >
+                                {user.userType === 'admin' ? 'Admin' :
+                                  user.userType === 'manager' ? 'Manager' :
+                                    user.userType === 'hod' ? 'HOD' :
+                                      user.userType === 'hr' ? 'HR' : 'User'}
                               </Badge>
-                              {user.status === 'Inactive' && user.inactiveReason && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  <p><strong>Reason:</strong> {user.inactiveReason}</p>
-                                  {user.inactiveDate && (
-                                    <p><strong>Since:</strong> {new Date(user.inactiveDate).toLocaleDateString()}</p>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleUserAction(user._id, 'view')}
-                                title="View Details"
-                                className="h-8 w-8 p-0 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
-                              >
-                                <Eye className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleUserAction(user._id, 'sendWarning')}
-                                disabled={user.status === 'inactive' || user.isActive === false}
-                                title={user.status === 'inactive' || user.isActive === false ? "Cannot send warning to inactive user" : "Send Warning"}
-                                className={`h-8 w-8 p-0 border-gray-300 dark:border-gray-600 transition-all duration-200 ${user.status === 'inactive' || user.isActive === false
-                                  ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-50'
-                                  : 'bg-white dark:bg-gray-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 hover:border-yellow-300 dark:hover:border-yellow-600'
-                                  }`}
-                              >
-                                <AlertTriangle className={`w-4 h-4 ${user.status === 'inactive' || user.isActive === false ? 'text-gray-400' : 'text-yellow-600 dark:text-yellow-400'}`} />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleUserAction(user._id, 'sendCertificate')}
-                                disabled={user.status === 'inactive' || user.isActive === false}
-                                title={user.status === 'inactive' || user.isActive === false ? "Cannot send certificate to inactive user" : "Send Certificate"}
-                                className={`h-8 w-8 p-0 border-gray-300 dark:border-gray-600 transition-all duration-200 ${user.status === 'inactive' || user.isActive === false
-                                  ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-50'
-                                  : 'bg-white dark:bg-gray-700 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 dark:hover:border-green-600'
-                                  }`}
-                              >
-                                <Award className={`w-4 h-4 ${user.status === 'inactive' || user.isActive === false ? 'text-gray-400' : 'text-green-600 dark:text-green-400'}`} />
-                              </Button>
-                              {canManageUser(user) && (
-                                <>
-                                  {user.isActive ? (
+                            </TableCell>
+                            <TableCell className="text-gray-900 dark:text-white">{user.city || '-'}</TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <Badge variant={
+                                  user.isActive ? 'default' : 'destructive'
+                                } className={
+                                  user.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' :
+                                    'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
+                                }>
+                                  {user.isActive ? 'Active' : 'Inactive'}
+                                </Badge>
+                                {user.status === 'Inactive' && user.inactiveReason && (
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    <p><strong>Reason:</strong> {user.inactiveReason}</p>
+                                    {user.inactiveDate && (
+                                      <p><strong>Since:</strong> {new Date(user.inactiveDate).toLocaleDateString()}</p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleUserAction(user._id, 'view')}
+                                  title="View Details"
+                                  className="h-8 w-8 p-0 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
+                                >
+                                  <Eye className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleUserAction(user._id, 'sendWarning')}
+                                  disabled={user.status === 'inactive' || user.isActive === false}
+                                  title={user.status === 'inactive' || user.isActive === false ? "Cannot send warning to inactive user" : "Send Warning"}
+                                  className={`h-8 w-8 p-0 border-gray-300 dark:border-gray-600 transition-all duration-200 ${user.status === 'inactive' || user.isActive === false
+                                    ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-50'
+                                    : 'bg-white dark:bg-gray-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 hover:border-yellow-300 dark:hover:border-yellow-600'
+                                    }`}
+                                >
+                                  <AlertTriangle className={`w-4 h-4 ${user.status === 'inactive' || user.isActive === false ? 'text-gray-400' : 'text-yellow-600 dark:text-yellow-400'}`} />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleUserAction(user._id, 'sendCertificate')}
+                                  disabled={user.status === 'inactive' || user.isActive === false}
+                                  title={user.status === 'inactive' || user.isActive === false ? "Cannot send certificate to inactive user" : "Send Certificate"}
+                                  className={`h-8 w-8 p-0 border-gray-300 dark:border-gray-600 transition-all duration-200 ${user.status === 'inactive' || user.isActive === false
+                                    ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-50'
+                                    : 'bg-white dark:bg-gray-700 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 dark:hover:border-green-600'
+                                    }`}
+                                >
+                                  <Award className={`w-4 h-4 ${user.status === 'inactive' || user.isActive === false ? 'text-gray-400' : 'text-green-600 dark:text-green-400'}`} />
+                                </Button>
+                                {canManageUser(user) && (
+                                  <>
+                                    {user.isActive ? (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleUserAction(user._id, 'deactivate')}
+                                        title="Set as Inactive"
+                                        className="h-8 w-8 p-0 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-600 transition-all duration-200"
+                                      >
+                                        <UserX className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleUserAction(user._id, 'reactivate')}
+                                        title="Reactivate User"
+                                        className="h-8 w-8 p-0 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 dark:hover:border-green-600 transition-all duration-200"
+                                      >
+                                        <UserCheck className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                      </Button>
+                                    )}
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => handleUserAction(user._id, 'deactivate')}
-                                      title="Set as Inactive"
-                                      className="h-8 w-8 p-0 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-600 transition-all duration-200"
+                                      onClick={() => handleUserAction(user._id, 'edit')}
+                                      disabled={user.status === 'inactive' || user.isActive === false}
+                                      title={user.status === 'inactive' || user.isActive === false ? "Cannot edit inactive user" : "Edit User Details"}
+                                      className={`h-8 w-8 p-0 border-gray-300 dark:border-gray-600 transition-all duration-200 ${user.status === 'inactive' || user.isActive === false
+                                        ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-50'
+                                        : 'bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-600'
+                                        }`}
                                     >
-                                      <UserX className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                      <Edit className={`w-4 h-4 ${user.status === 'inactive' || user.isActive === false ? 'text-gray-400' : 'text-blue-600 dark:text-blue-400'}`} />
                                     </Button>
-                                  ) : (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleUserAction(user._id, 'reactivate')}
-                                      title="Reactivate User"
-                                      className="h-8 w-8 p-0 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 dark:hover:border-green-600 transition-all duration-200"
-                                    >
-                                      <UserCheck className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                    </Button>
-                                  )}
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleUserAction(user._id, 'edit')}
-                                    disabled={user.status === 'inactive' || user.isActive === false}
-                                    title={user.status === 'inactive' || user.isActive === false ? "Cannot edit inactive user" : "Edit User Details"}
-                                    className={`h-8 w-8 p-0 border-gray-300 dark:border-gray-600 transition-all duration-200 ${user.status === 'inactive' || user.isActive === false
-                                      ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-50'
-                                      : 'bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-600'
-                                      }`}
-                                  >
-                                    <Edit className={`w-4 h-4 ${user.status === 'inactive' || user.isActive === false ? 'text-gray-400' : 'text-blue-600 dark:text-blue-400'}`} />
-                                  </Button>
-                                </>
-                              )}
-                              {/* <Button
+                                  </>
+                                )}
+                                {/* <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleUserAction(user._id, 'delete')}
@@ -1193,342 +1250,545 @@ export const UserManagement: React.FC = () => {
                       >
                         <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
                       </Button> */}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {groupedUsers.all.length === 0 && (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>No users found</p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {groupedUsers.all.length === 0 && (
+                      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                        <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No users found</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {groupedUsers.all.length > USERS_PER_PAGE && (
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Showing {((currentPage - 1) * USERS_PER_PAGE) + 1} - {Math.min(currentPage * USERS_PER_PAGE, groupedUsers.all.length)} of {groupedUsers.all.length} users
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentTablePage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1"
+                        >
+                          ← Previous
+                        </Button>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Page {currentPage} of {getTotalPages('all')}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentTablePage(p => Math.min(getTotalPages('all'), p + 1))}
+                          disabled={currentPage >= getTotalPages('all')}
+                          className="px-3 py-1"
+                        >
+                          Next →
+                        </Button>
+                      </div>
                     </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Users (FE) Tab */}
           < TabsContent value="users" >
-            <Card className="p-6 bg-blue-50/50 dark:bg-blue-900/10 backdrop-blur-sm border border-blue-200 dark:border-blue-800 shadow-lg rounded-2xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-blue-800 dark:text-blue-300">
-                  <Users className="w-5 h-5" />
-                  Field Executives & Users
-                </CardTitle>
-                <CardDescription>All regular users (Field Executives)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name & ID</TableHead>
-                        <TableHead>Contact</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {groupedUsers.users.map((user) => (
-                        <TableRow key={user._id} className="hover:bg-blue-100/50 dark:hover:bg-blue-900/20">
-                          <TableCell>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">ID: {user.employeeId}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="text-sm text-gray-900 dark:text-white">{user.email}</p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">{user.phone}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-gray-900 dark:text-white">{user.city || '-'}</TableCell>
-                          <TableCell>
-                            <Badge className={
-                              user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                            }>
-                              {user.isActive ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm" onClick={() => handleUserAction(user._id, 'view')}>
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
+            {selectedTab === 'users' && (
+              <Card className="p-6 bg-blue-50/80 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900 shadow-md rounded-2xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-blue-800 dark:text-blue-300">
+                    <Users className="w-5 h-5" />
+                    Field Executives & Users
+                  </CardTitle>
+                  <CardDescription>All regular users (Field Executives)</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name & ID</TableHead>
+                          <TableHead>Contact</TableHead>
+                          <TableHead>Location</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedUsers.users.map((user) => (
+                          <TableRow key={user._id} className="hover:bg-blue-100/50 dark:hover:bg-blue-900/20">
+                            <TableCell>
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">ID: {user.employeeId}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="text-sm text-gray-900 dark:text-white">{user.email}</p>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">{user.phone}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-gray-900 dark:text-white">{user.city || '-'}</TableCell>
+                            <TableCell>
+                              <Badge className={
+                                user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              }>
+                                {user.isActive ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => handleUserAction(user._id, 'view')}>
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
 
-                  {groupedUsers.users.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>No users found in this category</p>
+                    {groupedUsers.users.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No users found in this category</p>
+                      </div>
+
+                    )}
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {groupedUsers.users.length > USERS_PER_PAGE && (
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Showing {((currentPage - 1) * USERS_PER_PAGE) + 1} - {Math.min(currentPage * USERS_PER_PAGE, groupedUsers.users.length)} of {groupedUsers.users.length} users
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentTablePage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1"
+                        >
+                          ← Previous
+                        </Button>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Page {currentPage} of {getTotalPages('users')}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentTablePage(p => Math.min(getTotalPages('users'), p + 1))}
+                          disabled={currentPage >= getTotalPages('users')}
+                          className="px-3 py-1"
+                        >
+                          Next →
+                        </Button>
+                      </div>
                     </div>
-
                   )}
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Managers Tab */}
           <TabsContent value="managers">
-            <Card className="p-6 bg-green-50/50 dark:bg-green-900/10 backdrop-blur-sm border border-green-200 dark:border-green-800 shadow-lg rounded-2xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-green-800 dark:text-green-300">
-                  <Briefcase className="w-5 h-5" />
-                  Managers
-                </CardTitle>
-                <CardDescription>Team managers and coordinators</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name & ID</TableHead>
-                        <TableHead>Contact</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {groupedUsers.managers.map((user) => (
-                        <TableRow key={user._id} className="hover:bg-green-100/50 dark:hover:bg-green-900/20">
-                          <TableCell>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">ID: {user.employeeId}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="text-sm text-gray-900 dark:text-white">{user.email}</p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">{user.phone}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-gray-900 dark:text-white">{user.department || '-'}</TableCell>
-                          <TableCell>
-                            <Badge className={user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                              {user.isActive ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="outline" size="sm" onClick={() => handleUserAction(user._id, 'view')}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
+            {selectedTab === 'managers' && (
+              <Card className="p-6 bg-green-50/80 dark:bg-green-900/20 border border-green-100 dark:border-green-900 shadow-md rounded-2xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-800 dark:text-green-300">
+                    <Briefcase className="w-5 h-5" />
+                    Managers
+                  </CardTitle>
+                  <CardDescription>Team managers and coordinators</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name & ID</TableHead>
+                          <TableHead>Contact</TableHead>
+                          <TableHead>Department</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {groupedUsers.managers.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      <Briefcase className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>No managers found</p>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedUsers.managers.map((user) => (
+                          <TableRow key={user._id} className="hover:bg-green-100/50 dark:hover:bg-green-900/20">
+                            <TableCell>
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">ID: {user.employeeId}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="text-sm text-gray-900 dark:text-white">{user.email}</p>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">{user.phone}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-gray-900 dark:text-white">{user.department || '-'}</TableCell>
+                            <TableCell>
+                              <Badge className={user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                                {user.isActive ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="outline" size="sm" onClick={() => handleUserAction(user._id, 'view')}>
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {groupedUsers.managers.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <Briefcase className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No managers found</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {groupedUsers.managers.length > USERS_PER_PAGE && (
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Showing {((currentPage - 1) * USERS_PER_PAGE) + 1} - {Math.min(currentPage * USERS_PER_PAGE, groupedUsers.managers.length)} of {groupedUsers.managers.length} users
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentTablePage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1"
+                        >
+                          ← Previous
+                        </Button>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Page {currentPage} of {getTotalPages('managers')}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentTablePage(p => Math.min(getTotalPages('managers'), p + 1))}
+                          disabled={currentPage >= getTotalPages('managers')}
+                          className="px-3 py-1"
+                        >
+                          Next →
+                        </Button>
+                      </div>
                     </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* HOD Tab */}
           <TabsContent value="hod">
-            <Card className="p-6 bg-purple-50/50 dark:bg-purple-900/10 backdrop-blur-sm border border-purple-200 dark:border-purple-800 shadow-lg rounded-2xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-purple-800 dark:text-purple-300">
-                  <Crown className="w-5 h-5" />
-                  Head of Departments
-                </CardTitle>
-                <CardDescription>Department heads and senior leadership</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name & ID</TableHead>
-                        <TableHead>Contact</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {groupedUsers.hod.map((user) => (
-                        <TableRow key={user._id} className="hover:bg-purple-100/50 dark:hover:bg-purple-900/20">
-                          <TableCell>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">ID: {user.employeeId}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="text-sm text-gray-900 dark:text-white">{user.email}</p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">{user.phone}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-gray-900 dark:text-white">{user.department || '-'}</TableCell>
-                          <TableCell>
-                            <Badge className={user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                              {user.isActive ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="outline" size="sm" onClick={() => handleUserAction(user._id, 'view')}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
+            {selectedTab === 'hod' && (
+              <Card className="p-6 bg-purple-50/80 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-900 shadow-md rounded-2xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-purple-800 dark:text-purple-300">
+                    <Crown className="w-5 h-5" />
+                    Head of Departments
+                  </CardTitle>
+                  <CardDescription>Department heads and senior leadership</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name & ID</TableHead>
+                          <TableHead>Contact</TableHead>
+                          <TableHead>Department</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {groupedUsers.hod.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      <Crown className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>No HODs found</p>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedUsers.hod.map((user) => (
+                          <TableRow key={user._id} className="hover:bg-purple-100/50 dark:hover:bg-purple-900/20">
+                            <TableCell>
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">ID: {user.employeeId}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="text-sm text-gray-900 dark:text-white">{user.email}</p>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">{user.phone}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-gray-900 dark:text-white">{user.department || '-'}</TableCell>
+                            <TableCell>
+                              <Badge className={user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                                {user.isActive ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="outline" size="sm" onClick={() => handleUserAction(user._id, 'view')}>
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {groupedUsers.hod.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <Crown className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No HODs found</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {groupedUsers.hod.length > USERS_PER_PAGE && (
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Showing {((currentPage - 1) * USERS_PER_PAGE) + 1} - {Math.min(currentPage * USERS_PER_PAGE, groupedUsers.hod.length)} of {groupedUsers.hod.length} users
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentTablePage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1"
+                        >
+                          ← Previous
+                        </Button>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Page {currentPage} of {getTotalPages('hod')}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentTablePage(p => Math.min(getTotalPages('hod'), p + 1))}
+                          disabled={currentPage >= getTotalPages('hod')}
+                          className="px-3 py-1"
+                        >
+                          Next →
+                        </Button>
+                      </div>
                     </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* HR Tab */}
           <TabsContent value="hr">
-            <Card className="p-6 bg-orange-50/50 dark:bg-orange-900/10 backdrop-blur-sm border border-orange-200 dark:border-orange-800 shadow-lg rounded-2xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-orange-800 dark:text-orange-300">
-                  <UserCog className="w-5 h-5" />
-                  Human Resources
-                </CardTitle>
-                <CardDescription>HR team members</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name & ID</TableHead>
-                        <TableHead>Contact</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {groupedUsers.hr.map((user) => (
-                        <TableRow key={user._id} className="hover:bg-orange-100/50 dark:hover:bg-orange-900/20">
-                          <TableCell>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">ID: {user.employeeId}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="text-sm text-gray-900 dark:text-white">{user.email}</p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">{user.phone}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-gray-900 dark:text-white">{user.department || '-'}</TableCell>
-                          <TableCell>
-                            <Badge className={user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                              {user.isActive ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="outline" size="sm" onClick={() => handleUserAction(user._id, 'view')}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
+            {selectedTab === 'hr' && (
+              <Card className="p-6 bg-orange-50/80 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900 shadow-md rounded-2xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-orange-800 dark:text-orange-300">
+                    <UserCog className="w-5 h-5" />
+                    Human Resources
+                  </CardTitle>
+                  <CardDescription>HR team members</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name & ID</TableHead>
+                          <TableHead>Contact</TableHead>
+                          <TableHead>Department</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {groupedUsers.hr.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      <UserCog className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>No HR members found</p>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedUsers.hr.map((user) => (
+                          <TableRow key={user._id} className="hover:bg-orange-100/50 dark:hover:bg-orange-900/20">
+                            <TableCell>
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">ID: {user.employeeId}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="text-sm text-gray-900 dark:text-white">{user.email}</p>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">{user.phone}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-gray-900 dark:text-white">{user.department || '-'}</TableCell>
+                            <TableCell>
+                              <Badge className={user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                                {user.isActive ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="outline" size="sm" onClick={() => handleUserAction(user._id, 'view')}>
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {groupedUsers.hr.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <UserCog className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No HR members found</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {groupedUsers.hr.length > USERS_PER_PAGE && (
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Showing {((currentPage - 1) * USERS_PER_PAGE) + 1} - {Math.min(currentPage * USERS_PER_PAGE, groupedUsers.hr.length)} of {groupedUsers.hr.length} users
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentTablePage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1"
+                        >
+                          ← Previous
+                        </Button>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Page {currentPage} of {getTotalPages('hr')}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentTablePage(p => Math.min(getTotalPages('hr'), p + 1))}
+                          disabled={currentPage >= getTotalPages('hr')}
+                          className="px-3 py-1"
+                        >
+                          Next →
+                        </Button>
+                      </div>
                     </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Admins Tab */}
           <TabsContent value="admins">
-            <Card className="p-6 bg-red-50/50 dark:bg-red-900/10 backdrop-blur-sm border border-red-200 dark:border-red-800 shadow-lg rounded-2xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-red-800 dark:text-red-300">
-                  <Shield className="w-5 h-5" />
-                  System Administrators
-                </CardTitle>
-                <CardDescription>Admin users with full system access</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name & ID</TableHead>
-                        <TableHead>Contact</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {groupedUsers.admins.map((user) => (
-                        <TableRow key={user._id} className="hover:bg-red-100/50 dark:hover:bg-red-900/20">
-                          <TableCell>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">ID: {user.employeeId}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="text-sm text-gray-900 dark:text-white">{user.email}</p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">{user.phone}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-gray-900 dark:text-white">{user.department || '-'}</TableCell>
-                          <TableCell>
-                            <Badge className={user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                              {user.isActive ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="outline" size="sm" onClick={() => handleUserAction(user._id, 'view')}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
+            {selectedTab === 'admins' && (
+              <Card className="p-6 bg-red-50/80 dark:bg-red-900/20 border border-red-100 dark:border-red-900 shadow-md rounded-2xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-red-800 dark:text-red-300">
+                    <Shield className="w-5 h-5" />
+                    System Administrators
+                  </CardTitle>
+                  <CardDescription>Admin users with full system access</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name & ID</TableHead>
+                          <TableHead>Contact</TableHead>
+                          <TableHead>Department</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {groupedUsers.admins.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>No admins found</p>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedUsers.admins.map((user) => (
+                          <TableRow key={user._id} className="hover:bg-red-100/50 dark:hover:bg-red-900/20">
+                            <TableCell>
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">ID: {user.employeeId}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="text-sm text-gray-900 dark:text-white">{user.email}</p>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">{user.phone}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-gray-900 dark:text-white">{user.department || '-'}</TableCell>
+                            <TableCell>
+                              <Badge className={user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                                {user.isActive ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="outline" size="sm" onClick={() => handleUserAction(user._id, 'view')}>
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {groupedUsers.admins.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No admins found</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {groupedUsers.admins.length > USERS_PER_PAGE && (
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Showing {((currentPage - 1) * USERS_PER_PAGE) + 1} - {Math.min(currentPage * USERS_PER_PAGE, groupedUsers.admins.length)} of {groupedUsers.admins.length} users
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentTablePage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1"
+                        >
+                          ← Previous
+                        </Button>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Page {currentPage} of {getTotalPages('admins')}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentTablePage(p => Math.min(getTotalPages('admins'), p + 1))}
+                          disabled={currentPage >= getTotalPages('admins')}
+                          className="px-3 py-1"
+                        >
+                          Next →
+                        </Button>
+                      </div>
                     </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
         </Tabs>

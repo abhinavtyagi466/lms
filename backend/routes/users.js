@@ -283,22 +283,37 @@ router.get('/', authenticateToken, requireAdminPanel, async (req, res) => {
 });
 
 // @route   GET /api/users/stats
-// @desc    Get user statistics
+// @desc    Get user statistics (includes role-wise counts)
 // @access  Private (Admin panel only)
 router.get('/stats', authenticateToken, requireAdminPanel, async (req, res) => {
   try {
+    // Status-based counts
     const totalUsers = await User.countDocuments({});
     const activeUsers = await User.countDocuments({ isActive: true, status: 'Active' });
     const warningUsers = await User.countDocuments({ status: 'Warning' });
     const auditedUsers = await User.countDocuments({ status: 'Audited' });
     const inactiveUsers = await User.countDocuments({ isActive: false });
 
+    // Role-wise counts (for UserManagement page stats cards)
+    const adminsCount = await User.countDocuments({ userType: 'admin' });
+    const managersCount = await User.countDocuments({ userType: 'manager' });
+    const hodCount = await User.countDocuments({ userType: 'hod' });
+    const hrCount = await User.countDocuments({ userType: 'hr' });
+    const usersCount = await User.countDocuments({ userType: 'user' });
+
     const stats = {
+      // Status-based stats
       total: totalUsers,
       active: activeUsers,
       warning: warningUsers,
       audited: auditedUsers,
-      inactive: inactiveUsers
+      inactive: inactiveUsers,
+      // Role-wise stats
+      admins: adminsCount,
+      managers: managersCount,
+      hod: hodCount,
+      hr: hrCount,
+      users: usersCount
     };
 
     res.json({ success: true, stats });
